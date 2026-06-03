@@ -50,9 +50,9 @@ ssh "$VPS_USER@$VPS_HOST" "
 echo "[3/6] Installing certbot and obtaining TLS certificate..."
 ssh "$VPS_USER@$VPS_HOST" "
     if ! command -v certbot > /dev/null 2>&1; then
-        apt-get update && apt-get install -y certbot python3-certbot-nginx
-    fi
-    certbot --nginx -d xdshka.party --non-interactive --agree-tos -m admin@xdshka.party || true
+        apt-get update && apt-get install -y certbot
+        fi
+    certbot certonly --standalone -d xdshka.party --non-interactive --agree-tos -m admin@xdshka.party || true
 "
 
 echo "[4/6] Pulling Docker images and starting services..."

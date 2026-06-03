@@ -15,6 +15,7 @@
 # deployment
 - Use Docker + docker-compose for containerization and systemd for auto-start on the VPS. Confidence: 0.85
 - Use webhook mode with nginx reverse proxy for production, not long-polling. Confidence: 0.85
+- Use port 2443 for the nginx HTTPS reverse proxy (not 443, which is already in use on the VPS). Confidence: 0.70
 
 # i18n
 - Default bot language is English; on first /start, present language picker with EN and RU options. Confidence: 0.70
