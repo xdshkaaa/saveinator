@@ -1,0 +1,46 @@
+import hashlib
+from aiogram import Router, F
+from aiogram.types import Message
+from aiogram.enums import ChatType
+
+from bot.config import settings
+from bot.locale import get
+from bot.services.link_parser import extract_urls
+from workers.tasks import fetch_formats_task
+
+group_router = Router()
+group_router.message.filter(F.chat.type.in_([ChatType.GROUP, ChatType.SUPERGROUP]))
+
+
+@group_router.message(F.text)
+async def handle_group_message(message: Message, lang: str = "en"):
+    if not message.text:
+        return
+
+    urls = extract_urls(message.text)
+    if not urls:
+        return
+
+    platform, url = urls[0]
+
+    if platform.value == "unknown":
+        await message.reply(get("errors.unsupported", lang))
+        return
+
+    if platform.value == "instagram":
+        await message.reply(get("errors.unsupported", lang))
+        return
+
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:6]
+
+    status_msg = await message.reply(get("formats.fetching", lang))
+
+    fetch_formats_task.delay(
+        url=url,
+        url_hash=url_hash,
+        platform=platform.value,
+        chat_id=message.chat.id,
+        user_id=message.from_user.id if message.from_user else 0,
+        message_id=status_msg.message_id,
+        lang=lang,
+    )

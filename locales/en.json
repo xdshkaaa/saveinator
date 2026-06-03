@@ -1,0 +1,43 @@
+{
+  "onboarding": {
+    "language_prompt": "Choose your language / Выберите язык:",
+    "welcome": "Welcome! Send me a YouTube, TikTok, or Instagram link in any group and I'll help you download the video.",
+    "btn_en": "\ud83c\uddec\ud83c\udde7 English",
+    "btn_ru": "\ud83c\uddf7\ud83c\uddfa \u0420\u0443\u0441\u0441\u043a\u0438\u0439"
+  },
+  "formats": {
+    "fetching": "\u23f3 Fetching available qualities...",
+    "quality_4k": "\ud83c\udfa5 2160p (4K)",
+    "quality_1080p": "\ud83c\udfa5 1080p",
+    "quality_720p": "\ud83c\udfa5 720p",
+    "quality_480p": "\ud83c\udfa5 480p",
+    "quality_360p": "\ud83c\udfa5 360p",
+    "quality_best": "\ud83c\udfa5 Best quality",
+    "audio_only": "\ud83c\udfb5 Audio only (MP3)",
+    "cancel": "Cancel",
+    "size_warning": " \u26a0\ufe0f"
+  },
+  "download": {
+    "downloading": "\u23f3 Downloading...",
+    "transcoding": "\u23f3 Processing...",
+    "sending": "\ud83d\udce4 Sending file...",
+    "complete": "\u2705 Downloaded: {title}",
+    "failed": "\u274c Download failed: {reason}",
+    "cancelled": "Cancelled",
+    "too_large": "\u274c File is {size} MB, exceeds Telegram limits. Try a lower quality.",
+    "via_bot": "via @{bot_username}",
+    "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
+  },
+  "errors": {
+    "unsupported": "Unsupported link. I work with YouTube, TikTok, and Instagram.",
+    "playlist": "Playlists are not supported. Please send a single video link.",
+    "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
+    "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
+    "generic": "Something went wrong. Please try again later.",
+    "no_formats": "No downloadable formats found for this link.",
+    "not_in_group": "This bot only works in groups. Add me to a group and send a link there."
+  },
+  "permissions": {
+    "need_read": "I need permission to read messages in this group to work."
+  }
+}
