@@ -6,11 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
 WORKDIR /app
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
-
 COPY bot/ bot/
 COPY workers/ workers/
 COPY db/ db/
 COPY locales/ locales/
 
-CMD ["python", "-m", "workers.app", "worker", "--loglevel=info"]
+RUN pip install --no-cache-dir -e .
+
+CMD ["celery", "-A", "workers.app", "worker", "--loglevel=info", "-B"]
