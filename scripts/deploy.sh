@@ -47,15 +47,7 @@ ssh "$VPS_USER@$VPS_HOST" "
     fi
 "
 
-echo "[3/6] Installing certbot and obtaining TLS certificate..."
-ssh "$VPS_USER@$VPS_HOST" "
-    if ! command -v certbot > /dev/null 2>&1; then
-        apt-get update && apt-get install -y certbot
-        fi
-    certbot certonly --standalone -d xdshka.party --non-interactive --agree-tos -m admin@xdshka.party || true
-"
-
-echo "[4/6] Pulling Docker images and starting services..."
+echo "[3/6] Pulling Docker images and starting services..."
 ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
     docker compose pull
@@ -63,13 +55,13 @@ ssh "$VPS_USER@$VPS_HOST" "
     docker compose up -d
 "
 
-echo "[5/6] Running database migrations..."
+echo "[4/6] Running database migrations..."
 ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
-    docker compose exec -T webhook alembic upgrade head || echo '(migrations deferred — run manually after .env is set)'
+    docker compose exec -T bot alembic upgrade head || echo '(migrations deferred — run manually after .env is set)'
 "
 
-echo "[6/6] Installing systemd service..."
+echo "[5/6] Installing systemd service..."
 ssh "$VPS_USER@$VPS_HOST" "
     cp '$APP_DIR/systemd/ytbot.service' /etc/systemd/system/ytbot.service
     systemctl daemon-reload

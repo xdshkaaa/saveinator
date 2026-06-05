@@ -50,6 +50,7 @@ async def run_webhook(dp, bot: Bot):
 
 async def run_polling(dp, bot: Bot):
     await bot.delete_webhook(drop_pending_updates=True)
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
     await dp.start_polling(bot)
 
 

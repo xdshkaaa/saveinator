@@ -10,6 +10,6 @@ COPY locales/ locales/
 
 RUN pip install --no-cache-dir -e .
 
-ENV USE_POLLING=false
+ENV USE_POLLING=true
 
 CMD ["python", "-m", "bot.main"]
