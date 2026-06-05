@@ -14,14 +14,26 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     (
         Platform.TIKTOK,
         re.compile(
-            r"(?:https?://)?(?:www\.)?(?:tiktok\.com/@[\w.-]+/video/\d+|vm\.tiktok\.com/\w+)",
+            r"(?:https?://)?(?:www\.)?(?:"
+            r"tiktok\.com/@[\w.-]+/video/\d+(?:[/?#&]\S*)?"
+            r"|(?:vm|vt)\.tiktok\.com/[\w-]+/?(?:[?&]\S*)?"
+            r")",
             re.IGNORECASE,
         ),
     ),
     (
         Platform.INSTAGRAM,
         re.compile(
-            r"(?:https?://)?(?:www\.)?(?:instagram\.com/(?:p|reel|tv)/[\w-]+)",
+            r"(?:https?://)?(?:www\.)?"
+            r"instagram\.com/(?:p|reels?|tv)/[\w-]+/?(?:[?&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Platform.X,
+        re.compile(
+            r"(?:https?://)?(?:www\.)?"
+            r"(?:x|twitter)\.com/[\w-]+/status/\d+/?(?:[?&]\S*)?",
             re.IGNORECASE,
         ),
     ),

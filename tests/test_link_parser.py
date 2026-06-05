@@ -29,10 +29,47 @@ class TestLinkParser:
         assert len(urls) == 1
         assert urls[0].platform == Platform.TIKTOK
 
+    def test_tiktok_vt_short(self):
+        urls = extract_urls("https://vt.tiktok.com/ZSxv29fme/")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.TIKTOK
+
+    def test_tiktok_video_with_query(self):
+        urls = extract_urls(
+            "https://www.tiktok.com/@simplegamer47/video/7644167500669717781?is_from_webapp=1&sender_device=pc"
+        )
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.TIKTOK
+        assert urls[0].url.endswith("sender_device=pc")
+
     def test_instagram_reel(self):
         urls = extract_urls("https://www.instagram.com/reel/abc123/")
         assert len(urls) == 1
         assert urls[0].platform == Platform.INSTAGRAM
+
+    def test_instagram_reel_with_share_query(self):
+        urls = extract_urls(
+            "https://www.instagram.com/reel/DXyPEDrMKV1/?igsh=MTlmNzlwc2lqeGhtMA=="
+        )
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.INSTAGRAM
+        assert urls[0].url.endswith("?igsh=MTlmNzlwc2lqeGhtMA==")
+
+    def test_instagram_reels_plural(self):
+        urls = extract_urls("https://www.instagram.com/reels/DXyPEDrMKV1/")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.INSTAGRAM
+
+    def test_x_status(self):
+        urls = extract_urls("https://x.com/user/status/1234567890123456789")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.X
+
+    def test_twitter_status_with_query(self):
+        urls = extract_urls("https://twitter.com/user/status/1234567890123456789?s=20")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.X
+        assert urls[0].url.endswith("?s=20")
 
     def test_unsupported(self):
         urls = extract_urls("https://example.com/video.mp4")

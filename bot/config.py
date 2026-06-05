@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 500
     send_video_limit_mb: int = 50
     send_document_limit_mb: int = 100
+    download_timeout_seconds: int = 15
 
     sentry_dsn: str = ""
     log_level: str = "INFO"

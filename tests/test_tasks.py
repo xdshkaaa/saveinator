@@ -1,0 +1,138 @@
+from pathlib import Path
+import time
+
+from db.models import DownloadStatus
+from workers.tasks import download_and_send_task
+
+
+class FakeBot:
+    def __init__(self):
+        self.deleted: list[tuple[int, int]] = []
+        self.edited: list[tuple[int, int, str]] = []
+        self.documents: list[tuple] = []
+
+    async def edit_message_text(self, chat_id: int, message_id: int, text: str):
+        self.edited.append((chat_id, message_id, text))
+
+    async def delete_message(self, chat_id: int, message_id: int):
+        self.deleted.append((chat_id, message_id))
+
+    async def send_document(self, *args, **kwargs):
+        self.documents.append((args, kwargs))
+
+
+def test_download_task_accepts_direct_url_without_format_cache(monkeypatch):
+    fake_bot = FakeBot()
+    sent_files: list[tuple[Path, int, str]] = []
+    recorded: list[tuple[str, str, str, float]] = []
+
+    def fake_download(url: str, output_dir: Path, format_id: str):
+        assert url == "https://vt.tiktok.com/ZSxv29fme/"
+        assert format_id == "best"
+        (output_dir / "video.mp4").write_bytes(b"video")
+        return {"title": "direct"}
+
+    async def fake_send_file(bot, path: Path, chat_id: int, lang: str, title: str):
+        sent_files.append((path, chat_id, title))
+
+    async def fake_record_download_safe(url, platform, format_id, size_mb, *_args, **_kwargs):
+        recorded.append((url, platform, format_id, size_mb))
+
+    monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.download", fake_download)
+    monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+
+    download_and_send_task.run(
+        url="https://vt.tiktok.com/ZSxv29fme/",
+        format_id="best",
+        platform="tiktok",
+        chat_id=1,
+        user_id=2,
+        message_id=3,
+        lang="en",
+    )
+
+    assert fake_bot.deleted == [(1, 3)]
+    assert sent_files[0][1:] == (1, "direct")
+    assert recorded[0][:3] == ("https://vt.tiktok.com/ZSxv29fme/", "tiktok", "best")
+
+
+def test_download_task_rejects_files_over_video_limit(monkeypatch):
+    fake_bot = FakeBot()
+    sent_files: list[tuple] = []
+    recorded: list[tuple[str, str, str, float, object]] = []
+
+    def fake_download(url: str, output_dir: Path, format_id: str):
+        path = output_dir / "video.mp4"
+        with path.open("wb") as handle:
+            handle.truncate(51 * 1024 * 1024)
+        return {"title": "large"}
+
+    async def fake_send_file(*args, **kwargs):
+        sent_files.append((args, kwargs))
+
+    async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_args, **_kwargs):
+        recorded.append((url, platform, format_id, size_mb, status))
+
+    monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.download", fake_download)
+    monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+
+    download_and_send_task.run(
+        url="https://x.com/user/status/1234567890123456789",
+        format_id="best",
+        platform="x",
+        chat_id=1,
+        user_id=2,
+        message_id=3,
+        lang="en",
+    )
+
+    assert fake_bot.deleted == []
+    assert fake_bot.documents == []
+    assert sent_files == []
+    assert "50 MB" in fake_bot.edited[-1][2]
+    assert "can't send" in fake_bot.edited[-1][2]
+    assert recorded[0][4] == DownloadStatus.FAILED
+
+
+def test_download_task_times_out_slow_download(monkeypatch):
+    fake_bot = FakeBot()
+    sent_files: list[tuple] = []
+    recorded: list[tuple[str, str, str, float, object, str | None]] = []
+
+    def slow_download(url: str, output_dir: Path, format_id: str):
+        time.sleep(2)
+        (output_dir / "video.mp4").write_bytes(b"video")
+        return {"title": "slow"}
+
+    async def fake_send_file(*args, **kwargs):
+        sent_files.append((args, kwargs))
+
+    async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_args, **kwargs):
+        recorded.append((url, platform, format_id, size_mb, status, kwargs.get("error")))
+
+    monkeypatch.setattr("workers.tasks.settings.download_timeout_seconds", 1)
+    monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.download", slow_download)
+    monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+
+    started_at = time.monotonic()
+    download_and_send_task.run(
+        url="https://x.com/user/status/1234567890123456789",
+        format_id="best",
+        platform="x",
+        chat_id=1,
+        user_id=2,
+        message_id=3,
+        lang="en",
+    )
+
+    assert time.monotonic() - started_at < 1.8
+    assert fake_bot.deleted == []
+    assert sent_files == []
+    assert "try again later" in fake_bot.edited[-1][2]
+    assert recorded[0][4] == DownloadStatus.FAILED

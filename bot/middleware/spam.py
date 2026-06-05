@@ -30,6 +30,9 @@ class SpamMiddleware(BaseMiddleware):
         if not isinstance(event, Message) or not event.text:
             return await handler(event, data)
 
+        if event.chat.type == "private":
+            return await handler(event, data)
+
         import re
         urls = re.findall(r'https?://\S+', event.text)
         for url in urls:

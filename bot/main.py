@@ -28,8 +28,13 @@ async def on_shutdown(bot: Bot):
         await bot.delete_webhook()
 
 
+async def health(_request: web.Request) -> web.Response:
+    return web.Response(text="ok")
+
+
 async def run_webhook(dp, bot: Bot):
     app = web.Application()
+    app.router.add_get("/health", health)
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
     webhook_requests_handler.register(app, path=settings.webhook_path)
     setup_application(app, dp, bot=bot)
