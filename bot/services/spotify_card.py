@@ -2,8 +2,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.config import Settings
 from bot.locale import get
-from bot.services.spotify_dl import is_spotify_download_enabled
 from bot.services.spotify_models import NormalizedSpotifyRelease
+from bot.services.youtube_audio import is_spotify_download_enabled
 
 
 def _album_type_label(album_type: str, lang: str) -> str:
@@ -57,10 +57,7 @@ def build_spotify_card_text(
             get("spotify.release_date", lang, date=release.release_date),
         ]
 
-    if is_spotify_download_enabled(settings):
-        lines.append("")
-        lines.append(get("spotify.download_queued", lang))
-    else:
+    if not is_spotify_download_enabled(settings):
         lines.append("")
         lines.append(get("spotify.no_download", lang))
 

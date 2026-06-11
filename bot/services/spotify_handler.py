@@ -16,61 +16,60 @@ from bot.services.spotify_client import (
     SpotifyTimeoutError,
     fetch_release,
 )
-from bot.services.spotify_dl import (
-    SpotifyDlError,
-    SpotifyDlNotFoundError,
-    SpotifyDlTimeoutError,
-    is_spotify_download_enabled,
-    run_spotify_dl,
-)
 from bot.services.spotify_models import NormalizedSpotifyRelease
 from bot.services.spotify_parser import SpotifyLink
 from bot.services.tempfiles import tempfile_manager
+from bot.services.youtube_audio import (
+    YoutubeAudioError,
+    YoutubeAudioNotFoundError,
+    YoutubeAudioTimeoutError,
+    download_track_from_youtube,
+    is_spotify_download_enabled,
+)
 
 logger = structlog.get_logger()
-
-
-def _spotify_url_for_link(spotify_link: SpotifyLink) -> str:
-    return f"https://open.spotify.com/{spotify_link.type}/{spotify_link.id}"
 
 
 async def _send_downloaded_tracks(
     message: Message,
     release: NormalizedSpotifyRelease,
-    spotify_url: str,
     settings: Settings,
     lang: str,
 ) -> None:
-    total = max(len(release.tracks), 1)
+    tracks = release.tracks
+    if not tracks:
+        return
+
     status_msg = await message.reply(
-        get("spotify.download_starting", lang, total=total)
+        get("spotify.download_starting", lang, total=len(tracks))
     )
     task_id = f"spotify-{message.chat.id}-{uuid.uuid4().hex[:8]}"
     bot: Bot = message.bot
 
     try:
         with tempfile_manager(task_id) as task_dir:
-            tracks = await asyncio.to_thread(
-                run_spotify_dl,
-                spotify_url,
-                task_dir,
-                settings,
-            )
-
             sent = 0
-            for track in tracks:
+            for index, track in enumerate(tracks, start=1):
+                track_dir = task_dir / f"track-{index}"
                 try:
+                    audio_path = await asyncio.to_thread(
+                        download_track_from_youtube,
+                        track,
+                        track_dir,
+                        settings,
+                    )
                     await bot.send_audio(
                         chat_id=message.chat.id,
-                        audio=FSInputFile(track.path),
+                        audio=FSInputFile(audio_path),
                         title=track.title,
+                        performer=track.artists,
                     )
                     sent += 1
                     await status_msg.edit_text(
                         get("spotify.download_progress", lang, current=sent, total=len(tracks))
                     )
-                except Exception:
-                    logger.exception("failed to send spotify-dl track", title=track.title)
+                except (YoutubeAudioTimeoutError, YoutubeAudioError):
+                    logger.exception("track download failed", title=track.title)
 
             if sent == 0:
                 await status_msg.edit_text(get("spotify.download_none_found", lang))
@@ -78,13 +77,8 @@ async def _send_downloaded_tracks(
                 await status_msg.edit_text(
                     get("spotify.download_done", lang, count=sent, total=len(tracks))
                 )
-    except SpotifyDlNotFoundError:
+    except YoutubeAudioNotFoundError:
         await status_msg.edit_text(get("spotify.download_not_available", lang))
-    except SpotifyDlTimeoutError:
-        await status_msg.edit_text(get("spotify.download_timeout", lang))
-    except SpotifyDlError:
-        logger.exception("spotify-dl download failed", url=spotify_url)
-        await status_msg.edit_text(get("spotify.download_failed", lang))
 
 
 async def reply_spotify_link(
@@ -130,8 +124,5 @@ async def reply_spotify_link(
     else:
         await message.reply(text, reply_markup=keyboard)
 
-    if is_spotify_download_enabled(settings):
-        spotify_url = _spotify_url_for_link(spotify_link)
-        asyncio.create_task(
-            _send_downloaded_tracks(message, release, spotify_url, settings, lang)
-        )
+    if is_spotify_download_enabled(settings) and release.tracks:
+        asyncio.create_task(_send_downloaded_tracks(message, release, settings, lang))

@@ -2,7 +2,6 @@ import asyncio
 from pathlib import Path
 
 from bot.handlers.group import handle_group_message
-from bot.services.spotify_dl import SpotifyDlTrack
 from bot.services.spotify_models import NormalizedSpotifyRelease, NormalizedSpotifyTrack
 
 
@@ -120,6 +119,8 @@ async def test_spotify_album_replies_metadata_card_without_download(monkeypatch)
     assert caption is not None
     assert "Artist One" in caption
     assert "Test Album" in caption
+    assert "spotify-dl" not in caption.lower()
+    assert "youtube" not in caption.lower()
     assert "Audio download is disabled" in caption
     assert message.replies[0].reply_markup is not None
 
@@ -162,7 +163,7 @@ async def test_spotify_track_replies_metadata_card(monkeypatch):
     assert "3:20" in caption
 
 
-async def test_spotify_with_spotify_dl_download(monkeypatch, tmp_path: Path):
+async def test_spotify_downloads_tracks_via_youtube(monkeypatch, tmp_path: Path):
     message = FakeMessage("https://open.spotify.com/album/4aawyAB9rmqOaP8fadcCl4")
     release = _sample_release()
     audio_path = tmp_path / "Track One.mp3"
@@ -176,8 +177,8 @@ async def test_spotify_with_spotify_dl_download(monkeypatch, tmp_path: Path):
         lambda link_type, resource_id, settings: release,
     )
     monkeypatch.setattr(
-        "bot.services.spotify_handler.run_spotify_dl",
-        lambda url, output_dir, settings: [SpotifyDlTrack(path=audio_path, title="Track One")],
+        "bot.services.spotify_handler.download_track_from_youtube",
+        lambda track, output_dir, settings: audio_path,
     )
 
     class FakeTempDir:
@@ -198,3 +199,4 @@ async def test_spotify_with_spotify_dl_download(monkeypatch, tmp_path: Path):
     assert len(message.replies) == 2
     assert message.bot.sent_audio
     assert "Finished: 1/1 tracks sent." in message.replies[1].edited_texts[-1]
+    assert "spotify-dl" not in message.replies[1].texts[0].lower()

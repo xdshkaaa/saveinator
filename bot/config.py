@@ -32,10 +32,9 @@ class Settings(BaseSettings):
     spotify_enabled: bool = False
     spotify_client_id: str = ""
     spotify_client_secret: str = ""
-    spotify_api_timeout_seconds: int = 10
+    spotify_api_timeout_seconds: int = 15
     spotify_download_enabled: bool = True
-    spotify_dl_bin: str = "spotifydl"
-    spotify_dl_timeout_seconds: int = 600
+    spotify_track_timeout_seconds: int = 15
     spotify_dl_output_format: str = "mp3"
 
 

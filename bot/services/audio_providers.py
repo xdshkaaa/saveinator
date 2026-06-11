@@ -1,6 +1,6 @@
 """Optional external audio provider hooks for custom deployments.
 
-Spotify downloads use spotify-dl (YouTube matching) via bot.services.spotify_dl.
+Spotify audio downloads use yt-dlp YouTube search via bot.services.youtube_audio.
 """
 
 from dataclasses import dataclass

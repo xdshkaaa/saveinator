@@ -1,18 +1,18 @@
 # save-yt-tiktok (Saveinator)
 
-Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, plus Spotify album/single/track metadata and audio downloads via [spotify-dl](https://github.com/SwapnilSoni1999/spotify-dl).
+Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, plus Spotify album/single/track metadata and audio downloads via yt-dlp YouTube search.
 
 ## Features
 
 - Download videos via yt-dlp (YouTube, TikTok, Instagram, X/Twitter)
 - Show Spotify album/single/compilation/track metadata from the Spotify Web API
-- Download Spotify album/track audio via spotify-dl (YouTube matching, not Spotify streaming)
+- Download Spotify album/track audio via yt-dlp YouTube search (not Spotify streaming)
 - EN/RU localization
 - Celery workers for background video downloads
 
 ## Spotify support
 
-Spotify metadata comes from the Spotify Web API. Audio downloads use [spotify-dl](https://github.com/SwapnilSoni1999/spotify-dl), which matches tracks on YouTube — the bot does **not** stream or rip audio directly from Spotify.
+Spotify metadata comes from the Spotify Web API. Audio downloads match tracks on YouTube via yt-dlp — the bot does **not** stream or rip audio directly from Spotify.
 
 ### Supported links
 
@@ -28,7 +28,7 @@ Spotify metadata comes from the Spotify Web API. Audio downloads use [spotify-dl
 2. Metadata is fetched via Spotify Client Credentials API.
 3. Data is normalized into internal release/track models.
 4. The user receives a metadata card with cover art (when available) and an **Open in Spotify** button.
-5. If `SPOTIFY_DOWNLOAD_ENABLED=true` and spotify-dl is installed, tracks are downloaded in the background and sent as audio files.
+5. If `SPOTIFY_DOWNLOAD_ENABLED=true`, tracks are downloaded in the background and sent as audio files.
 
 **Album / single / compilation card example:**
 
@@ -46,17 +46,16 @@ Release date: YYYY-MM-DD
 Duration: M:SS
 ```
 
-If download is disabled (`SPOTIFY_DOWNLOAD_ENABLED=false` or spotify-dl is missing), the bot replies with a metadata-only message.
+If download is disabled (`SPOTIFY_DOWNLOAD_ENABLED=false`), the bot replies with a metadata-only message.
 
-### Audio download via spotify-dl
+### Audio download
 
 ```text
-Spotify metadata card → spotify-dl CLI → YouTube match → audio files → Telegram
+Spotify metadata → yt-dlp ytsearch → audio files → Telegram
 ```
 
-- Uses your `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` as `--ak` for spotify-dl.
-- Requires `ffmpeg` and Node.js (installed in the bot Docker image).
-- Albums may take several minutes; timeout is controlled by `SPOTIFY_DL_TIMEOUT_SECONDS`.
+- Per-track timeout: `SPOTIFY_TRACK_TIMEOUT_SECONDS` (default `15`).
+- Requires `ffmpeg` in the bot container.
 - YouTube matching quality depends on track availability — some items may fail.
 
 ### Enable Spotify metadata
@@ -85,9 +84,9 @@ For Spotify metadata cards:
 SPOTIFY_ENABLED=true
 SPOTIFY_CLIENT_ID=your-spotify-client-id
 SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
-SPOTIFY_API_TIMEOUT_SECONDS=10
+SPOTIFY_API_TIMEOUT_SECONDS=15
 SPOTIFY_DOWNLOAD_ENABLED=true
-SPOTIFY_DL_TIMEOUT_SECONDS=600
+SPOTIFY_TRACK_TIMEOUT_SECONDS=15
 SPOTIFY_DL_OUTPUT_FORMAT=mp3
 ```
 
@@ -107,7 +106,7 @@ USE_POLLING=true python -m bot.main
 ## Tests
 
 ```bash
-pytest tests/test_spotify_parser.py tests/test_spotify_dl.py tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py -q
+pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py -q
 ```
 
 ## Environment variables
@@ -121,9 +120,9 @@ pytest tests/test_spotify_parser.py tests/test_spotify_dl.py tests/test_link_par
 | `SPOTIFY_ENABLED` | `false` | Enable Spotify metadata cards |
 | `SPOTIFY_CLIENT_ID` | `""` | Spotify API client ID |
 | `SPOTIFY_CLIENT_SECRET` | `""` | Spotify API client secret |
-| `SPOTIFY_API_TIMEOUT_SECONDS` | `10` | Spotify HTTP timeout |
-| `SPOTIFY_DOWNLOAD_ENABLED` | `true` | Enable spotify-dl audio downloads |
-| `SPOTIFY_DL_TIMEOUT_SECONDS` | `600` | spotify-dl subprocess timeout |
+| `SPOTIFY_API_TIMEOUT_SECONDS` | `15` | Spotify HTTP timeout |
+| `SPOTIFY_DOWNLOAD_ENABLED` | `true` | Enable Spotify audio downloads |
+| `SPOTIFY_TRACK_TIMEOUT_SECONDS` | `15` | Per-track yt-dlp timeout |
 | `SPOTIFY_DL_OUTPUT_FORMAT` | `mp3` | Output format (`mp3`, `flac`, `wav`, `aac`) |
 
 See [`.env.example`](.env.example) for the full list.
