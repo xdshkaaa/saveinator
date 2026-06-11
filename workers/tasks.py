@@ -13,6 +13,7 @@ from bot.services.tempfiles import tempfile_manager, sweep_stale
 from bot.services.file_sender import send_file
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
 from db.session import async_session_factory
+from bot.services.user_queue import UserScenario, release_user_lock_sync
 from workers.app import app
 from workers.downloader import download
 from workers.metrics import YTDLP_ERRORS_TOTAL
@@ -57,6 +58,7 @@ def download_and_send_task(
     message_id: int,
     lang: str = "en",
     format_id: str = "best",
+    lock_token: str = "",
 ):
     bot = _get_bot()
     task_id = str(uuid.uuid4())
@@ -130,6 +132,8 @@ def download_and_send_task(
                     )
                 except Exception:
                     logger.exception("failed to record failed download", task_id=task_id)
+            finally:
+                release_user_lock_sync(user_id, lock_token, UserScenario.VIDEO)
 
     asyncio.run(_run())
 

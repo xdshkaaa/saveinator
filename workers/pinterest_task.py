@@ -13,6 +13,7 @@ from bot.services.file_sender import send_file
 from bot.services.tempfiles import tempfile_manager
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
 from db.session import async_session_factory
+from bot.services.user_queue import UserScenario, release_user_lock_sync
 from workers.app import app
 from workers.pinterest_downloader import (
     PinterestDownloadError,
@@ -54,6 +55,7 @@ def pinterest_download_task(
     user_id: int,
     message_id: int,
     lang: str = "en",
+    lock_token: str = "",
 ):
     bot = _get_bot()
     task_id = str(uuid.uuid4())
@@ -186,6 +188,8 @@ def pinterest_download_task(
                     logger.exception(
                         "failed to record failed download", task_id=task_id
                     )
+            finally:
+                release_user_lock_sync(user_id, lock_token, UserScenario.PINTEREST)
 
     asyncio.run(_run())
 

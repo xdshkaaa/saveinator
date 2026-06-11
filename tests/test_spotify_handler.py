@@ -89,11 +89,25 @@ def _sample_release() -> NormalizedSpotifyRelease:
     )
 
 
+async def _noop_release(*_args, **_kwargs):
+    return None
+
+
+async def _noop_extend(*_args, **_kwargs):
+    return True
+
+
 def _patch_spotify_settings(monkeypatch):
     monkeypatch.setattr("bot.handlers.group.settings.spotify_enabled", True)
     monkeypatch.setattr("bot.handlers.group.settings.spotify_client_id", "client-id")
     monkeypatch.setattr("bot.handlers.group.settings.spotify_client_secret", "client-secret")
     monkeypatch.setattr("bot.handlers.group.settings.spotify_download_enabled", False)
+    async def _acquire_lock(*_args, **_kwargs):
+        return "test-lock-token"
+
+    monkeypatch.setattr("bot.handlers.group.acquire_user_lock", _acquire_lock)
+    monkeypatch.setattr("bot.services.spotify_handler.release_user_lock", _noop_release)
+    monkeypatch.setattr("bot.services.spotify_handler.extend_user_lock", _noop_extend)
 
 
 async def test_spotify_album_replies_metadata_card_without_download(monkeypatch):

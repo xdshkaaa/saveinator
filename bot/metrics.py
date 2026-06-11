@@ -66,6 +66,12 @@ RATE_LIMIT_DROPPED_TOTAL = Counter(
     ["scope"],
 )
 
+USER_QUEUE_REJECTED_TOTAL = Counter(
+    "saveinator_user_queue_rejected_total",
+    "Download requests rejected because the user already has an active scenario",
+    ["scenario"],
+)
+
 SPAM_BLOCKED_TOTAL = Counter(
     "saveinator_spam_blocked_total",
     "Messages blocked by spam middleware",

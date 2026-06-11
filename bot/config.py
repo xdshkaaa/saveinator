@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     spotify_download_enabled: bool = True
     spotify_track_timeout_seconds: int = 15
     spotify_dl_output_format: str = "mp3"
+    spotify_lock_max_tracks: int = 50
 
     pinterest_enabled: bool = True
     pinterest_timeout_seconds: int = 30

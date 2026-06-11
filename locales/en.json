@@ -16,6 +16,7 @@
     "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, and Pinterest links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
+    "busy": "Please wait until your current download finishes before sending another link.",
     "generic": "Something went wrong. Please try again later."
   },
   "spotify": {

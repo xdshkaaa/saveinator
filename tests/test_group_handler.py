@@ -26,10 +26,15 @@ class FakeMessage:
         return FakeStatusMessage()
 
 
+async def _acquire_lock(*_args, **_kwargs):
+    return "test-lock-token"
+
+
 async def test_instagram_reel_starts_download_task(monkeypatch):
     delayed: list[dict] = []
     message = FakeMessage()
 
+    monkeypatch.setattr("bot.handlers.group.acquire_user_lock", _acquire_lock)
     monkeypatch.setattr(
         "bot.handlers.group.download_and_send_task.delay",
         lambda **kwargs: delayed.append(kwargs),
@@ -47,6 +52,7 @@ async def test_x_status_starts_download_task(monkeypatch):
     delayed: list[dict] = []
     message = FakeMessage("https://x.com/user/status/1234567890123456789")
 
+    monkeypatch.setattr("bot.handlers.group.acquire_user_lock", _acquire_lock)
     monkeypatch.setattr(
         "bot.handlers.group.download_and_send_task.delay",
         lambda **kwargs: delayed.append(kwargs),
