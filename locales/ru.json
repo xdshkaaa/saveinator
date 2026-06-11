@@ -57,7 +57,24 @@
     "btn_reset_all": "♻️ Сбросить все override",
     "btn_reset_service": "♻️ Сбросить этот сервис",
     "btn_back": "← Назад",
-    "btn_edit": "Изменить {kind}"
+    "btn_edit": "Изменить {kind}",
+    "btn_bans": "🚫 Теневой бан",
+    "btn_ban_add": "➕ Забанить ID",
+    "btn_unban_user": "✅ Разбанить {user_id}",
+    "bans_title": "🚫 Теневой бан пользователей",
+    "bans_empty": "Список пуст.",
+    "ban_user_line": "• {user_id}",
+    "bans_hint": "Забаненному на каждое сообщение приходит предупреждение, ссылка не обрабатывается.",
+    "enter_ban_id": "Пришли Telegram user ID для бана.",
+    "invalid_user_id": "Пришли целое положительное число (Telegram user ID).",
+    "cannot_ban_self": "Нельзя забанить себя.",
+    "ban_added": "Пользователь {user_id} добавлен в теневой бан.",
+    "unban_done": "Пользователь {user_id} разбанен.",
+    "unban_not_found": "Пользователь {user_id} не был в списке."
+  },
+  "ban": {
+    "shadow_reply": "⚠️ Собеседник не видит ваше сообщение! Для отправки сообщения напишите: \"Анчоус.\"",
+    "admin_notice": "🚫 Теневой бан\nПользователь: {user}\nЧат: {chat}"
   },
   "pinterest": {
     "disabled": "Поддержка Pinterest отключена на этом боте.",

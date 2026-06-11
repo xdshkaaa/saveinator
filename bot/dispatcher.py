@@ -8,6 +8,7 @@ from bot.middleware.locale import LocaleMiddleware
 from bot.middleware.metrics import MetricsMiddleware
 from bot.middleware.rate_limit import RateLimitMiddleware
 from bot.middleware.spam import SpamMiddleware
+from bot.middleware.user_ban import UserBanMiddleware
 
 
 def create_dispatcher() -> Dispatcher:
@@ -20,6 +21,7 @@ def create_dispatcher() -> Dispatcher:
 
     dp.message.middleware(RateLimitMiddleware())
     dp.message.outer_middleware(SpamMiddleware())
+    dp.message.outer_middleware(UserBanMiddleware())
 
     dp.include_router(admin_router)
     dp.include_router(onboarding_router)

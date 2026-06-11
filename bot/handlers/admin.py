@@ -21,6 +21,7 @@ from bot.services.runtime_settings import (
     set_runtime_int,
     setting_definition,
 )
+from bot.services.user_bans import ban_user, list_banned_users, unban_user
 
 logger = structlog.get_logger()
 admin_router = Router()
@@ -29,6 +30,10 @@ _is_admin = IsAdminFilter()
 
 class AdminEdit(StatesGroup):
     waiting_value = State()
+
+
+class AdminBan(StatesGroup):
+    waiting_ban_id = State()
 
 
 SERVICE_LABELS = {
@@ -70,6 +75,10 @@ def _main_keyboard(lang: str) -> InlineKeyboardMarkup:
         callback_data="admin|svc|global",
     )])
     rows.append([InlineKeyboardButton(
+        text=get("admin.btn_bans", lang),
+        callback_data="admin|bans",
+    )])
+    rows.append([InlineKeyboardButton(
         text=get("admin.btn_reset_all", lang),
         callback_data="admin|reset|all",
     )])
@@ -87,6 +96,36 @@ def _service_keyboard(service: str, lang: str) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton(
         text=get("admin.btn_reset_service", lang),
         callback_data=f"admin|reset|svc|{service}",
+    )])
+    rows.append([InlineKeyboardButton(
+        text=get("admin.btn_back", lang),
+        callback_data="admin|menu",
+    )])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def _bans_summary(lang: str) -> str:
+    banned_ids = await list_banned_users()
+    lines = [get("admin.bans_title", lang)]
+    if not banned_ids:
+        lines.append(get("admin.bans_empty", lang))
+    else:
+        for user_id in banned_ids:
+            lines.append(get("admin.ban_user_line", lang, user_id=user_id))
+    lines.append(get("admin.bans_hint", lang))
+    return "\n".join(lines)
+
+
+def _bans_keyboard(lang: str, banned_ids: list[int]) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for user_id in banned_ids:
+        rows.append([InlineKeyboardButton(
+            text=get("admin.btn_unban_user", lang, user_id=user_id),
+            callback_data=f"admin|unban|{user_id}",
+        )])
+    rows.append([InlineKeyboardButton(
+        text=get("admin.btn_ban_add", lang),
+        callback_data="admin|ban|add",
     )])
     rows.append([InlineKeyboardButton(
         text=get("admin.btn_back", lang),
@@ -208,6 +247,83 @@ async def admin_edit_value(message: Message, state: FSMContext, lang: str = "en"
         reply_markup=_service_keyboard(service, lang),
     )
     await message.answer(await _service_summary(service, lang))
+
+
+@admin_router.callback_query(F.data == "admin|bans", _is_admin)
+async def admin_bans_menu(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
+    await state.clear()
+    banned_ids = await list_banned_users()
+    await callback.message.edit_text(
+        await _bans_summary(lang),
+        reply_markup=_bans_keyboard(lang, banned_ids),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "admin|ban|add", _is_admin)
+async def admin_ban_add_start(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
+    await state.set_state(AdminBan.waiting_ban_id)
+    await callback.message.edit_text(
+        get("admin.enter_ban_id", lang),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text=get("admin.btn_back", lang),
+                callback_data="admin|bans",
+            )
+        ]]),
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminBan.waiting_ban_id, _is_admin)
+async def admin_ban_add_value(message: Message, state: FSMContext, lang: str = "en"):
+    raw = (message.text or "").strip()
+    try:
+        user_id = int(raw)
+    except ValueError:
+        await message.reply(get("admin.invalid_user_id", lang))
+        return
+
+    if user_id <= 0:
+        await message.reply(get("admin.invalid_user_id", lang))
+        return
+
+    if user_id == message.from_user.id if message.from_user else None:
+        await message.reply(get("admin.cannot_ban_self", lang))
+        return
+
+    await ban_user(user_id)
+    await state.clear()
+    banned_ids = await list_banned_users()
+    await message.answer(
+        get("admin.ban_added", lang, user_id=user_id),
+        reply_markup=_bans_keyboard(lang, banned_ids),
+    )
+    await message.answer(await _bans_summary(lang))
+
+
+@admin_router.callback_query(F.data.startswith("admin|unban|"), _is_admin)
+async def admin_unban_user(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
+    await state.clear()
+    user_id_raw = callback.data.split("|", 2)[2]
+    try:
+        user_id = int(user_id_raw)
+    except ValueError:
+        await callback.answer()
+        return
+
+    removed = await unban_user(user_id)
+    banned_ids = await list_banned_users()
+    toast = (
+        get("admin.unban_done", lang, user_id=user_id)
+        if removed
+        else get("admin.unban_not_found", lang, user_id=user_id)
+    )
+    await callback.message.edit_text(
+        await _bans_summary(lang),
+        reply_markup=_bans_keyboard(lang, banned_ids),
+    )
+    await callback.answer(toast)
 
 
 @admin_router.callback_query(F.data.startswith("admin|reset|"), _is_admin)

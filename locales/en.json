@@ -57,7 +57,24 @@
     "btn_reset_all": "♻️ Reset all overrides",
     "btn_reset_service": "♻️ Reset this service",
     "btn_back": "← Back",
-    "btn_edit": "Edit {kind}"
+    "btn_edit": "Edit {kind}",
+    "btn_bans": "🚫 Shadow ban",
+    "btn_ban_add": "➕ Ban user ID",
+    "btn_unban_user": "✅ Unban {user_id}",
+    "bans_title": "🚫 Shadow-banned users",
+    "bans_empty": "No banned users.",
+    "ban_user_line": "• {user_id}",
+    "bans_hint": "Banned users get a warning on every message; links are not processed.",
+    "enter_ban_id": "Send the Telegram user ID to shadow-ban.",
+    "invalid_user_id": "Send a positive whole number (Telegram user ID).",
+    "cannot_ban_self": "You cannot ban yourself.",
+    "ban_added": "User {user_id} shadow-banned.",
+    "unban_done": "User {user_id} unbanned.",
+    "unban_not_found": "User {user_id} was not in the ban list."
+  },
+  "ban": {
+    "shadow_reply": "⚠️ Собеседник не видит ваше сообщение! Для отправки сообщения напишите: \"Анчоус.\"",
+    "admin_notice": "🚫 Shadow ban\nUser: {user}\nChat: {chat}"
   },
   "pinterest": {
     "disabled": "Pinterest support is disabled on this bot.",
