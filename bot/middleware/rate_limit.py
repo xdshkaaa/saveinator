@@ -5,6 +5,7 @@ from aiogram.types import TelegramObject, Message
 
 from bot.config import settings
 from bot.locale import get
+from bot.metrics import RATE_LIMIT_DROPPED_TOTAL
 
 
 class RateLimitMiddleware(BaseMiddleware):
@@ -39,6 +40,7 @@ class RateLimitMiddleware(BaseMiddleware):
             await r.zremrangebyscore(user_key, 0, now - window)
             user_count = await r.zcard(user_key)
             if user_count >= settings.rate_limit_user_per_minute:
+                RATE_LIMIT_DROPPED_TOTAL.labels(scope="user").inc()
                 lang = data.get("lang", "en")
                 if event.chat.type == "private":
                     await event.answer(
@@ -54,6 +56,7 @@ class RateLimitMiddleware(BaseMiddleware):
         await r.zremrangebyscore(chat_key, 0, now - window)
         chat_count = await r.zcard(chat_key)
         if chat_count >= settings.rate_limit_chat_per_minute:
+            RATE_LIMIT_DROPPED_TOTAL.labels(scope="chat").inc()
             return None
         await r.zadd(chat_key, {str(now): now})
         await r.expire(chat_key, window + 10)

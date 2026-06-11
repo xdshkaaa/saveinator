@@ -15,6 +15,7 @@ from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_na
 from db.session import async_session_factory
 from workers.app import app
 from workers.downloader import download
+from workers.metrics import YTDLP_ERRORS_TOTAL
 
 logger = structlog.get_logger()
 
@@ -105,6 +106,7 @@ def download_and_send_task(
                 )
 
             except DownloadTimeoutError:
+                YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
                 logger.warning("download timed out", task_id=task_id, url=url)
                 await _edit_message(bot, chat_id, message_id, get("download.timeout", lang))
                 await _record_download_safe(
@@ -114,6 +116,7 @@ def download_and_send_task(
                 )
 
             except Exception as exc:
+                YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
                 logger.exception("download_and_send_task failed", task_id=task_id)
                 try:
                     await _edit_message(bot, chat_id, message_id, get("errors.generic", lang))

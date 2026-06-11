@@ -37,5 +37,10 @@ class Settings(BaseSettings):
     spotify_track_timeout_seconds: int = 15
     spotify_dl_output_format: str = "mp3"
 
+    metrics_enabled: bool = True
+    metrics_host: str = "0.0.0.0"
+    metrics_port: int = 9101
+    worker_metrics_port: int = 9102
+
 
 settings = Settings()

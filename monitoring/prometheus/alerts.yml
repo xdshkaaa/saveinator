@@ -1,0 +1,85 @@
+groups:
+  - name: saveinator-host
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High CPU usage on {{ $labels.instance }}
+          description: CPU usage is above 85% for 5 minutes.
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory usage on {{ $labels.instance }}
+          description: Memory usage is above 85% for 5 minutes.
+
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint="/"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint="/"}) * 100 < 15
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Low disk space on {{ $labels.instance }}
+          description: Root filesystem has less than 15% free space.
+
+  - name: saveinator-apps
+    rules:
+      - alert: ContainerDown
+        expr: up{job=~"saveinator-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Saveinator target down ({{ $labels.job }})
+          description: Prometheus cannot scrape {{ $labels.job }} for 2 minutes.
+
+      - alert: BotErrorRateSpike
+        expr: rate(saveinator_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Bot error rate spike
+          description: saveinator_errors_total is increasing faster than 0.1/s.
+
+      - alert: TelegramAPIFailures
+        expr: rate(saveinator_telegram_api_failures_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram API failures elevated
+          description: saveinator_telegram_api_failures_total rate is above threshold.
+
+      - alert: BotNotProcessingMessages
+        expr: increase(saveinator_messages_received_total[30m]) == 0 and up{job="saveinator-bot"} == 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Bot not processing messages
+          description: No messages received in the last 30 minutes while bot target is up.
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL exporter reports database down
+          description: pg_up is 0 for 1 minute.
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Redis exporter reports Redis down
+          description: redis_up is 0 for 1 minute.

@@ -1,0 +1,30 @@
+{
+  "uid": "saveinator-logs",
+  "title": "Logs",
+  "tags": ["saveinator", "loki"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "Saveinator container logs",
+      "gridPos": {"h": 20, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "{container=~\"saveinator.*\"}",
+          "refId": "A",
+          "datasource": {"type": "loki", "uid": "loki"}
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}

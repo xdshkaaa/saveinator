@@ -1,6 +1,11 @@
+import time
+
 from celery import Celery
+from celery.signals import task_failure, task_postrun, task_prerun, worker_ready
 
 from bot.config import settings
+from workers.metrics import CELERY_TASKS_TOTAL, DOWNLOAD_DURATION_SECONDS
+from workers.metrics_server import start_worker_metrics_server
 
 app = Celery(
     "saveinator",
@@ -25,3 +30,35 @@ app.conf.update(
         },
     },
 )
+
+_task_start_times: dict[str, float] = {}
+
+
+@worker_ready.connect
+def _on_worker_ready(**_kwargs) -> None:
+    start_worker_metrics_server()
+
+
+@task_prerun.connect
+def _on_task_prerun(task_id=None, task=None, **_kwargs) -> None:
+    if task_id:
+        _task_start_times[task_id] = time.monotonic()
+
+
+@task_postrun.connect
+def _on_task_postrun(task_id=None, task=None, state=None, kwargs=None, **_extra) -> None:
+    task_name = task.name if task else "unknown"
+    status = state or "success"
+    CELERY_TASKS_TOTAL.labels(task=task_name, status=status).inc()
+
+    if task_id and task_id in _task_start_times:
+        duration = time.monotonic() - _task_start_times.pop(task_id)
+        if task_name == "workers.tasks.download_and_send_task":
+            platform = (kwargs or {}).get("platform", "unknown")
+            DOWNLOAD_DURATION_SECONDS.labels(platform=platform).observe(duration)
+
+
+@task_failure.connect
+def _on_task_failure(task_id=None, **_kwargs) -> None:
+    if task_id and task_id in _task_start_times:
+        _task_start_times.pop(task_id, None)

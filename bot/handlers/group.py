@@ -4,6 +4,7 @@ from aiogram.enums import ChatType
 
 from bot.config import settings
 from bot.locale import get
+from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL, SPOTIFY_REQUESTS_TOTAL
 from bot.services.link_parser import extract_urls
 from bot.services.spotify_handler import reply_spotify_link
 from db.models import Platform
@@ -30,6 +31,7 @@ async def handle_group_message(message: Message, lang: str = "en"):
         if not parsed_link.spotify_link:
             await message.reply(get("errors.unsupported", lang))
             return
+        SPOTIFY_REQUESTS_TOTAL.inc()
         await reply_spotify_link(message, parsed_link.spotify_link, settings, lang)
         return
 
@@ -39,6 +41,7 @@ async def handle_group_message(message: Message, lang: str = "en"):
 
     status_msg = await message.reply(get("download.downloading", lang))
 
+    DOWNLOADS_ENQUEUED_TOTAL.labels(platform=platform.value).inc()
     download_and_send_task.delay(
         url=url,
         platform=platform.value,

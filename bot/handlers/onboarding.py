@@ -7,6 +7,7 @@ from aiogram.fsm.state import State, StatesGroup
 from db.models import User, Language
 from db.session import async_session_factory
 from bot.locale import get
+from bot.metrics import record_command
 
 onboarding_router = Router()
 
@@ -32,6 +33,7 @@ def language_keyboard() -> InlineKeyboardMarkup:
 
 @onboarding_router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext, lang: str = "en"):
+    record_command("start")
     user = message.from_user
     if not user:
         return

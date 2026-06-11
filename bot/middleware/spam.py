@@ -6,6 +6,7 @@ from aiogram.types import TelegramObject, Message
 from sqlalchemy import select
 
 from bot.config import settings
+from bot.metrics import SPAM_BLOCKED_TOTAL
 from db.models import BannedLink
 from db.session import async_session_factory
 
@@ -43,11 +44,13 @@ class SpamMiddleware(BaseMiddleware):
                     select(BannedLink.id).where(BannedLink.url_hash == url_hash[:64])
                 )
                 if banned:
+                    SPAM_BLOCKED_TOTAL.labels(reason="banned").inc()
                     return None
 
             r = await self._get_redis()
             dedup_key = f"dedup:{url_hash[:12]}"
             if await r.exists(dedup_key):
+                SPAM_BLOCKED_TOTAL.labels(reason="dedup").inc()
                 return None
             await r.setex(dedup_key, settings.spam_dedup_window_seconds, "1")
 

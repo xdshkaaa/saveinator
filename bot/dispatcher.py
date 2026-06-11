@@ -4,12 +4,15 @@ from bot.handlers.onboarding import onboarding_router
 from bot.handlers.group import group_router
 from bot.handlers.errors import errors_router
 from bot.middleware.locale import LocaleMiddleware
+from bot.middleware.metrics import MetricsMiddleware
 from bot.middleware.rate_limit import RateLimitMiddleware
 from bot.middleware.spam import SpamMiddleware
 
 
 def create_dispatcher() -> Dispatcher:
     dp = Dispatcher()
+
+    dp.update.outer_middleware(MetricsMiddleware())
 
     dp.message.middleware(LocaleMiddleware())
     dp.callback_query.middleware(LocaleMiddleware())
