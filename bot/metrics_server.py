@@ -17,7 +17,7 @@ async def health(_request: web.Request) -> web.Response:
 async def metrics(_request: web.Request) -> web.Response:
     refresh_uptime()
     body = generate_latest()
-    return web.Response(body=body, content_type=CONTENT_TYPE_LATEST)
+    return web.Response(body=body, headers={"Content-Type": CONTENT_TYPE_LATEST})
 
 
 async def start_metrics_server() -> web.AppRunner:
