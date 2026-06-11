@@ -4,6 +4,7 @@ import logging
 from aiohttp import web
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from bot.api import register_download_routes
 from bot.config import settings
 from bot.metrics import refresh_uptime
 
@@ -24,6 +25,8 @@ async def start_metrics_server() -> web.AppRunner:
     app = web.Application()
     app.router.add_get("/health", health)
     app.router.add_get("/metrics", metrics)
+    if settings.download_api_enabled:
+        register_download_routes(app)
 
     runner = web.AppRunner(app)
     await runner.setup()

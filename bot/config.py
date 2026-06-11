@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     spotify_track_timeout_seconds: int = 15
     spotify_dl_output_format: str = "mp3"
 
+    pinterest_enabled: bool = True
+    pinterest_timeout_seconds: int = 30
+    pinterest_max_items: int = 10
+    pinterest_download_images: bool = True
+    pinterest_download_videos: bool = True
+    pinterest_api_timeout_seconds: int = 10
+    pinterest_use_browser: bool = False
+    pinterest_cookies_path: str = ""
+    pinterest_save_metadata: bool = True
+    download_api_enabled: bool = True
+
     metrics_enabled: bool = True
     metrics_host: str = "0.0.0.0"
     metrics_port: int = 9101

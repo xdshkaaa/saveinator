@@ -11,7 +11,7 @@ app = Celery(
     "saveinator",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["workers.tasks"],
+    include=["workers.tasks", "workers.pinterest_task"],
 )
 
 app.conf.update(
@@ -56,6 +56,8 @@ def _on_task_postrun(task_id=None, task=None, state=None, kwargs=None, **_extra)
         if task_name == "workers.tasks.download_and_send_task":
             platform = (kwargs or {}).get("platform", "unknown")
             DOWNLOAD_DURATION_SECONDS.labels(platform=platform).observe(duration)
+        elif task_name == "workers.pinterest_task.pinterest_download_task":
+            DOWNLOAD_DURATION_SECONDS.labels(platform="pinterest").observe(duration)
 
 
 @task_failure.connect

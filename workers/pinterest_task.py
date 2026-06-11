@@ -1,0 +1,255 @@
+import asyncio
+import os
+import signal
+import uuid
+
+import structlog
+from aiogram import Bot
+
+from bot.config import settings
+from bot.locale import get
+from bot.services.file_sender import send_file
+from bot.services.tempfiles import tempfile_manager
+from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
+from db.session import async_session_factory
+from workers.app import app
+from workers.pinterest_downloader import (
+    PinterestDownloadError,
+    PinterestNoMediaError,
+    download_pinterest,
+)
+
+logger = structlog.get_logger()
+
+
+class PinterestTimeoutError(Exception):
+    pass
+
+
+def _get_bot() -> Bot:
+    return Bot(token=settings.bot_token)
+
+
+def _raise_pinterest_timeout(_signum, _frame):
+    raise PinterestTimeoutError
+
+
+def _download_with_timeout(url: str, task_dir, max_items: int, timeout: int):
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, _raise_pinterest_timeout)
+    signal.setitimer(signal.ITIMER_REAL, timeout)
+    try:
+        return download_pinterest(url, task_dir, max_items=max_items)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+
+
+@app.task(bind=True, max_retries=1)
+def pinterest_download_task(
+    self,
+    url: str,
+    chat_id: int,
+    user_id: int,
+    message_id: int,
+    lang: str = "en",
+):
+    bot = _get_bot()
+    task_id = str(uuid.uuid4())
+
+    async def _run():
+        with tempfile_manager(task_id) as task_dir:
+            try:
+                await _edit_message(
+                    bot, chat_id, message_id, get("download.downloading", lang)
+                )
+
+                result = _download_with_timeout(
+                    url,
+                    task_dir,
+                    settings.pinterest_max_items,
+                    settings.pinterest_timeout_seconds,
+                )
+
+                if not result.items:
+                    await _edit_message(
+                        bot, chat_id, message_id, get("pinterest.no_media", lang)
+                    )
+                    return
+
+                await _delete_message(bot, chat_id, message_id)
+
+                sent = 0
+                for item in result.items:
+                    file_path = item.file_path
+                    size_mb = item.file_size / (1024 * 1024)
+                    if size_mb > settings.send_video_limit_mb:
+                        continue
+                    title = item.title or os.path.basename(file_path)
+                    await send_file(bot, file_path, chat_id, lang, title)
+                    sent += 1
+                    await _record_download_safe(
+                        url,
+                        "pinterest",
+                        item.media_type,
+                        size_mb,
+                        DownloadStatus.COMPLETED,
+                        user_id,
+                        chat_id,
+                    )
+
+                if sent == 0:
+                    await bot.send_message(
+                        chat_id, get("pinterest.all_too_large", lang)
+                    )
+
+            except PinterestTimeoutError:
+                logger.warning("pinterest download timed out", task_id=task_id, url=url)
+                await _edit_message(
+                    bot, chat_id, message_id, get("download.timeout", lang)
+                )
+                await _record_download_safe(
+                    url,
+                    "pinterest",
+                    "best",
+                    0,
+                    DownloadStatus.FAILED,
+                    user_id,
+                    chat_id,
+                    f"exceeded {settings.pinterest_timeout_seconds}s timeout",
+                )
+
+            except PinterestNoMediaError:
+                await _edit_message(
+                    bot, chat_id, message_id, get("pinterest.no_media", lang)
+                )
+                await _record_download_safe(
+                    url,
+                    "pinterest",
+                    "best",
+                    0,
+                    DownloadStatus.FAILED,
+                    user_id,
+                    chat_id,
+                    "no media found",
+                )
+
+            except PinterestDownloadError as exc:
+                logger.warning("pinterest download rejected", task_id=task_id, error=str(exc))
+                key = (
+                    "pinterest.private"
+                    if "private" in str(exc).lower()
+                    else "pinterest.invalid"
+                )
+                await _edit_message(bot, chat_id, message_id, get(key, lang))
+                await _record_download_safe(
+                    url,
+                    "pinterest",
+                    "best",
+                    0,
+                    DownloadStatus.FAILED,
+                    user_id,
+                    chat_id,
+                    str(exc)[:500],
+                )
+
+            except Exception as exc:
+                logger.exception("pinterest_download_task failed", task_id=task_id)
+                try:
+                    await _edit_message(
+                        bot, chat_id, message_id, get("errors.generic", lang)
+                    )
+                except Exception:
+                    pass
+                try:
+                    await _record_download(
+                        url,
+                        "pinterest",
+                        "best",
+                        0,
+                        DownloadStatus.FAILED,
+                        user_id,
+                        chat_id,
+                        str(exc)[:500],
+                    )
+                except Exception:
+                    logger.exception(
+                        "failed to record failed download", task_id=task_id
+                    )
+
+    asyncio.run(_run())
+
+
+async def _edit_message(bot: Bot, chat_id: int, message_id: int, text: str):
+    try:
+        await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text)
+    except Exception:
+        pass
+
+
+async def _delete_message(bot: Bot, chat_id: int, message_id: int):
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception:
+        pass
+
+
+async def _record_download_safe(
+    url: str,
+    platform: str,
+    format_id: str,
+    size_mb: float,
+    status: DownloadStatus,
+    user_id: int,
+    chat_id: int,
+    error: str | None = None,
+):
+    try:
+        await _record_download(
+            url, platform, format_id, size_mb, status, user_id, chat_id, error
+        )
+    except Exception:
+        logger.exception(
+            "failed to record download history",
+            url=url,
+            platform=platform,
+            status=status.value,
+        )
+
+
+async def _record_download(
+    url: str,
+    platform: str,
+    format_id: str,
+    size_mb: float,
+    status: DownloadStatus,
+    user_id: int,
+    chat_id: int,
+    error: str | None = None,
+):
+    async with async_session_factory() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            user = User(id=user_id, username="unknown", language="en")
+            session.add(user)
+
+        chat = await session.get(Chat, chat_id)
+        if not chat:
+            chat = Chat(id=chat_id, title="unknown", type="group")
+            session.add(chat)
+
+        dl = Download(
+            user_id=user_id,
+            chat_id=chat_id,
+            url=url,
+            platform=Platform(platform) if platform else Platform.UNKNOWN,
+            format_id=format_id,
+            file_size=int(size_mb * 1024 * 1024) if size_mb else None,
+            status=status,
+            error_message=error,
+            completed_at=utc_now_naive()
+            if status in (DownloadStatus.COMPLETED, DownloadStatus.FAILED)
+            else None,
+        )
+        session.add(dl)
+        await session.commit()

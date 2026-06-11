@@ -30,16 +30,23 @@ atexit.register(_sweep_temp_root)
 
 
 @contextmanager
-def tempfile_manager(task_id: str) -> Generator[Path, None, None]:
+def tempfile_manager(
+    task_id: str,
+    *,
+    keep_on_success: bool = False,
+) -> Generator[Path, None, None]:
     task_dir = TEMP_ROOT / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
+    keep = False
     try:
         yield task_dir
+        keep = keep_on_success
     finally:
-        try:
-            shutil.rmtree(task_dir, ignore_errors=True)
-        except Exception:
-            logger.warning("Failed to clean task dir", task_id=task_id)
+        if not keep:
+            try:
+                shutil.rmtree(task_dir, ignore_errors=True)
+            except Exception:
+                logger.warning("Failed to clean task dir", task_id=task_id)
 
 
 def sweep_stale(older_than_seconds: int = 3600):

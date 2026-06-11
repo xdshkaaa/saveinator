@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, or Spotify album/track link in any group. I can download videos and show Spotify release info.",
+    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, Spotify, or Pinterest link in any group. I can download videos, music, and images.",
     "btn_en": "\ud83c\uddec\ud83c\udde7 English",
     "btn_ru": "\ud83c\uddf7\ud83c\uddfa \u0420\u0443\u0441\u0441\u043a\u0438\u0439"
   },
@@ -13,7 +13,7 @@
     "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
   },
   "errors": {
-    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, and Spotify album/track links.",
+    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, and Pinterest links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "generic": "Something went wrong. Please try again later."
@@ -41,5 +41,12 @@
     "not_configured": "Spotify support is not configured on this bot.",
     "api_error": "Could not fetch Spotify release info. Please try again later.",
     "disabled": "Spotify support is disabled on this bot."
+  },
+  "pinterest": {
+    "disabled": "Pinterest support is disabled on this bot.",
+    "no_media": "❌ No media found at this Pinterest URL.",
+    "all_too_large": "❌ All media files exceeded the size limit.",
+    "invalid": "❌ Invalid or unsupported Pinterest URL.",
+    "private": "❌ This Pinterest content is private or requires authorized access."
   }
 }

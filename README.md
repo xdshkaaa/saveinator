@@ -1,12 +1,14 @@
 # save-yt-tiktok (Saveinator)
 
-Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, plus Spotify album/single/track metadata and audio downloads via yt-dlp YouTube search.
+Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, Pinterest images/videos, plus Spotify album/single/track metadata and audio downloads via yt-dlp YouTube search.
 
 ## Features
 
 - Download videos via yt-dlp (YouTube, TikTok, Instagram, X/Twitter)
+- Download Pinterest pins and boards via [`pinterest-dl`](https://github.com/sean1832/pinterest-dl)
 - Show Spotify album/single/compilation/track metadata from the Spotify Web API
 - Download Spotify album/track audio via yt-dlp YouTube search (not Spotify streaming)
+- `POST /download/pinterest` HTTP API for programmatic downloads
 - EN/RU localization
 - Celery workers for background video downloads
 
@@ -127,10 +129,22 @@ pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_
 
 See [`.env.example`](.env.example) for the full list.
 
+## Pinterest support
+
+Pinterest pins, short links (`pin.it`), and boards are downloaded in the Celery worker via `pinterest-dl`.
+
+- Telegram: send a Pinterest URL to the bot
+- HTTP API: `POST /download/pinterest` (see [PINTEREST_DOWNLOADER.md](PINTEREST_DOWNLOADER.md))
+- Default mode uses Pinterest API scraping (no browser required)
+- Optional browser mode: `PINTEREST_USE_BROWSER=true`
+- Private pins: set `PINTEREST_COOKIES_PATH` to an authorized cookies file
+
 ## Architecture notes
 
 - Video downloads: `bot/handlers/group.py` → Celery `download_and_send_task` → `workers/downloader.py` (yt-dlp)
+- Pinterest downloads: `bot/handlers/group.py` → Celery `pinterest_download_task` → `workers/pinterest_downloader.py`
+- Pinterest HTTP API: `bot/api/pinterest.py`
 - Spotify metadata: `bot/handlers/group.py` → `bot/services/spotify_handler.py` → `bot/services/spotify_client.py`
-- Spotify audio download: `bot/services/spotify_handler.py` → `bot/services/spotify_dl.py` (spotify-dl CLI)
+- Spotify audio download: `bot/services/spotify_handler.py` → `bot/services/youtube_audio.py` (yt-dlp)
 - Spotify URL parsing: `bot/services/spotify_parser.py`
-- Feature flag: `SPOTIFY_ENABLED`
+- Feature flags: `SPOTIFY_ENABLED`, `PINTEREST_ENABLED`

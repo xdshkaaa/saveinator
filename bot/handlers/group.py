@@ -9,6 +9,7 @@ from bot.services.link_parser import extract_urls
 from bot.services.spotify_handler import reply_spotify_link
 from db.models import Platform
 from workers.tasks import download_and_send_task
+from workers.pinterest_task import pinterest_download_task
 
 group_router = Router()
 group_router.message.filter(F.chat.type.in_([ChatType.PRIVATE, ChatType.GROUP, ChatType.SUPERGROUP]))
@@ -33,6 +34,21 @@ async def handle_group_message(message: Message, lang: str = "en"):
             return
         SPOTIFY_REQUESTS_TOTAL.inc()
         await reply_spotify_link(message, parsed_link.spotify_link, settings, lang)
+        return
+
+    if platform == Platform.PINTEREST:
+        if not settings.pinterest_enabled:
+            await message.reply(get("pinterest.disabled", lang))
+            return
+        status_msg = await message.reply(get("download.downloading", lang))
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform="pinterest").inc()
+        pinterest_download_task.delay(
+            url=url,
+            chat_id=message.chat.id,
+            user_id=message.from_user.id if message.from_user else 0,
+            message_id=status_msg.message_id,
+            lang=lang,
+        )
         return
 
     if platform.value == "unknown":

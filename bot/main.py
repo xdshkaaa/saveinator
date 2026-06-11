@@ -7,6 +7,7 @@ from aiogram import Bot
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram.types import MenuButtonCommands
 
+from bot.api import register_download_routes
 from bot.config import settings
 from bot.dispatcher import create_dispatcher
 from bot.metrics_server import start_metrics_server
@@ -50,6 +51,8 @@ async def run_webhook(dp, bot: Bot):
         )
 
     app.router.add_get("/metrics", metrics_handler)
+    if settings.download_api_enabled:
+        register_download_routes(app)
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
     webhook_requests_handler.register(app, path=settings.webhook_path)
     setup_application(app, dp, bot=bot)

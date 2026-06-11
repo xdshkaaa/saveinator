@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter или Spotify-альбом/трек в любую группу. Я скачиваю видео и показываю информацию о релизах Spotify.",
+    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter, Spotify или Pinterest в любую группу. Я скачиваю видео, музыку и изображения.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -13,7 +13,7 @@
     "sent_as_doc": "📄 Отправлено как документ ({size} МБ)"
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter и Spotify-альбомами/треками.",
+    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter, Spotify и Pinterest.",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "generic": "Что-то пошло не так. Попробуй позже."
@@ -41,5 +41,12 @@
     "not_configured": "Поддержка Spotify не настроена на этом боте.",
     "api_error": "Не удалось получить информацию о релизе Spotify. Попробуй позже.",
     "disabled": "Поддержка Spotify отключена на этом боте."
+  },
+  "pinterest": {
+    "disabled": "Поддержка Pinterest отключена на этом боте.",
+    "no_media": "❌ Не удалось найти медиа по этой ссылке Pinterest.",
+    "all_too_large": "❌ Все файлы превышают допустимый размер.",
+    "invalid": "❌ Некорректная или неподдерживаемая ссылка Pinterest.",
+    "private": "❌ Этот контент Pinterest приватный или требует авторизованного доступа."
   }
 }

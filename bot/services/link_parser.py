@@ -50,6 +50,27 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
             re.IGNORECASE,
         ),
     ),
+    (
+        Platform.PINTEREST,
+        re.compile(
+            r"(?:https?://)?(?:www\.)?pinterest\.com/pin/[\w-]+/?(?:[?&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Platform.PINTEREST,
+        re.compile(
+            r"(?:https?://)?pin\.it/[\w-]+/?(?:[?&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Platform.PINTEREST,
+        re.compile(
+            r"(?:https?://)?(?:www\.)?pinterest\.com/[\w-]+/[\w-]+/?(?:[?&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 _URL_EXTRACTOR = re.compile(r"https?://\S+", re.IGNORECASE)
