@@ -5,7 +5,7 @@ import sys
 from aiohttp import web
 from aiogram import Bot
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-from aiogram.types import MenuButtonCommands
+from aiogram.types import BotCommand, BotCommandScopeDefault, MenuButtonCommands
 
 from bot.api import register_download_routes
 from bot.config import settings
@@ -16,6 +16,16 @@ from bot.telegram_instrumentation import instrument_bot
 logger = logging.getLogger(__name__)
 
 
+async def _register_bot_commands(bot: Bot) -> None:
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Start / language"),
+            BotCommand(command="admin", description="Runtime settings panel"),
+        ],
+        scope=BotCommandScopeDefault(),
+    )
+
+
 async def on_startup(bot: Bot):
     await bot.delete_webhook(drop_pending_updates=True)
     if not settings.use_polling:
@@ -23,6 +33,7 @@ async def on_startup(bot: Bot):
             f"{settings.webhook_host}{settings.webhook_path}",
             drop_pending_updates=True,
         )
+    await _register_bot_commands(bot)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 
@@ -69,6 +80,7 @@ async def run_webhook(dp, bot: Bot):
 
 async def run_polling(dp, bot: Bot):
     await bot.delete_webhook(drop_pending_updates=True)
+    await _register_bot_commands(bot)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
     if settings.metrics_enabled:
         await start_metrics_server()

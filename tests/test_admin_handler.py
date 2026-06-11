@@ -57,7 +57,7 @@ class FakeMessage:
 @pytest.fixture
 def admin_settings(monkeypatch):
     monkeypatch.setattr(
-        "bot.handlers.admin.settings",
+        "bot.config.settings",
         Settings(bot_token="test-token", admin_telegram_id=339193247),
     )
 

@@ -1,3 +1,4 @@
+import structlog
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -9,7 +10,7 @@ from aiogram.types import (
     Message,
 )
 
-from bot.config import settings
+from bot.filters.admin import IsAdminFilter
 from bot.locale import get
 from bot.metrics import record_command
 from bot.services.runtime_settings import (
@@ -21,9 +22,9 @@ from bot.services.runtime_settings import (
     setting_definition,
 )
 
+logger = structlog.get_logger()
 admin_router = Router()
-admin_router.message.filter(F.from_user.id == settings.admin_telegram_id)
-admin_router.callback_query.filter(F.from_user.id == settings.admin_telegram_id)
+_is_admin = IsAdminFilter()
 
 
 class AdminEdit(StatesGroup):
@@ -110,9 +111,10 @@ async def _service_summary(service: str, lang: str) -> str:
     return "\n".join(lines)
 
 
-@admin_router.message(Command("admin"))
+@admin_router.message(Command("admin"), _is_admin)
 async def cmd_admin(message: Message, state: FSMContext, lang: str = "en"):
     record_command("admin")
+    logger.info("admin panel opened", user_id=message.from_user.id if message.from_user else None)
     await state.clear()
     await message.answer(
         get("admin.menu_title", lang),
@@ -120,7 +122,7 @@ async def cmd_admin(message: Message, state: FSMContext, lang: str = "en"):
     )
 
 
-@admin_router.callback_query(F.data == "admin|menu")
+@admin_router.callback_query(F.data == "admin|menu", _is_admin)
 async def admin_menu(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
     await state.clear()
     await callback.message.edit_text(
@@ -130,7 +132,7 @@ async def admin_menu(callback: CallbackQuery, state: FSMContext, lang: str = "en
     await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("admin|svc|"))
+@admin_router.callback_query(F.data.startswith("admin|svc|"), _is_admin)
 async def admin_service(callback: CallbackQuery, lang: str = "en"):
     service = callback.data.split("|", 2)[2]
     if service not in SERVICE_ORDER and service != "global":
@@ -143,7 +145,7 @@ async def admin_service(callback: CallbackQuery, lang: str = "en"):
     await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("admin|edit|"))
+@admin_router.callback_query(F.data.startswith("admin|edit|"), _is_admin)
 async def admin_edit_start(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
     redis_key = callback.data.split("|", 2)[2]
     defn = setting_definition(redis_key)
@@ -172,7 +174,7 @@ async def admin_edit_start(callback: CallbackQuery, state: FSMContext, lang: str
     await callback.answer()
 
 
-@admin_router.message(AdminEdit.waiting_value)
+@admin_router.message(AdminEdit.waiting_value, _is_admin)
 async def admin_edit_value(message: Message, state: FSMContext, lang: str = "en"):
     data = await state.get_data()
     redis_key = data.get("redis_key")
@@ -195,6 +197,7 @@ async def admin_edit_value(message: Message, state: FSMContext, lang: str = "en"
 
     await set_runtime_int(redis_key, value)
     await state.clear()
+    logger.info("admin setting updated", key=redis_key, value=value)
     await message.answer(
         get(
             "admin.saved",
@@ -207,7 +210,7 @@ async def admin_edit_value(message: Message, state: FSMContext, lang: str = "en"
     await message.answer(await _service_summary(service, lang))
 
 
-@admin_router.callback_query(F.data.startswith("admin|reset|"))
+@admin_router.callback_query(F.data.startswith("admin|reset|"), _is_admin)
 async def admin_reset(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
     await state.clear()
     parts = callback.data.split("|")

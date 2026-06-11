@@ -21,8 +21,8 @@ def create_dispatcher() -> Dispatcher:
     dp.message.middleware(RateLimitMiddleware())
     dp.message.outer_middleware(SpamMiddleware())
 
-    dp.include_router(onboarding_router)
     dp.include_router(admin_router)
+    dp.include_router(onboarding_router)
     dp.include_router(group_router)
     dp.include_router(errors_router)
 
