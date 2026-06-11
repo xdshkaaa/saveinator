@@ -51,7 +51,7 @@ ACTIVE_CHATS = Gauge(
 
 DOWNLOADS_ENQUEUED_TOTAL = Counter(
     "saveinator_downloads_enqueued_total",
-    "Video downloads enqueued to Celery",
+    "Download jobs started by platform (Celery video/Pinterest, inline Spotify)",
     ["platform"],
 )
 

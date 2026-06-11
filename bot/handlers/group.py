@@ -66,6 +66,7 @@ async def handle_group_message(message: Message, lang: str = "en"):
         if lock_token is None:
             return
         SPOTIFY_REQUESTS_TOTAL.inc()
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform="spotify").inc()
         await reply_spotify_link(
             message,
             parsed_link.spotify_link,

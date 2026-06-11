@@ -35,6 +35,11 @@ class TestBotMetrics:
         output = generate_latest(REGISTRY).decode()
         assert "saveinator_downloads_enqueued_total" in output
 
+    def test_downloads_enqueued_supports_spotify(self):
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform="spotify").inc()
+        output = generate_latest(REGISTRY).decode()
+        assert 'platform="spotify"' in output
+
     def test_uptime_gauge_updates(self):
         refresh_uptime()
         output = generate_latest(REGISTRY).decode()
