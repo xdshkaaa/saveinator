@@ -9,7 +9,12 @@ from dataclasses import dataclass
 import structlog
 
 from bot.config import Settings
-from bot.services.spotify_models import SpotifyAlbum, normalize_album
+from bot.services.spotify_models import (
+    NormalizedSpotifyRelease,
+    normalize_album,
+    normalize_track,
+    release_from_track,
+)
 
 logger = structlog.get_logger()
 
@@ -121,7 +126,7 @@ def _request(
     if status in (401, 403):
         raise SpotifyAuthError(f"Spotify authentication failed with status {status}")
     if status == 404:
-        raise SpotifyNotFoundError("Spotify album not found")
+        raise SpotifyNotFoundError("Spotify resource not found")
     if status >= 400:
         raise SpotifyApiError(f"Spotify API error with status {status}")
 
@@ -200,7 +205,7 @@ def _fetch_album_tracks(settings: Settings, album_id: str) -> list[dict]:
     return tracks
 
 
-def fetch_album(album_id: str, settings: Settings) -> SpotifyAlbum:
+def fetch_album(album_id: str, settings: Settings) -> NormalizedSpotifyRelease:
     url = f"{API_BASE}/albums/{album_id}"
     album_payload = _request(
         "GET",
@@ -213,3 +218,23 @@ def fetch_album(album_id: str, settings: Settings) -> SpotifyAlbum:
 
     tracks = _fetch_album_tracks(settings, album_id)
     return normalize_album(album_payload, tracks)
+
+
+def fetch_track(track_id: str, settings: Settings) -> NormalizedSpotifyRelease:
+    url = f"{API_BASE}/tracks/{track_id}"
+    track_payload = _request(
+        "GET",
+        url,
+        headers=_authorized_headers(settings),
+        timeout=settings.spotify_api_timeout_seconds,
+    )
+    if not isinstance(track_payload, dict):
+        raise SpotifyApiError("Unexpected Spotify track response")
+
+    return release_from_track(track_payload)
+
+
+def fetch_release(link_type: str, resource_id: str, settings: Settings) -> NormalizedSpotifyRelease:
+    if link_type == "track":
+        return fetch_track(resource_id, settings)
+    return fetch_album(resource_id, settings)

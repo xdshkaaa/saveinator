@@ -1,5 +1,15 @@
-from bot.services.spotify_models import SpotifyAlbum, SpotifyTrack, normalize_album
-from bot.services.spotify_client import SpotifyRateLimitError, _request
+from bot.services.spotify_models import (
+    NormalizedSpotifyRelease,
+    NormalizedSpotifyTrack,
+    normalize_album,
+    normalize_track,
+    release_from_track,
+)
+from bot.services.spotify_client import (
+    SpotifyNotFoundError,
+    SpotifyRateLimitError,
+    _request,
+)
 
 
 ALBUM_FIXTURE = {
@@ -14,6 +24,7 @@ ALBUM_FIXTURE = {
 
 TRACKS_FIXTURE = [
     {
+        "id": "111",
         "disc_number": 1,
         "track_number": 1,
         "name": "Track One",
@@ -22,6 +33,7 @@ TRACKS_FIXTURE = [
         "external_urls": {"spotify": "https://open.spotify.com/track/111"},
     },
     {
+        "id": "222",
         "disc_number": 1,
         "track_number": 2,
         "name": "Track Two",
@@ -31,27 +43,45 @@ TRACKS_FIXTURE = [
     },
 ]
 
+TRACK_FIXTURE = {
+    "id": "0VjIjW4GlUZAMYd2vXMi3b",
+    "name": "Blinding Lights",
+    "duration_ms": 200000,
+    "disc_number": 1,
+    "track_number": 1,
+    "artists": [{"name": "The Weeknd"}],
+    "external_urls": {"spotify": "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"},
+    "album": {
+        "id": "album123456789012345678",
+        "name": "After Hours",
+        "album_type": "album",
+        "release_date": "2020-03-20",
+        "images": [{"url": "https://i.scdn.co/image/track-cover.jpg"}],
+    },
+}
+
 
 class TestNormalizeAlbum:
     def test_normalize_album_metadata(self):
         album = normalize_album(ALBUM_FIXTURE, TRACKS_FIXTURE)
 
-        assert isinstance(album, SpotifyAlbum)
-        assert album.album_id == "4aawyAB9rmqOaP8fadcCl4"
-        assert album.album_name == "Test Album"
+        assert isinstance(album, NormalizedSpotifyRelease)
+        assert album.source_id == "4aawyAB9rmqOaP8fadcCl4"
+        assert album.title == "Test Album"
         assert album.album_type == "album"
         assert album.artists == "Artist One, Artist Two"
         assert album.release_date == "2021-05-21"
         assert album.cover_url == "https://i.scdn.co/image/cover.jpg"
         assert album.spotify_url == "https://open.spotify.com/album/4aawyAB9rmqOaP8fadcCl4"
         assert len(album.tracks) == 2
-        assert album.tracks[0] == SpotifyTrack(
-            disc_number=1,
+        assert album.tracks[0] == NormalizedSpotifyTrack(
+            source_id="111",
             track_number=1,
             title="Track One",
             artists="Artist One",
             duration_ms=180000,
             spotify_url="https://open.spotify.com/track/111",
+            disc_number=1,
         )
 
     def test_normalize_single_album_type(self):
@@ -59,6 +89,41 @@ class TestNormalizeAlbum:
         album = normalize_album(single_fixture, TRACKS_FIXTURE[:1])
         assert album.album_type == "single"
         assert len(album.tracks) == 1
+
+    def test_normalize_empty_tracks(self):
+        album = normalize_album(ALBUM_FIXTURE, [])
+        assert album.tracks == []
+
+
+class TestNormalizeTrack:
+    def test_normalize_track_metadata(self):
+        track = normalize_track(TRACK_FIXTURE)
+        assert track.source_id == "0VjIjW4GlUZAMYd2vXMi3b"
+        assert track.title == "Blinding Lights"
+        assert track.artists == "The Weeknd"
+        assert track.duration_ms == 200000
+
+    def test_release_from_track(self):
+        release = release_from_track(TRACK_FIXTURE)
+        assert release.title == "Blinding Lights"
+        assert release.album_type == "track"
+        assert len(release.tracks) == 1
+        assert release.cover_url == "https://i.scdn.co/image/track-cover.jpg"
+
+
+class TestSpotifyHttpErrors:
+    def test_request_raises_404(self, monkeypatch):
+        def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
+            return 404, {}, {}
+
+        monkeypatch.setattr("bot.services.spotify_client._http_json", fake_http_json)
+
+        try:
+            _request("GET", "https://api.spotify.com/v1/albums/missing", timeout=1.0)
+        except SpotifyNotFoundError:
+            return
+
+        raise AssertionError("Expected SpotifyNotFoundError")
 
 
 class TestSpotify429Retry:

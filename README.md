@@ -1,34 +1,74 @@
 # save-yt-tiktok (Saveinator)
 
-Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, plus Spotify album/single metadata cards.
+Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, plus Spotify album/single/track metadata cards.
 
 ## Features
 
 - Download videos via yt-dlp (YouTube, TikTok, Instagram, X/Twitter)
-- Show Spotify album/single/compilation metadata from the Spotify Web API
+- Show Spotify album/single/compilation/track metadata from the Spotify Web API
 - EN/RU localization
-- Celery workers for background downloads
+- Celery workers for background video downloads
 
 ## Spotify support
 
-The bot recognizes Spotify album links:
+Spotify integration uses Spotify only for metadata. The bot does **not** download audio from Spotify or bypass Spotify restrictions.
+
+### Supported links
 
 - `https://open.spotify.com/album/{id}`
+- `https://open.spotify.com/track/{id}`
 - `spotify:album:{id}`
+- `spotify:track:{id}`
+- URLs with query parameters (for example `?si=...`) — the ID is extracted after stripping query params
 
-When a user sends a Spotify album link, the bot replies with a metadata card:
+### What happens on a Spotify link
 
-- release name, artist, type (`album` / `single` / `compilation`)
-- track count and release date
-- cover art (when available)
-- **Open in Spotify** button
+1. The bot parses the URL/URI and validates the Spotify ID.
+2. Metadata is fetched via Spotify Client Credentials API.
+3. Data is normalized into internal release/track models.
+4. The user receives a metadata card with cover art (when available) and an **Open in Spotify** button.
 
-**Important:** the bot does **not** download or stream audio from Spotify. It does not bypass Spotify DRM, licensing, or Terms of Service. Only public metadata from the Spotify Web API is shown.
+**Album / single / compilation card example:**
 
-To enable Spotify metadata:
+```text
+🎵 Artist — Release name
+Type: single / album / compilation
+Tracks: N
+Release date: YYYY-MM-DD
+```
+
+**Track card example:**
+
+```text
+🎵 Artist — Track name
+Duration: M:SS
+```
+
+If no optional audio search/download providers are configured, the bot also replies:
+
+```text
+For Spotify, only the release card and track list are available. Downloading Spotify content is not supported.
+```
+
+### Optional search/download providers
+
+Spotify metadata can be connected to an external audio pipeline through provider abstractions in `bot/services/audio_providers.py`:
+
+```text
+Spotify metadata → AudioSearchProvider → AudioDownloadProvider
+```
+
+- Spotify module is metadata-only; it builds search queries like `Artist - Track`.
+- Video download flow (`yt-dlp`) stays separate from Spotify.
+- Register providers at deployment time via `register_audio_providers(search, download)`.
+- The deployment owner is responsible for choosing legal/permitted audio sources.
+
+By default, no search/download providers are registered — only metadata cards are shown.
+
+### Enable Spotify metadata
 
 1. Create a Spotify app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Set Client Credentials (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`)
+2. Set credentials in `.env`
 3. Enable the feature flag: `SPOTIFY_ENABLED=true`
 
 ## Setup
@@ -70,7 +110,7 @@ USE_POLLING=true python -m bot.main
 ## Tests
 
 ```bash
-pytest tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py -q
+pytest tests/test_spotify_parser.py tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py -q
 ```
 
 ## Environment variables
@@ -91,5 +131,7 @@ See [`.env.example`](.env.example) for the full list.
 ## Architecture notes
 
 - Video downloads: `bot/handlers/group.py` → Celery `download_and_send_task` → `workers/downloader.py` (yt-dlp)
-- Spotify metadata: inline async handler branch → `bot/services/spotify_client.py` (Client Credentials, no audio download)
+- Spotify metadata: `bot/handlers/group.py` → `bot/services/spotify_handler.py` → `bot/services/spotify_client.py` (Client Credentials, no audio download)
+- Spotify URL parsing: `bot/services/spotify_parser.py`
+- Optional audio pipeline: `bot/services/audio_providers.py`
 - Feature flag: `SPOTIFY_ENABLED`

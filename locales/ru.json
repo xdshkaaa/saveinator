@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter или Spotify-альбом в любую группу. Я скачиваю видео и показываю информацию о релизах Spotify.",
+    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter или Spotify-альбом/трек в любую группу. Я скачиваю видео и показываю информацию о релизах Spotify.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -13,14 +13,15 @@
     "sent_as_doc": "📄 Отправлено как документ ({size} МБ)"
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter и ссылками на Spotify-альбомы.",
+    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter и ссылками на Spotify-альбомы/треки.",
     "rate_limit": "Не спеши! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуйте позже.",
     "generic": "Что-то пошло не так. Попробуйте позже."
   },
   "spotify": {
-    "card_title": "🎵 {name}",
-    "artist": "Исполнитель: {artist}",
+    "card_title": "🎵 {artist} — {name}",
+    "track_card_title": "🎵 {artist} — {title}",
+    "duration": "Длительность: {duration}",
     "album_type": "Тип: {type}",
     "type_album": "альбом",
     "type_single": "сингл",
@@ -28,8 +29,11 @@
     "tracks_count": "Треков: {count}",
     "release_date": "Дата релиза: {date}",
     "btn_open": "Открыть в Spotify",
-    "no_download": "Для этого релиза доступна только карточка и ссылки Spotify; скачивание Spotify-контента не поддерживается.",
-    "not_found": "Spotify-альбом не найден.",
+    "no_download": "Для Spotify доступна карточка релиза и список треков. Скачивание Spotify-контента не поддерживается.",
+    "download_progress": "Поиск источников: {current}/{total}",
+    "download_done": "Готово: отправлено {count} из {total} треков.",
+    "download_none_found": "Подходящие источники аудио для этих треков не найдены.",
+    "not_found": "Spotify-релиз не найден.",
     "not_configured": "Поддержка Spotify не настроена на этом боте.",
     "api_error": "Не удалось получить информацию о релизе Spotify. Попробуйте позже.",
     "disabled": "Поддержка Spotify отключена на этом боте."

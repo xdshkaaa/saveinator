@@ -1,5 +1,5 @@
 from db.models import Platform
-from bot.services.link_parser import extract_urls, extract_spotify_album_id
+from bot.services.link_parser import extract_urls, extract_spotify_link
 
 
 class TestLinkParser:
@@ -90,7 +90,17 @@ class TestLinkParser:
         urls = extract_urls("https://open.spotify.com/album/4aawyAB9rmqOaP8fadcCl4")
         assert len(urls) == 1
         assert urls[0].platform == Platform.SPOTIFY
-        assert urls[0].spotify_album_id == "4aawyAB9rmqOaP8fadcCl4"
+        assert urls[0].spotify_link is not None
+        assert urls[0].spotify_link.type == "album"
+        assert urls[0].spotify_link.id == "4aawyAB9rmqOaP8fadcCl4"
+
+    def test_spotify_track_url(self):
+        urls = extract_urls("https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.SPOTIFY
+        assert urls[0].spotify_link is not None
+        assert urls[0].spotify_link.type == "track"
+        assert urls[0].spotify_link.id == "0VjIjW4GlUZAMYd2vXMi3b"
 
     def test_spotify_album_url_with_query(self):
         urls = extract_urls(
@@ -98,15 +108,23 @@ class TestLinkParser:
         )
         assert len(urls) == 1
         assert urls[0].platform == Platform.SPOTIFY
-        assert urls[0].spotify_album_id == "4aawyAB9rmqOaP8fadcCl4"
+        assert urls[0].spotify_link is not None
+        assert urls[0].spotify_link.id == "4aawyAB9rmqOaP8fadcCl4"
         assert "?si=abc123" in urls[0].url
 
     def test_spotify_album_uri(self):
         urls = extract_urls("listen spotify:album:4aawyAB9rmqOaP8fadcCl4 now")
         assert len(urls) == 1
         assert urls[0].platform == Platform.SPOTIFY
-        assert urls[0].spotify_album_id == "4aawyAB9rmqOaP8fadcCl4"
+        assert urls[0].spotify_link is not None
+        assert urls[0].spotify_link.id == "4aawyAB9rmqOaP8fadcCl4"
         assert urls[0].url == "spotify:album:4aawyAB9rmqOaP8fadcCl4"
 
-    def test_extract_spotify_album_id_invalid(self):
-        assert extract_spotify_album_id("https://open.spotify.com/track/abc") is None
+    def test_spotify_track_uri(self):
+        urls = extract_urls("spotify:track:0VjIjW4GlUZAMYd2vXMi3b")
+        assert len(urls) == 1
+        assert urls[0].spotify_link is not None
+        assert urls[0].spotify_link.type == "track"
+
+    def test_extract_spotify_link_invalid(self):
+        assert extract_spotify_link("https://open.spotify.com/track/abc") is None

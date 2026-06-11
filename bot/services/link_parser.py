@@ -1,8 +1,10 @@
 import re
 from dataclasses import dataclass
-from db.models import Platform
 
-_SPOTIFY_ALBUM_ID = r"[A-Za-z0-9]{22}"
+from db.models import Platform
+from bot.services.spotify_parser import SpotifyLink, parse_spotify_link
+
+_SPOTIFY_ID_IN_URL = r"[A-Za-z0-9]{22}"
 
 _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     (
@@ -42,8 +44,8 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     (
         Platform.SPOTIFY,
         re.compile(
-            r"(?:https?://)?(?:open\.)?spotify\.com/album/"
-            + _SPOTIFY_ALBUM_ID
+            r"(?:https?://)?(?:open\.)?spotify\.com/(?:album|track)/"
+            + _SPOTIFY_ID_IN_URL
             + r"(?:[/?#&]\S*)?",
             re.IGNORECASE,
         ),
@@ -52,7 +54,7 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
 
 _URL_EXTRACTOR = re.compile(r"https?://\S+", re.IGNORECASE)
 _SPOTIFY_URI_EXTRACTOR = re.compile(
-    rf"spotify:album:({_SPOTIFY_ALBUM_ID})",
+    rf"spotify:(?:album|track):({_SPOTIFY_ID_IN_URL})",
     re.IGNORECASE,
 )
 
@@ -61,37 +63,25 @@ _SPOTIFY_URI_EXTRACTOR = re.compile(
 class ParsedLink:
     platform: Platform
     url: str
-    spotify_album_id: str | None = None
+    spotify_link: SpotifyLink | None = None
 
 
-def extract_spotify_album_id(url_or_uri: str) -> str | None:
-    uri_match = _SPOTIFY_URI_EXTRACTOR.search(url_or_uri)
-    if uri_match:
-        return uri_match.group(1)
-
-    for platform, pattern in _PATTERNS:
-        if platform != Platform.SPOTIFY:
-            continue
-        match = pattern.search(url_or_uri)
-        if match:
-            id_match = re.search(_SPOTIFY_ALBUM_ID, match.group(0))
-            if id_match:
-                return id_match.group(0)
-    return None
+def extract_spotify_link(url_or_uri: str) -> SpotifyLink | None:
+    return parse_spotify_link(url_or_uri)
 
 
 def _parse_spotify_uri(text: str, seen: set[str]) -> list[ParsedLink]:
     results: list[ParsedLink] = []
     for match in _SPOTIFY_URI_EXTRACTOR.finditer(text):
-        album_id = match.group(1)
-        if album_id in seen:
+        spotify_link = parse_spotify_link(match.group(0))
+        if not spotify_link or spotify_link.id in seen:
             continue
-        seen.add(album_id)
+        seen.add(spotify_link.id)
         results.append(
             ParsedLink(
                 platform=Platform.SPOTIFY,
                 url=match.group(0),
-                spotify_album_id=album_id,
+                spotify_link=spotify_link,
             )
         )
     return results
@@ -109,16 +99,16 @@ def extract_urls(text: str) -> list[ParsedLink]:
             match = pattern.search(url)
             if match:
                 matched_url = match.group(0)
-                spotify_album_id = None
+                spotify_link = None
                 if platform == Platform.SPOTIFY:
-                    spotify_album_id = extract_spotify_album_id(matched_url)
-                    if spotify_album_id:
-                        seen_spotify_ids.add(spotify_album_id)
+                    spotify_link = parse_spotify_link(matched_url)
+                    if spotify_link:
+                        seen_spotify_ids.add(spotify_link.id)
                 results.append(
                     ParsedLink(
                         platform=platform,
                         url=matched_url,
-                        spotify_album_id=spotify_album_id,
+                        spotify_link=spotify_link,
                     )
                 )
                 break
