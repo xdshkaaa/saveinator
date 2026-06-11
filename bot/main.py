@@ -38,8 +38,9 @@ async def health(_request: web.Request) -> web.Response:
 async def run_webhook(dp, bot: Bot):
     from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-    from bot.metrics import refresh_uptime
+    from bot.metrics import init_platform_metrics, refresh_uptime
 
+    init_platform_metrics()
     app = web.Application()
     app.router.add_get("/health", health)
 

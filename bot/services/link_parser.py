@@ -25,14 +25,21 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
             re.IGNORECASE,
         ),
     ),
-    (
-        Platform.INSTAGRAM,
-        re.compile(
-            r"(?:https?://)?(?:www\.)?"
-            r"instagram\.com/(?:p|reels?|tv)/[\w-]+/?(?:[?&]\S*)?",
-            re.IGNORECASE,
-        ),
-    ),
+    *[
+        (
+            Platform.INSTAGRAM,
+            re.compile(
+                r"(?:https?://)?(?:www\.)?" + pattern,
+                re.IGNORECASE,
+            ),
+        )
+        for pattern in (
+            r"instagram\.com/(?:p|reels?|tv)/[\w-]+/?(?:[?&#]\S*)?",
+            r"instagr\.am/(?:p|reels?|tv)/[\w-]+/?(?:[?&#]\S*)?",
+            r"instagram\.com/share/(?:reel|p)/[\w-]+/?(?:[?&#]\S*)?",
+            r"instagram\.com/stories/[\w.-]+/\d+/?(?:[?&#]\S*)?",
+        )
+    ],
     (
         Platform.X,
         re.compile(

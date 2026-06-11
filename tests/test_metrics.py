@@ -4,6 +4,7 @@ from bot.metrics import (
     DOWNLOADS_ENQUEUED_TOTAL,
     ERRORS_TOTAL,
     MESSAGES_RECEIVED_TOTAL,
+    init_platform_metrics,
     record_command,
     record_error,
     record_message,
@@ -39,6 +40,11 @@ class TestBotMetrics:
         DOWNLOADS_ENQUEUED_TOTAL.labels(platform="spotify").inc()
         output = generate_latest(REGISTRY).decode()
         assert 'platform="spotify"' in output
+
+    def test_init_platform_metrics_exports_instagram(self):
+        init_platform_metrics()
+        output = generate_latest(REGISTRY).decode()
+        assert 'platform="instagram"' in output
 
     def test_uptime_gauge_updates(self):
         refresh_uptime()

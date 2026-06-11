@@ -60,6 +60,21 @@ class TestLinkParser:
         assert len(urls) == 1
         assert urls[0].platform == Platform.INSTAGRAM
 
+    def test_instagram_share_reel(self):
+        urls = extract_urls("https://www.instagram.com/share/reel/BAEo123abc/")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.INSTAGRAM
+
+    def test_instagram_instagr_am_post(self):
+        urls = extract_urls("https://instagr.am/p/ABC123xyz/")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.INSTAGRAM
+
+    def test_instagram_story(self):
+        urls = extract_urls("https://www.instagram.com/stories/username/1234567890123456789/")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.INSTAGRAM
+
     def test_x_status(self):
         urls = extract_urls("https://x.com/user/status/1234567890123456789")
         assert len(urls) == 1

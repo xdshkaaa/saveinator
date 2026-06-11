@@ -49,6 +49,8 @@ ACTIVE_CHATS = Gauge(
     "Recently active unique chat IDs",
 )
 
+DOWNLOAD_PLATFORMS = ("youtube", "tiktok", "instagram", "x", "pinterest", "spotify")
+
 DOWNLOADS_ENQUEUED_TOTAL = Counter(
     "saveinator_downloads_enqueued_total",
     "Download jobs started by platform (Celery video/Pinterest, inline Spotify)",
@@ -79,6 +81,11 @@ SPAM_BLOCKED_TOTAL = Counter(
 )
 
 _active_chat_ids: set[int] = set()
+
+
+def init_platform_metrics() -> None:
+    for platform in DOWNLOAD_PLATFORMS:
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform=platform).inc(0)
 
 
 def refresh_uptime() -> None:

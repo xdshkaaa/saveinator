@@ -6,7 +6,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from bot.api import register_download_routes
 from bot.config import settings
-from bot.metrics import refresh_uptime
+from bot.metrics import init_platform_metrics, refresh_uptime
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ async def metrics(_request: web.Request) -> web.Response:
 
 
 async def start_metrics_server() -> web.AppRunner:
+    init_platform_metrics()
     app = web.Application()
     app.router.add_get("/health", health)
     app.router.add_get("/metrics", metrics)

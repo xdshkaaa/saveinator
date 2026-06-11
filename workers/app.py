@@ -4,7 +4,11 @@ from celery import Celery
 from celery.signals import task_failure, task_postrun, task_prerun, worker_ready
 
 from bot.config import settings
-from workers.metrics import CELERY_TASKS_TOTAL, DOWNLOAD_DURATION_SECONDS
+from workers.metrics import (
+    CELERY_TASKS_TOTAL,
+    DOWNLOAD_DURATION_SECONDS,
+    init_worker_platform_metrics,
+)
 from workers.metrics_server import start_worker_metrics_server
 
 app = Celery(
@@ -36,6 +40,7 @@ _task_start_times: dict[str, float] = {}
 
 @worker_ready.connect
 def _on_worker_ready(**_kwargs) -> None:
+    init_worker_platform_metrics()
     start_worker_metrics_server()
 
 

@@ -4,7 +4,7 @@
   "tags": ["saveinator", "telegram"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "panels": [
     {
@@ -79,11 +79,12 @@
       "title": "Downloads enqueued / min",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
       "targets": [
-        {
-          "expr": "rate(saveinator_downloads_enqueued_total[5m]) * 60",
-          "legendFormat": "{{platform}}",
-          "refId": "A"
-        }
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"youtube\"}[5m]) * 60", "legendFormat": "youtube", "refId": "A"},
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"tiktok\"}[5m]) * 60", "legendFormat": "tiktok", "refId": "B"},
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"instagram\"}[5m]) * 60", "legendFormat": "instagram", "refId": "C"},
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"x\"}[5m]) * 60", "legendFormat": "x", "refId": "D"},
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"pinterest\"}[5m]) * 60", "legendFormat": "pinterest", "refId": "E"},
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"spotify\"}[5m]) * 60", "legendFormat": "spotify", "refId": "F"}
       ]
     },
     {
@@ -118,11 +119,11 @@
       "title": "yt-dlp errors / min",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
       "targets": [
-        {
-          "expr": "rate(saveinator_ytdlp_errors_total[5m]) * 60",
-          "legendFormat": "{{platform}}",
-          "refId": "A"
-        }
+        {"expr": "rate(saveinator_ytdlp_errors_total{platform=\"youtube\"}[5m]) * 60", "legendFormat": "youtube", "refId": "A"},
+        {"expr": "rate(saveinator_ytdlp_errors_total{platform=\"tiktok\"}[5m]) * 60", "legendFormat": "tiktok", "refId": "B"},
+        {"expr": "rate(saveinator_ytdlp_errors_total{platform=\"instagram\"}[5m]) * 60", "legendFormat": "instagram", "refId": "C"},
+        {"expr": "rate(saveinator_ytdlp_errors_total{platform=\"x\"}[5m]) * 60", "legendFormat": "x", "refId": "D"},
+        {"expr": "rate(saveinator_ytdlp_errors_total{platform=\"pinterest\"}[5m]) * 60", "legendFormat": "pinterest", "refId": "E"}
       ]
     }
   ]
