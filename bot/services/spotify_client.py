@@ -1,18 +1,18 @@
+import asyncio
 import base64
 import json
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
+import httpx
 import structlog
 
 from bot.config import Settings
+from bot.services.spotify_cache import get_cached_release, set_cached_release
 from bot.services.spotify_models import (
     NormalizedSpotifyRelease,
     normalize_album,
-    normalize_track,
     release_from_track,
 )
 
@@ -61,7 +61,7 @@ def _basic_auth_header(client_id: str, client_secret: str) -> str:
     return "Basic " + base64.b64encode(credentials).decode("ascii")
 
 
-def _http_json(
+async def _http_json(
     method: str,
     url: str,
     *,
@@ -69,32 +69,25 @@ def _http_json(
     data: bytes | None = None,
     timeout: float = 10.0,
 ) -> tuple[int, dict[str, str], dict | list]:
-    request = urllib.request.Request(url, data=data, method=method)
-    for key, value in (headers or {}).items():
-        request.add_header(key, value)
-
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = response.read().decode("utf-8")
-            response_headers = {k.lower(): v for k, v in response.headers.items()}
-            if not body:
-                return response.status, response_headers, {}
-            return response.status, response_headers, json.loads(body)
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8")
-        response_headers = {k.lower(): v for k, v in exc.headers.items()}
-        payload: dict | list = {}
-        if body:
-            try:
-                payload = json.loads(body)
-            except json.JSONDecodeError:
-                payload = {}
-        return exc.code, response_headers, payload
-    except TimeoutError as exc:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.request(method, url, headers=headers, content=data)
+    except httpx.TimeoutException as exc:
         raise SpotifyTimeoutError("Spotify API request timed out") from exc
 
+    response_headers = {key.lower(): value for key, value in response.headers.items()}
+    body = response.text
+    if not body:
+        return response.status_code, response_headers, {}
 
-def _request(
+    try:
+        payload: dict | list = json.loads(body)
+    except json.JSONDecodeError:
+        payload = {}
+    return response.status_code, response_headers, payload
+
+
+async def _request(
     method: str,
     url: str,
     *,
@@ -103,7 +96,7 @@ def _request(
     timeout: float = 10.0,
     attempt: int = 0,
 ) -> dict | list:
-    status, response_headers, payload = _http_json(
+    status, response_headers, payload = await _http_json(
         method, url, headers=headers, data=data, timeout=timeout
     )
 
@@ -113,8 +106,8 @@ def _request(
         retry_after = response_headers.get("retry-after")
         delay = float(retry_after) if retry_after else 2 ** attempt
         logger.warning("spotify rate limited, retrying", status=status, delay=delay, attempt=attempt)
-        time.sleep(delay)
-        return _request(
+        await asyncio.sleep(delay)
+        return await _request(
             method,
             url,
             headers=headers,
@@ -133,7 +126,7 @@ def _request(
     return payload
 
 
-def _get_access_token(settings: Settings) -> str:
+async def _get_access_token(settings: Settings) -> str:
     now = time.time()
     if _token_cache.access_token and now < _token_cache.expires_at - 30:
         return _token_cache.access_token
@@ -141,8 +134,8 @@ def _get_access_token(settings: Settings) -> str:
     if not settings.spotify_client_id or not settings.spotify_client_secret:
         raise SpotifyAuthError("Spotify credentials are not configured")
 
-    body = urllib.parse.urlencode({"grant_type": "client_credentials"}).encode()
-    status, _, payload = _http_json(
+    body = urlencode({"grant_type": "client_credentials"}).encode()
+    status, _, payload = await _http_json(
         "POST",
         TOKEN_URL,
         headers={
@@ -173,23 +166,23 @@ def _get_access_token(settings: Settings) -> str:
     return access_token
 
 
-def _authorized_headers(settings: Settings) -> dict[str, str]:
-    token = _get_access_token(settings)
+async def _authorized_headers(settings: Settings) -> dict[str, str]:
+    token = await _get_access_token(settings)
     return {"Authorization": f"Bearer {token}"}
 
 
-def _fetch_album_tracks(settings: Settings, album_id: str) -> list[dict]:
+async def _fetch_album_tracks(settings: Settings, album_id: str) -> list[dict]:
     tracks: list[dict] = []
     offset = 0
     limit = 50
 
     while True:
-        query = urllib.parse.urlencode({"limit": limit, "offset": offset})
+        query = urlencode({"limit": limit, "offset": offset})
         url = f"{API_BASE}/albums/{album_id}/tracks?{query}"
-        payload = _request(
+        payload = await _request(
             "GET",
             url,
-            headers=_authorized_headers(settings),
+            headers=await _authorized_headers(settings),
             timeout=settings.spotify_api_timeout_seconds,
         )
         if not isinstance(payload, dict):
@@ -205,27 +198,27 @@ def _fetch_album_tracks(settings: Settings, album_id: str) -> list[dict]:
     return tracks
 
 
-def fetch_album(album_id: str, settings: Settings) -> NormalizedSpotifyRelease:
+async def fetch_album(album_id: str, settings: Settings) -> NormalizedSpotifyRelease:
     url = f"{API_BASE}/albums/{album_id}"
-    album_payload = _request(
+    album_payload = await _request(
         "GET",
         url,
-        headers=_authorized_headers(settings),
+        headers=await _authorized_headers(settings),
         timeout=settings.spotify_api_timeout_seconds,
     )
     if not isinstance(album_payload, dict):
         raise SpotifyApiError("Unexpected Spotify album response")
 
-    tracks = _fetch_album_tracks(settings, album_id)
+    tracks = await _fetch_album_tracks(settings, album_id)
     return normalize_album(album_payload, tracks)
 
 
-def fetch_track(track_id: str, settings: Settings) -> NormalizedSpotifyRelease:
+async def fetch_track(track_id: str, settings: Settings) -> NormalizedSpotifyRelease:
     url = f"{API_BASE}/tracks/{track_id}"
-    track_payload = _request(
+    track_payload = await _request(
         "GET",
         url,
-        headers=_authorized_headers(settings),
+        headers=await _authorized_headers(settings),
         timeout=settings.spotify_api_timeout_seconds,
     )
     if not isinstance(track_payload, dict):
@@ -234,7 +227,24 @@ def fetch_track(track_id: str, settings: Settings) -> NormalizedSpotifyRelease:
     return release_from_track(track_payload)
 
 
-def fetch_release(link_type: str, resource_id: str, settings: Settings) -> NormalizedSpotifyRelease:
+async def fetch_release(
+    link_type: str,
+    resource_id: str,
+    settings: Settings,
+) -> NormalizedSpotifyRelease:
+    cached = await get_cached_release(link_type, resource_id)
+    if cached is not None:
+        return cached
+
     if link_type == "track":
-        return fetch_track(resource_id, settings)
-    return fetch_album(resource_id, settings)
+        release = await fetch_track(resource_id, settings)
+    else:
+        release = await fetch_album(resource_id, settings)
+
+    await set_cached_release(
+        link_type,
+        resource_id,
+        release,
+        settings.spotify_meta_cache_ttl_seconds,
+    )
+    return release

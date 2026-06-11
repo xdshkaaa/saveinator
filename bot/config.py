@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     spotify_track_timeout_seconds: int = 15
     spotify_dl_output_format: str = "mp3"
     spotify_lock_max_tracks: int = 50
+    spotify_download_concurrency: int = 3
+    spotify_meta_cache_ttl_seconds: int = 3600
+    youtube_search_cache_ttl_seconds: int = 604800
 
     pinterest_enabled: bool = True
     pinterest_timeout_seconds: int = 30

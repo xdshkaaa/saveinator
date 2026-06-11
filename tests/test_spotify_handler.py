@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from bot.handlers.group import handle_group_message
 from bot.services.spotify_models import NormalizedSpotifyRelease, NormalizedSpotifyTrack
@@ -93,10 +94,6 @@ async def _noop_release(*_args, **_kwargs):
     return None
 
 
-async def _noop_extend(*_args, **_kwargs):
-    return True
-
-
 def _patch_spotify_settings(monkeypatch):
     monkeypatch.setattr("bot.handlers.group.settings.spotify_enabled", True)
     monkeypatch.setattr("bot.handlers.group.settings.spotify_client_id", "client-id")
@@ -107,7 +104,6 @@ def _patch_spotify_settings(monkeypatch):
 
     monkeypatch.setattr("bot.handlers.group.acquire_user_lock", _acquire_lock)
     monkeypatch.setattr("bot.services.spotify_handler.release_user_lock", _noop_release)
-    monkeypatch.setattr("bot.services.spotify_handler.extend_user_lock", _noop_extend)
 
 
 async def test_spotify_album_replies_metadata_card_without_download(monkeypatch):
@@ -120,10 +116,10 @@ async def test_spotify_album_replies_metadata_card_without_download(monkeypatch)
         "bot.handlers.group.download_and_send_task.delay",
         lambda **kwargs: delayed.append(kwargs),
     )
-    monkeypatch.setattr(
-        "bot.services.spotify_handler.fetch_release",
-        lambda link_type, resource_id, settings: release,
-    )
+    async def _fetch_release(link_type, resource_id, settings):
+        return release
+
+    monkeypatch.setattr("bot.services.spotify_handler.fetch_release", _fetch_release)
 
     await handle_group_message(message, lang="en")
 
@@ -163,10 +159,10 @@ async def test_spotify_track_replies_metadata_card(monkeypatch):
     )
 
     _patch_spotify_settings(monkeypatch)
-    monkeypatch.setattr(
-        "bot.services.spotify_handler.fetch_release",
-        lambda link_type, resource_id, settings: release,
-    )
+    async def _fetch_release(link_type, resource_id, settings):
+        return release
+
+    monkeypatch.setattr("bot.services.spotify_handler.fetch_release", _fetch_release)
 
     await handle_group_message(message, lang="en")
 
@@ -186,13 +182,29 @@ async def test_spotify_downloads_tracks_via_youtube(monkeypatch, tmp_path: Path)
     _patch_spotify_settings(monkeypatch)
     monkeypatch.setattr("bot.handlers.group.settings.spotify_download_enabled", True)
     monkeypatch.setattr("bot.services.spotify_handler.is_spotify_download_enabled", lambda _s: True)
+    async def _fetch_release(link_type, resource_id, settings):
+        return release
+
+    monkeypatch.setattr("bot.services.spotify_handler.fetch_release", _fetch_release)
+    async def _download_track_audio(track, track_dir, settings_obj, semaphore):
+        async with semaphore:
+            return str(audio_path)
+
     monkeypatch.setattr(
-        "bot.services.spotify_handler.fetch_release",
-        lambda link_type, resource_id, settings: release,
+        "bot.services.spotify_handler._download_track_audio",
+        _download_track_audio,
     )
     monkeypatch.setattr(
-        "bot.services.spotify_handler.download_track_from_youtube",
-        lambda track, output_dir, settings: audio_path,
+        "bot.services.spotify_handler._try_acquire_release_download_lock",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        "bot.services.spotify_handler.get_cached_youtube_video_id",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "bot.services.spotify_handler._release_release_download_lock",
+        AsyncMock(),
     )
 
     class FakeTempDir:

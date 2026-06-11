@@ -1,3 +1,5 @@
+import pytest
+
 from bot.services.spotify_models import (
     NormalizedSpotifyRelease,
     NormalizedSpotifyTrack,
@@ -112,48 +114,46 @@ class TestNormalizeTrack:
 
 
 class TestSpotifyHttpErrors:
-    def test_request_raises_404(self, monkeypatch):
-        def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
+    async def test_request_raises_404(self, monkeypatch):
+        async def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
             return 404, {}, {}
 
         monkeypatch.setattr("bot.services.spotify_client._http_json", fake_http_json)
 
-        try:
-            _request("GET", "https://api.spotify.com/v1/albums/missing", timeout=1.0)
-        except SpotifyNotFoundError:
-            return
-
-        raise AssertionError("Expected SpotifyNotFoundError")
+        with pytest.raises(SpotifyNotFoundError):
+            await _request("GET", "https://api.spotify.com/v1/albums/missing", timeout=1.0)
 
 
 class TestSpotify429Retry:
-    def test_request_retries_on_429_then_succeeds(self, monkeypatch):
+    async def test_request_retries_on_429_then_succeeds(self, monkeypatch):
         calls = {"count": 0}
 
-        def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
+        async def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
             calls["count"] += 1
             if calls["count"] == 1:
                 return 429, {"retry-after": "0"}, {}
             return 200, {}, {"ok": True}
 
-        monkeypatch.setattr("bot.services.spotify_client._http_json", fake_http_json)
-        monkeypatch.setattr("bot.services.spotify_client.time.sleep", lambda _seconds: None)
+        async def fake_sleep(_seconds):
+            return None
 
-        payload = _request("GET", "https://api.spotify.com/v1/test", timeout=1.0)
+        monkeypatch.setattr("bot.services.spotify_client._http_json", fake_http_json)
+        monkeypatch.setattr("bot.services.spotify_client.asyncio.sleep", fake_sleep)
+
+        payload = await _request("GET", "https://api.spotify.com/v1/test", timeout=1.0)
 
         assert payload == {"ok": True}
         assert calls["count"] == 2
 
-    def test_request_raises_after_max_retries(self, monkeypatch):
-        def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
+    async def test_request_raises_after_max_retries(self, monkeypatch):
+        async def fake_http_json(method, url, *, headers=None, data=None, timeout=10.0):
             return 429, {}, {}
 
+        async def fake_sleep(_seconds):
+            return None
+
         monkeypatch.setattr("bot.services.spotify_client._http_json", fake_http_json)
-        monkeypatch.setattr("bot.services.spotify_client.time.sleep", lambda _seconds: None)
+        monkeypatch.setattr("bot.services.spotify_client.asyncio.sleep", fake_sleep)
 
-        try:
-            _request("GET", "https://api.spotify.com/v1/test", timeout=1.0)
-        except SpotifyRateLimitError:
-            return
-
-        raise AssertionError("Expected SpotifyRateLimitError")
+        with pytest.raises(SpotifyRateLimitError):
+            await _request("GET", "https://api.spotify.com/v1/test", timeout=1.0)

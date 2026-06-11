@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 
 @dataclass
@@ -77,6 +77,40 @@ def normalize_album(api_album: dict, paginated_tracks: list[dict]) -> Normalized
         spotify_url=api_album.get("external_urls", {}).get(
             "spotify", f"https://open.spotify.com/album/{album_id}"
         ),
+        tracks=tracks,
+    )
+
+
+def track_to_dict(track: NormalizedSpotifyTrack) -> dict:
+    return asdict(track)
+
+
+def release_to_dict(release: NormalizedSpotifyRelease) -> dict:
+    return {
+        "source_id": release.source_id,
+        "title": release.title,
+        "artists": release.artists,
+        "album_type": release.album_type,
+        "release_date": release.release_date,
+        "cover_url": release.cover_url,
+        "spotify_url": release.spotify_url,
+        "tracks": [track_to_dict(track) for track in release.tracks],
+    }
+
+
+def release_from_dict(data: dict) -> NormalizedSpotifyRelease:
+    tracks = [
+        NormalizedSpotifyTrack(**track_data)
+        for track_data in data.get("tracks", [])
+    ]
+    return NormalizedSpotifyRelease(
+        source_id=data["source_id"],
+        title=data["title"],
+        artists=data["artists"],
+        album_type=data["album_type"],
+        release_date=data["release_date"],
+        cover_url=data.get("cover_url"),
+        spotify_url=data["spotify_url"],
         tracks=tracks,
     )
 
