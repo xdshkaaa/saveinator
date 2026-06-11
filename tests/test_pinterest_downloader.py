@@ -82,6 +82,31 @@ class TestDownloadPinterest:
         assert item.original_media_url == media.src
         assert item.file_size == len(b"image-bytes")
 
+    def test_pin_returns_single_primary_image(self, tmp_path, monkeypatch):
+        fake_dl = MagicMock()
+
+        def fake_scrape_and_download(url, output_dir, num, download_streams, caption):
+            assert num == 1
+            items = []
+            for idx, name in enumerate(("small.jpg", "large.jpg")):
+                media = _make_media(local_name=name, alt=f"img-{idx}")
+                file_path = Path(output_dir) / name
+                file_path.write_bytes(b"x" * (idx + 1) * 100)
+                media.set_local_path(file_path)
+                items.append(media)
+            return items
+
+        fake_dl.scrape_and_download.side_effect = fake_scrape_and_download
+        monkeypatch.setattr(
+            "workers.pinterest_downloader._create_client",
+            lambda: fake_dl,
+        )
+
+        result = download_pinterest("https://www.pinterest.com/pin/123/", tmp_path)
+
+        assert len(result.items) == 1
+        assert result.items[0].file_path.endswith("large.jpg")
+
     def test_filters_videos_when_disabled(self, tmp_path, monkeypatch):
         fake_dl = MagicMock()
         image = _make_media(local_name="photo.jpg")

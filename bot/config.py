@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     pinterest_enabled: bool = True
     pinterest_timeout_seconds: int = 30
-    pinterest_max_items: int = 10
+    pinterest_max_items: int = 1
     pinterest_download_images: bool = True
     pinterest_download_videos: bool = True
     pinterest_api_timeout_seconds: int = 10

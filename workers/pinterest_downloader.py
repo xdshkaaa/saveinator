@@ -16,6 +16,8 @@ from bot.services.pinterest_parser import parse_pinterest_url
 logger = logging.getLogger(__name__)
 
 _VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mov", ".m4v"})
+_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
+_SINGLE_ITEM_URL_TYPES = frozenset({PinterestUrlType.PIN, PinterestUrlType.SHORT})
 
 
 class PinterestDownloadError(Exception):
@@ -27,11 +29,23 @@ class PinterestNoMediaError(PinterestDownloadError):
 
 
 def _media_type(item: PinterestMedia) -> str:
-    if item.video_stream is not None:
-        return "video"
+    if item.local_path and item.local_path.suffix.lower() in _IMAGE_EXTENSIONS:
+        return "image"
     if item.local_path and item.local_path.suffix.lower() in _VIDEO_EXTENSIONS:
         return "video"
+    if item.video_stream is not None:
+        return "video"
     return "image"
+
+
+def _pick_primary_item(items: list[PinterestMediaItem]) -> list[PinterestMediaItem]:
+    """Return a single best item: video preferred, otherwise largest image."""
+    if not items:
+        return []
+    videos = [item for item in items if item.media_type == "video"]
+    if videos:
+        return [max(videos, key=lambda item: item.file_size)]
+    return [max(items, key=lambda item: item.file_size)]
 
 
 def _should_include_item(
@@ -90,6 +104,8 @@ def download_pinterest(
         raise PinterestDownloadError(f"Invalid or unsupported Pinterest URL: {url}")
 
     limit = max_items if max_items is not None else settings.pinterest_max_items
+    if parsed.url_type in _SINGLE_ITEM_URL_TYPES:
+        limit = 1
     include_images = (
         download_images if download_images is not None else settings.pinterest_download_images
     )
@@ -144,6 +160,9 @@ def download_pinterest(
         raise PinterestNoMediaError(
             "No matching media found for the requested image/video filters"
         )
+
+    if parsed.url_type in _SINGLE_ITEM_URL_TYPES:
+        result.items = _pick_primary_item(result.items)
 
     return result
 

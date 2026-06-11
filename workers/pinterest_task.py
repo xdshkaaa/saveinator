@@ -2,6 +2,7 @@ import asyncio
 import os
 import signal
 import uuid
+from pathlib import Path
 
 import structlog
 from aiogram import Bot
@@ -79,29 +80,38 @@ def pinterest_download_task(
 
                 await _delete_message(bot, chat_id, message_id)
 
-                sent = 0
-                for item in result.items:
-                    file_path = item.file_path
-                    size_mb = item.file_size / (1024 * 1024)
-                    if size_mb > settings.send_video_limit_mb:
-                        continue
-                    title = item.title or os.path.basename(file_path)
-                    await send_file(bot, file_path, chat_id, lang, title)
-                    sent += 1
-                    await _record_download_safe(
-                        url,
-                        "pinterest",
-                        item.media_type,
-                        size_mb,
-                        DownloadStatus.COMPLETED,
-                        user_id,
-                        chat_id,
-                    )
-
-                if sent == 0:
+                item = result.items[0]
+                file_path = Path(item.file_path)
+                size_mb = item.file_size / (1024 * 1024)
+                size_limit = (
+                    settings.send_video_limit_mb
+                    if item.media_type == "video"
+                    else settings.send_document_limit_mb
+                )
+                if size_mb > size_limit:
                     await bot.send_message(
                         chat_id, get("pinterest.all_too_large", lang)
                     )
+                    return
+
+                title = item.title or os.path.basename(file_path)
+                await send_file(
+                    bot,
+                    file_path,
+                    chat_id,
+                    lang,
+                    title,
+                    media_type=item.media_type,
+                )
+                await _record_download_safe(
+                    url,
+                    "pinterest",
+                    item.media_type,
+                    size_mb,
+                    DownloadStatus.COMPLETED,
+                    user_id,
+                    chat_id,
+                )
 
             except PinterestTimeoutError:
                 logger.warning("pinterest download timed out", task_id=task_id, url=url)

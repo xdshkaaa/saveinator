@@ -18,6 +18,9 @@ class FakeBot:
     async def delete_message(self, chat_id: int, message_id: int):
         self.deleted.append((chat_id, message_id))
 
+    async def send_photo(self, *args, **kwargs):
+        self.sent.append(("photo", args, kwargs))
+
     async def send_video(self, *args, **kwargs):
         self.sent.append(("video", args, kwargs))
 
@@ -59,8 +62,8 @@ def test_pinterest_task_sends_single_image(monkeypatch):
         f.write_bytes(b"image data")
         return _result_from_paths(url, [f])
 
-    async def fake_send_file(bot, path, chat_id, lang, title):
-        sent_files.append((path, chat_id, title))
+    async def fake_send_file(bot, path, chat_id, lang, title, media_type=None):
+        sent_files.append((path, chat_id, title, media_type))
 
     async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_a, **_k):
         recorded.append((url, platform, size_mb))
@@ -88,20 +91,31 @@ def test_pinterest_task_sends_single_image(monkeypatch):
     assert recorded[0][1] == "pinterest"
 
 
-def test_pinterest_task_sends_multiple_files(monkeypatch):
+def test_pinterest_task_sends_video_with_media_type(monkeypatch):
     fake_bot = FakeBot()
-    sent_files: list[tuple] = []
+    sent: list[tuple] = []
 
     def fake_download_pinterest(url, output_dir, max_items):
-        paths = []
-        for i in range(3):
-            f = output_dir / f"image_{i}.jpg"
-            f.write_bytes(b"img")
-            paths.append(f)
-        return _result_from_paths(url, paths)
+        f = output_dir / "clip.mp4"
+        f.write_bytes(b"video-data")
+        return PinterestDownloadResult(
+            url=url,
+            url_type=PinterestUrlType.PIN,
+            items=[
+                PinterestMediaItem(
+                    source_url=url,
+                    media_type="video",
+                    title="Clip",
+                    description=None,
+                    original_media_url="https://v.pinimg.com/clip.mp4",
+                    file_path=str(f),
+                    file_size=len(b"video-data"),
+                )
+            ],
+        )
 
-    async def fake_send_file(bot, path, chat_id, lang, title):
-        sent_files.append(path)
+    async def fake_send_file(bot, path, chat_id, lang, title, media_type=None):
+        sent.append(media_type)
 
     async def fake_record_download_safe(*_a, **_k):
         pass
@@ -116,13 +130,13 @@ def test_pinterest_task_sends_multiple_files(monkeypatch):
     )
 
     pinterest_download_task.run(
-        url="https://www.pinterest.com/user/board/",
+        url="https://www.pinterest.com/pin/123/",
         chat_id=10,
         user_id=20,
         message_id=30,
     )
 
-    assert len(sent_files) == 3
+    assert sent == ["video"]
 
 
 def test_pinterest_task_handles_no_media(monkeypatch):
