@@ -44,7 +44,10 @@ async def run_webhook(dp, bot: Bot):
 
     async def metrics_handler(_request: web.Request) -> web.Response:
         refresh_uptime()
-        return web.Response(body=generate_latest(), content_type=CONTENT_TYPE_LATEST)
+        return web.Response(
+            body=generate_latest(),
+            headers={"Content-Type": CONTENT_TYPE_LATEST},
+        )
 
     app.router.add_get("/metrics", metrics_handler)
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
