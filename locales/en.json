@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, or X/Twitter link in any group and I'll help you download the video.",
+    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, or Spotify album link in any group. I can download videos and show Spotify release info.",
     "btn_en": "\ud83c\uddec\ud83c\udde7 English",
     "btn_ru": "\ud83c\uddf7\ud83c\uddfa \u0420\u0443\u0441\u0441\u043a\u0438\u0439"
   },
@@ -13,9 +13,25 @@
     "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
   },
   "errors": {
-    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, and X/Twitter.",
+    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, and Spotify album links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "generic": "Something went wrong. Please try again later."
+  },
+  "spotify": {
+    "card_title": "\ud83c\udfb5 {name}",
+    "artist": "Artist: {artist}",
+    "album_type": "Type: {type}",
+    "type_album": "album",
+    "type_single": "single",
+    "type_compilation": "compilation",
+    "tracks_count": "Tracks: {count}",
+    "release_date": "Release date: {date}",
+    "btn_open": "Open in Spotify",
+    "no_download": "For this release, only the card and Spotify links are available; downloading Spotify content is not supported.",
+    "not_found": "Spotify album not found.",
+    "not_configured": "Spotify support is not configured on this bot.",
+    "api_error": "Could not fetch Spotify release info. Please try again later.",
+    "disabled": "Spotify support is disabled on this bot."
   }
 }

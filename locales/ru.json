@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Добро пожаловать! Отправь мне ссылку на YouTube, TikTok, Instagram или X/Twitter в любую группу, и я помогу скачать видео.",
+    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter или Spotify-альбом в любую группу. Я скачиваю видео и показываю информацию о релизах Spotify.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -13,9 +13,25 @@
     "sent_as_doc": "📄 Отправлено как документ ({size} МБ)"
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram и X/Twitter.",
+    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter и ссылками на Spotify-альбомы.",
     "rate_limit": "Не спеши! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуйте позже.",
     "generic": "Что-то пошло не так. Попробуйте позже."
+  },
+  "spotify": {
+    "card_title": "🎵 {name}",
+    "artist": "Исполнитель: {artist}",
+    "album_type": "Тип: {type}",
+    "type_album": "альбом",
+    "type_single": "сингл",
+    "type_compilation": "сборник",
+    "tracks_count": "Треков: {count}",
+    "release_date": "Дата релиза: {date}",
+    "btn_open": "Открыть в Spotify",
+    "no_download": "Для этого релиза доступна только карточка и ссылки Spotify; скачивание Spotify-контента не поддерживается.",
+    "not_found": "Spotify-альбом не найден.",
+    "not_configured": "Поддержка Spotify не настроена на этом боте.",
+    "api_error": "Не удалось получить информацию о релизе Spotify. Попробуйте позже.",
+    "disabled": "Поддержка Spotify отключена на этом боте."
   }
 }

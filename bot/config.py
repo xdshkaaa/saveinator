@@ -29,5 +29,10 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     log_level: str = "INFO"
 
+    spotify_enabled: bool = False
+    spotify_client_id: str = ""
+    spotify_client_secret: str = ""
+    spotify_api_timeout_seconds: int = 10
+
 
 settings = Settings()

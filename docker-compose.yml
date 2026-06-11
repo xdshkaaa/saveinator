@@ -35,6 +35,10 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       USE_POLLING: "true"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SPOTIFY_ENABLED: ${SPOTIFY_ENABLED:-false}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      SPOTIFY_API_TIMEOUT_SECONDS: ${SPOTIFY_API_TIMEOUT_SECONDS:-10}
     depends_on:
       db:
         condition: service_healthy
