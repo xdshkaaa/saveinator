@@ -1,6 +1,6 @@
 # Pinterest Downloader
 
-Saveinator downloads Pinterest images and video streams using the unofficial [`pinterest-dl`](https://github.com/sean1832/pinterest-dl) library.
+Saveinator downloads Pinterest images and video streams. **Pin URLs** use Pinterest `PinResource` to fetch the main pin (not related pins). **Board URLs** use [`pinterest-dl`](https://github.com/sean1832/pinterest-dl).
 
 ## Supported URLs
 

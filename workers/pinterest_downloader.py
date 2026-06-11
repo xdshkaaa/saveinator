@@ -12,6 +12,8 @@ from bot.services.pinterest_models import (
     PinterestUrlType,
 )
 from bot.services.pinterest_parser import parse_pinterest_url
+from bot.services.pinterest_pin_fetcher import fetch_pin_media
+from pinterest_dl.scrapers import operations
 
 logger = logging.getLogger(__name__)
 
@@ -124,13 +126,31 @@ def download_pinterest(
         if settings.pinterest_cookies_path:
             dl = dl.with_cookies_path(settings.pinterest_cookies_path)
 
-        medias = dl.scrape_and_download(
-            url=parsed.url,
-            output_dir=str(output_dir),
-            num=limit,
-            download_streams=include_videos,
-            caption="metadata" if settings.pinterest_save_metadata else "none",
-        )
+        if parsed.url_type in _SINGLE_ITEM_URL_TYPES:
+            scraped = fetch_pin_media(
+                parsed.url,
+                dl,
+                timeout=settings.pinterest_api_timeout_seconds,
+            )
+            medias = operations.download_media(
+                scraped,
+                output_dir,
+                include_videos,
+            )
+            if settings.pinterest_save_metadata:
+                operations.add_captions_to_meta(medias, verbose=False)
+        else:
+            medias = dl.scrape_and_download(
+                url=parsed.url,
+                output_dir=str(output_dir),
+                num=limit,
+                download_streams=include_videos,
+                caption="metadata" if settings.pinterest_save_metadata else "none",
+            )
+    except PinterestNoMediaError:
+        raise
+    except PinterestDownloadError:
+        raise
     except Exception as exc:
         logger.exception("pinterest-dl failed for %s", parsed.url)
         message = str(exc).strip() or exc.__class__.__name__

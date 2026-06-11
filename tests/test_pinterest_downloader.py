@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -40,72 +39,71 @@ class TestDownloadPinterest:
         with pytest.raises(PinterestDownloadError, match="Invalid"):
             download_pinterest("https://example.com/pin/1", tmp_path)
 
-    def test_no_media_raises(self, tmp_path, monkeypatch):
-        fake_dl = MagicMock()
-        fake_dl.scrape_and_download.return_value = []
+    def test_pin_uses_pin_fetcher_not_related_pins(self, tmp_path, monkeypatch):
+        media = _make_media(local_name="main.png", alt="date w Kuriyama Mirai")
+
+        def fake_fetch_pin_media(url, dl_client, timeout):
+            file_path = tmp_path / "main.png"
+            file_path.write_bytes(b"main-image")
+            media.set_local_path(file_path)
+            return [media]
+
+        monkeypatch.setattr(
+            "workers.pinterest_downloader.fetch_pin_media",
+            fake_fetch_pin_media,
+        )
         monkeypatch.setattr(
             "workers.pinterest_downloader._create_client",
-            lambda: fake_dl,
+            lambda: MagicMock(),
+        )
+        monkeypatch.setattr(
+            "workers.pinterest_downloader.operations.download_media",
+            lambda scraped, output_dir, include_videos: scraped,
+        )
+
+        result = download_pinterest("https://www.pinterest.com/pin/607845280985287827/", tmp_path)
+
+        assert len(result.items) == 1
+        assert result.items[0].title == "date w Kuriyama Mirai"
+        assert result.items[0].media_type == "image"
+
+    def test_no_media_raises(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "workers.pinterest_downloader.fetch_pin_media",
+            lambda *args, **kwargs: (_ for _ in ()).throw(PinterestNoMediaError("empty")),
+        )
+        monkeypatch.setattr(
+            "workers.pinterest_downloader._create_client",
+            lambda: MagicMock(),
         )
 
         with pytest.raises(PinterestNoMediaError):
             download_pinterest("https://www.pinterest.com/pin/123/", tmp_path)
 
-    def test_downloads_image_with_metadata(self, tmp_path, monkeypatch):
+    def test_board_still_uses_scrape_and_download(self, tmp_path, monkeypatch):
         fake_dl = MagicMock()
-        media = _make_media(local_name="photo.jpg", alt="Sunset")
-        fake_dl.scrape_and_download.return_value = [media]
-        monkeypatch.setattr(
-            "workers.pinterest_downloader._create_client",
-            lambda: fake_dl,
-        )
+        media = _make_media(local_name="board.jpg")
 
         def fake_scrape_and_download(url, output_dir, num, download_streams, caption):
-            file_path = Path(output_dir) / "photo.jpg"
-            file_path.write_bytes(b"image-bytes")
+            file_path = Path(output_dir) / "board.jpg"
+            file_path.write_bytes(b"board")
             media.set_local_path(file_path)
             return [media]
 
         fake_dl.scrape_and_download.side_effect = fake_scrape_and_download
-
-        result = download_pinterest(
-            "https://www.pinterest.com/pin/123/",
-            tmp_path,
-            max_items=5,
-        )
-
-        assert result.url_type == PinterestUrlType.PIN
-        assert len(result.items) == 1
-        item = result.items[0]
-        assert item.media_type == "image"
-        assert item.title == "Sunset"
-        assert item.original_media_url == media.src
-        assert item.file_size == len(b"image-bytes")
-
-    def test_pin_returns_single_primary_image(self, tmp_path, monkeypatch):
-        fake_dl = MagicMock()
-
-        def fake_scrape_and_download(url, output_dir, num, download_streams, caption):
-            assert num == 1
-            items = []
-            for idx, name in enumerate(("small.jpg", "large.jpg")):
-                media = _make_media(local_name=name, alt=f"img-{idx}")
-                file_path = Path(output_dir) / name
-                file_path.write_bytes(b"x" * (idx + 1) * 100)
-                media.set_local_path(file_path)
-                items.append(media)
-            return items
-
-        fake_dl.scrape_and_download.side_effect = fake_scrape_and_download
         monkeypatch.setattr(
             "workers.pinterest_downloader._create_client",
             lambda: fake_dl,
         )
 
-        result = download_pinterest("https://www.pinterest.com/pin/123/", tmp_path)
+        result = download_pinterest(
+            "https://www.pinterest.com/user/my-board/",
+            tmp_path,
+            max_items=3,
+        )
 
         assert len(result.items) == 1
-        assert result.items[0].file_path.endswith("large.jpg")
+        fake_dl.scrape_and_download.assert_called_once()
 
     def test_filters_videos_when_disabled(self, tmp_path, monkeypatch):
         fake_dl = MagicMock()
@@ -128,7 +126,7 @@ class TestDownloadPinterest:
         )
 
         result = download_pinterest(
-            "https://www.pinterest.com/pin/123/",
+            "https://www.pinterest.com/user/my-board/",
             tmp_path,
             download_images=True,
             download_videos=False,
@@ -138,11 +136,16 @@ class TestDownloadPinterest:
         assert result.items[0].media_type == "image"
 
     def test_private_error_message(self, tmp_path, monkeypatch):
-        fake_dl = MagicMock()
-        fake_dl.scrape_and_download.side_effect = RuntimeError("403 Forbidden private pin")
+        def fake_fetch_pin_media(*args, **kwargs):
+            raise RuntimeError("403 Forbidden private pin")
+
+        monkeypatch.setattr(
+            "workers.pinterest_downloader.fetch_pin_media",
+            fake_fetch_pin_media,
+        )
         monkeypatch.setattr(
             "workers.pinterest_downloader._create_client",
-            lambda: fake_dl,
+            lambda: MagicMock(),
         )
 
         with pytest.raises(PinterestDownloadError, match="private"):
