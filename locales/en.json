@@ -43,6 +43,22 @@
     "api_error": "Could not fetch Spotify release info. Please try again later.",
     "disabled": "Spotify support is disabled on this bot."
   },
+  "admin": {
+    "menu_title": "⚙️ Runtime settings (hot-swap via Redis). Changes apply immediately for all users.",
+    "service_title": "Settings: {service}",
+    "setting_line": "• {label}: {value}",
+    "hot_swap_hint": "Tap a button below to change a value.",
+    "enter_value": "Send a new value for {service} → {label}.\nCurrent: {current}",
+    "invalid_number": "Send a positive whole number.",
+    "saved": "Updated {label} → {value}",
+    "reset_all_done": "All runtime overrides cleared. Defaults from .env are active again.",
+    "reset_done_toast": "Reset done",
+    "btn_global": "🌐 Global document limit",
+    "btn_reset_all": "♻️ Reset all overrides",
+    "btn_reset_service": "♻️ Reset this service",
+    "btn_back": "← Back",
+    "btn_edit": "Edit {kind}"
+  },
   "pinterest": {
     "disabled": "Pinterest support is disabled on this bot.",
     "no_media": "❌ No media found at this Pinterest URL.",

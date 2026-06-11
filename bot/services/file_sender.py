@@ -5,6 +5,7 @@ from aiogram.types import FSInputFile
 
 from bot.config import settings
 from bot.locale import get
+from bot.services.runtime_settings import send_document_limit_mb
 
 _IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
 
@@ -49,7 +50,7 @@ async def send_file(
         except Exception:
             pass
 
-    if size_mb <= settings.send_document_limit_mb:
+    if size_mb <= send_document_limit_mb():
         caption = (get("download.sent_as_doc", lang, size=f"{size_mb:.1f}")
                    if size_mb > settings.send_video_limit_mb else None)
         await bot.send_document(

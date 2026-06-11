@@ -4,7 +4,7 @@ import json
 import structlog
 
 from bot.services.spotify_models import NormalizedSpotifyRelease, release_from_dict, release_to_dict
-from bot.services.user_queue import _get_async_redis
+from bot.services.redis_client import get_async_redis
 
 logger = structlog.get_logger()
 
@@ -26,7 +26,7 @@ async def get_cached_release(
     resource_id: str,
 ) -> NormalizedSpotifyRelease | None:
     try:
-        redis_client = await _get_async_redis()
+        redis_client = await get_async_redis()
         cached = await redis_client.get(meta_cache_key(link_type, resource_id))
         if not cached:
             return None
@@ -48,7 +48,7 @@ async def set_cached_release(
     ttl_seconds: int,
 ) -> None:
     try:
-        redis_client = await _get_async_redis()
+        redis_client = await get_async_redis()
         payload = json.dumps(release_to_dict(release))
         await redis_client.setex(meta_cache_key(link_type, resource_id), ttl_seconds, payload)
     except Exception:
@@ -62,7 +62,7 @@ async def set_cached_release(
 
 async def get_cached_youtube_video_id(query: str) -> str | None:
     try:
-        redis_client = await _get_async_redis()
+        redis_client = await get_async_redis()
         cached = await redis_client.get(youtube_search_cache_key(query))
         if cached:
             return cached
@@ -79,7 +79,7 @@ async def set_cached_youtube_video_id(
     if not video_id:
         return
     try:
-        redis_client = await _get_async_redis()
+        redis_client = await get_async_redis()
         await redis_client.setex(youtube_search_cache_key(query), ttl_seconds, video_id)
     except Exception:
         logger.warning("youtube search cache write failed", query=query, exc_info=True)

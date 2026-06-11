@@ -9,6 +9,7 @@ from aiogram import Bot
 
 from bot.config import settings
 from bot.locale import get
+from bot.services import runtime_settings
 from bot.services.tempfiles import tempfile_manager, sweep_stale
 from bot.services.file_sender import send_file
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
@@ -33,8 +34,16 @@ def _raise_download_timeout(_signum, _frame):
     raise DownloadTimeoutError
 
 
-def _download_with_timeout(url: str, output_dir: Path, format_id: str) -> dict:
-    timeout = settings.download_timeout_seconds
+def _platform_max_file_mb(platform: str) -> int:
+    return runtime_settings.platform_max_file_mb(platform)
+
+
+def _platform_download_timeout_seconds(platform: str) -> int:
+    return runtime_settings.platform_download_timeout_seconds(platform)
+
+
+def _download_with_timeout(url: str, output_dir: Path, format_id: str, platform: str) -> dict:
+    timeout = _platform_download_timeout_seconds(platform)
     if timeout <= 0:
         return download(url, output_dir, format_id)
 
@@ -68,7 +77,7 @@ def download_and_send_task(
             try:
                 await _edit_message(bot, chat_id, message_id, get("download.downloading", lang))
 
-                info = _download_with_timeout(url, task_dir, format_id)
+                info = _download_with_timeout(url, task_dir, format_id, platform)
                 title = info.get("title") or "video"
 
                 downloaded_path: Path | None = None
@@ -83,7 +92,8 @@ def download_and_send_task(
 
                 size_mb = os.path.getsize(downloaded_path) / (1024 * 1024)
 
-                if size_mb <= settings.send_video_limit_mb:
+                max_file_mb = _platform_max_file_mb(platform)
+                if size_mb <= max_file_mb:
                     await _delete_message(bot, chat_id, message_id)
                     await send_file(bot, downloaded_path, chat_id, lang, title)
                     await _record_download_safe(
@@ -98,13 +108,13 @@ def download_and_send_task(
                         "download.too_large",
                         lang,
                         size=f"{size_mb:.1f}",
-                        limit=settings.send_video_limit_mb,
+                        limit=max_file_mb,
                     ),
                 )
                 await _record_download_safe(
                     url, platform, format_id, size_mb,
                     DownloadStatus.FAILED, user_id, chat_id,
-                    f"file is larger than {settings.send_video_limit_mb} MB",
+                    f"file is larger than {max_file_mb} MB",
                 )
 
             except DownloadTimeoutError:
@@ -114,7 +124,7 @@ def download_and_send_task(
                 await _record_download_safe(
                     url, platform, format_id, 0,
                     DownloadStatus.FAILED, user_id, chat_id,
-                    f"download exceeded {settings.download_timeout_seconds} seconds",
+                    f"download exceeded {_platform_download_timeout_seconds(platform)} seconds",
                 )
 
             except Exception as exc:

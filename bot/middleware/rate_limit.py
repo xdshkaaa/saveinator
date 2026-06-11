@@ -35,6 +35,9 @@ class RateLimitMiddleware(BaseMiddleware):
         now = time.time()
         window = 60
 
+        if user_id and user_id == settings.admin_telegram_id:
+            return await handler(event, data)
+
         if user_id:
             user_key = f"ratelimit:user:{user_id}"
             await r.zremrangebyscore(user_key, 0, now - window)

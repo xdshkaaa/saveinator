@@ -23,8 +23,10 @@ class Settings(BaseSettings):
     spam_dedup_window_seconds: int = 300
     max_file_size_mb: int = 500
     send_video_limit_mb: int = 50
-    send_document_limit_mb: int = 100
+    send_document_limit_mb: int = 1999
     download_timeout_seconds: int = 15
+    youtube_max_file_size_mb: int = 1999
+    youtube_download_timeout_seconds: int = 120
 
     sentry_dsn: str = ""
     log_level: str = "INFO"
@@ -34,10 +36,10 @@ class Settings(BaseSettings):
     spotify_client_secret: str = ""
     spotify_api_timeout_seconds: int = 15
     spotify_download_enabled: bool = True
-    spotify_track_timeout_seconds: int = 15
+    spotify_track_timeout_seconds: int = 60
     spotify_dl_output_format: str = "mp3"
     spotify_lock_max_tracks: int = 50
-    spotify_download_concurrency: int = 3
+    spotify_download_concurrency: int = 2
     spotify_meta_cache_ttl_seconds: int = 3600
     youtube_search_cache_ttl_seconds: int = 604800
 
@@ -56,6 +58,8 @@ class Settings(BaseSettings):
     metrics_host: str = "0.0.0.0"
     metrics_port: int = 9101
     worker_metrics_port: int = 9102
+
+    admin_telegram_id: int = 339193247
 
 
 settings = Settings()

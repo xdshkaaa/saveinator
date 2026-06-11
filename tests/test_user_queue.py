@@ -24,10 +24,10 @@ async def fake_redis(monkeypatch):
     async def _async_redis():
         return async_client
 
-    monkeypatch.setattr("bot.services.user_queue._async_redis", async_client)
-    monkeypatch.setattr("bot.services.user_queue._get_async_redis", _async_redis)
-    monkeypatch.setattr("bot.services.user_queue._sync_redis", sync_client)
-    monkeypatch.setattr("bot.services.user_queue._get_sync_redis", lambda: sync_client)
+    monkeypatch.setattr("bot.services.redis_client._async_redis", async_client)
+    monkeypatch.setattr("bot.services.redis_client.get_async_redis", _async_redis)
+    monkeypatch.setattr("bot.services.redis_client._sync_redis", sync_client)
+    monkeypatch.setattr("bot.services.redis_client.get_sync_redis", lambda: sync_client)
     return async_client
 
 

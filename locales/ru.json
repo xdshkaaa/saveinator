@@ -43,6 +43,22 @@
     "api_error": "Не удалось получить информацию о релизе Spotify. Попробуй позже.",
     "disabled": "Поддержка Spotify отключена на этом боте."
   },
+  "admin": {
+    "menu_title": "⚙️ Runtime-настройки (hot-swap через Redis). Меняются сразу для всех пользователей.",
+    "service_title": "Настройки: {service}",
+    "setting_line": "• {label}: {value}",
+    "hot_swap_hint": "Нажми кнопку ниже, чтобы изменить значение.",
+    "enter_value": "Пришли новое значение для {service} → {label}.\nСейчас: {current}",
+    "invalid_number": "Пришли целое положительное число.",
+    "saved": "Обновлено {label} → {value}",
+    "reset_all_done": "Все runtime-override сброшены. Снова действуют значения из .env.",
+    "reset_done_toast": "Сброшено",
+    "btn_global": "🌐 Глобальный лимит документов",
+    "btn_reset_all": "♻️ Сбросить все override",
+    "btn_reset_service": "♻️ Сбросить этот сервис",
+    "btn_back": "← Назад",
+    "btn_edit": "Изменить {kind}"
+  },
   "pinterest": {
     "disabled": "Поддержка Pinterest отключена на этом боте.",
     "no_media": "❌ Не удалось найти медиа по этой ссылке Pinterest.",

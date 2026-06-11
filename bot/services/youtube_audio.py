@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 
 from bot.config import Settings
+from bot.services.runtime_settings import spotify_track_timeout_seconds
 from bot.services.spotify_models import NormalizedSpotifyTrack
 
 logger = structlog.get_logger()
@@ -61,7 +62,7 @@ def resolve_youtube_video_id(query: str, settings: Settings) -> str | None:
             command,
             capture_output=True,
             text=True,
-            timeout=settings.spotify_track_timeout_seconds,
+            timeout=spotify_track_timeout_seconds(),
             check=False,
         )
     except subprocess.TimeoutExpired:
@@ -114,12 +115,13 @@ def download_track_from_youtube(
             command,
             capture_output=True,
             text=True,
-            timeout=settings.spotify_track_timeout_seconds,
+            timeout=spotify_track_timeout_seconds(),
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
+        track_timeout = spotify_track_timeout_seconds()
         raise YoutubeAudioTimeoutError(
-            f"Track download timed out after {settings.spotify_track_timeout_seconds}s"
+            f"Track download timed out after {track_timeout}s"
         ) from exc
 
     if result.returncode != 0:

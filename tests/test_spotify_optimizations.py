@@ -95,8 +95,8 @@ async def fake_redis(monkeypatch):
     async def _async_redis():
         return async_client
 
-    monkeypatch.setattr("bot.services.user_queue._async_redis", async_client)
-    monkeypatch.setattr("bot.services.user_queue._get_async_redis", _async_redis)
+    monkeypatch.setattr("bot.services.redis_client._async_redis", async_client)
+    monkeypatch.setattr("bot.services.redis_client.get_async_redis", _async_redis)
     return async_client
 
 
@@ -249,7 +249,7 @@ async def test_spotify_metadata_cache_read_failure_falls_back(monkeypatch):
     async def broken_redis():
         raise ConnectionError("redis down")
 
-    monkeypatch.setattr("bot.services.spotify_cache._get_async_redis", broken_redis)
+    monkeypatch.setattr("bot.services.spotify_cache.get_async_redis", broken_redis)
     fetch_album = AsyncMock(return_value=release)
     monkeypatch.setattr(spotify_client, "fetch_album", fetch_album)
 

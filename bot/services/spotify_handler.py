@@ -23,6 +23,7 @@ from bot.services.spotify_client import (
 )
 from bot.services.spotify_models import NormalizedSpotifyRelease, NormalizedSpotifyTrack
 from bot.services.spotify_parser import SpotifyLink
+from bot.services.runtime_settings import spotify_track_timeout_seconds
 from bot.services.tempfiles import tempfile_manager
 from bot.services.user_queue import UserScenario, release_user_lock
 from bot.services.youtube_audio import (
@@ -46,7 +47,7 @@ def _release_download_lock_key(link_type: str, resource_id: str) -> str:
 
 
 def _release_download_lock_ttl(track_count: int, settings: Settings) -> int:
-    per_track = max(settings.spotify_track_timeout_seconds, 1)
+    per_track = max(spotify_track_timeout_seconds(), 1)
     concurrency = max(settings.spotify_download_concurrency, 1)
     batches = (max(track_count, 1) + concurrency - 1) // concurrency
     return batches * per_track + 90
@@ -58,10 +59,10 @@ async def _try_acquire_release_download_lock(
     track_count: int,
     settings: Settings,
 ) -> bool:
-    from bot.services.user_queue import _get_async_redis
+    from bot.services.redis_client import get_async_redis
 
     try:
-        redis_client = await _get_async_redis()
+        redis_client = await get_async_redis()
         acquired = await redis_client.set(
             _release_download_lock_key(link_type, resource_id),
             "1",
@@ -80,10 +81,10 @@ async def _try_acquire_release_download_lock(
 
 
 async def _release_release_download_lock(link_type: str, resource_id: str) -> None:
-    from bot.services.user_queue import _get_async_redis
+    from bot.services.redis_client import get_async_redis
 
     try:
-        redis_client = await _get_async_redis()
+        redis_client = await get_async_redis()
         await redis_client.delete(_release_download_lock_key(link_type, resource_id))
     except Exception:
         logger.warning(

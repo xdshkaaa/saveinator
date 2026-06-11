@@ -9,6 +9,11 @@ from aiogram import Bot
 
 from bot.config import settings
 from bot.locale import get
+from bot.services.runtime_settings import (
+    pinterest_max_file_mb,
+    pinterest_timeout_seconds,
+    send_document_limit_mb,
+)
 from bot.services.file_sender import send_file
 from bot.services.tempfiles import tempfile_manager
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
@@ -71,7 +76,7 @@ def pinterest_download_task(
                     url,
                     task_dir,
                     settings.pinterest_max_items,
-                    settings.pinterest_timeout_seconds,
+                    pinterest_timeout_seconds(),
                 )
 
                 if not result.items:
@@ -86,9 +91,9 @@ def pinterest_download_task(
                 file_path = Path(item.file_path)
                 size_mb = item.file_size / (1024 * 1024)
                 size_limit = (
-                    settings.send_video_limit_mb
+                    pinterest_max_file_mb()
                     if item.media_type == "video"
-                    else settings.send_document_limit_mb
+                    else send_document_limit_mb()
                 )
                 if size_mb > size_limit:
                     await bot.send_message(
