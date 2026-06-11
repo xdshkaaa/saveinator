@@ -1,13 +1,9 @@
+import asyncio
 from pathlib import Path
 
 from bot.handlers.group import handle_group_message
-from bot.services.audio_providers import (
-    DownloadedFile,
-    SearchResult,
-    register_audio_providers,
-)
+from bot.services.spotify_dl import SpotifyDlTrack
 from bot.services.spotify_models import NormalizedSpotifyRelease, NormalizedSpotifyTrack
-from bot.services.spotify_parser import SpotifyLink
 
 
 class FakeUser:
@@ -94,15 +90,19 @@ def _sample_release() -> NormalizedSpotifyRelease:
     )
 
 
+def _patch_spotify_settings(monkeypatch):
+    monkeypatch.setattr("bot.handlers.group.settings.spotify_enabled", True)
+    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_id", "client-id")
+    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_secret", "client-secret")
+    monkeypatch.setattr("bot.handlers.group.settings.spotify_download_enabled", False)
+
+
 async def test_spotify_album_replies_metadata_card_without_download(monkeypatch):
     delayed: list[dict] = []
     message = FakeMessage("https://open.spotify.com/album/4aawyAB9rmqOaP8fadcCl4?si=abc")
     release = _sample_release()
 
-    register_audio_providers(None, None)
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_enabled", True)
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_id", "client-id")
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_secret", "client-secret")
+    _patch_spotify_settings(monkeypatch)
     monkeypatch.setattr(
         "bot.handlers.group.download_and_send_task.delay",
         lambda **kwargs: delayed.append(kwargs),
@@ -120,7 +120,7 @@ async def test_spotify_album_replies_metadata_card_without_download(monkeypatch)
     assert caption is not None
     assert "Artist One" in caption
     assert "Test Album" in caption
-    assert "Downloading Spotify content is not supported" in caption
+    assert "Audio download is disabled" in caption
     assert message.replies[0].reply_markup is not None
 
 
@@ -147,10 +147,7 @@ async def test_spotify_track_replies_metadata_card(monkeypatch):
         ],
     )
 
-    register_audio_providers(None, None)
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_enabled", True)
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_id", "client-id")
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_secret", "client-secret")
+    _patch_spotify_settings(monkeypatch)
     monkeypatch.setattr(
         "bot.services.spotify_handler.fetch_release",
         lambda link_type, resource_id, settings: release,
@@ -165,45 +162,39 @@ async def test_spotify_track_replies_metadata_card(monkeypatch):
     assert "3:20" in caption
 
 
-class MockSearchProvider:
-    async def search_track(self, artist: str, title: str) -> SearchResult | None:
-        return SearchResult(
-            query=f"{artist} - {title}",
-            source_url="https://example.com/audio.mp3",
-            title=title,
-        )
-
-
-class MockDownloadProvider:
-    async def download(self, result: SearchResult, output_dir: str) -> DownloadedFile:
-        path = Path(output_dir) / "track.mp3"
-        path.write_bytes(b"audio")
-        return DownloadedFile(path=path, title=result.title)
-
-
-async def test_spotify_with_mock_search_download_providers(monkeypatch, tmp_path):
+async def test_spotify_with_spotify_dl_download(monkeypatch, tmp_path: Path):
     message = FakeMessage("https://open.spotify.com/album/4aawyAB9rmqOaP8fadcCl4")
     release = _sample_release()
+    audio_path = tmp_path / "Track One.mp3"
+    audio_path.write_bytes(b"audio")
 
-    class TmpDownloadProvider:
-        async def download(self, result: SearchResult, output_dir: str) -> DownloadedFile:
-            path = tmp_path / "track.mp3"
-            path.write_bytes(b"audio")
-            return DownloadedFile(path=path, title=result.title)
-
-    register_audio_providers(MockSearchProvider(), TmpDownloadProvider())
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_enabled", True)
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_id", "client-id")
-    monkeypatch.setattr("bot.handlers.group.settings.spotify_client_secret", "client-secret")
+    _patch_spotify_settings(monkeypatch)
+    monkeypatch.setattr("bot.handlers.group.settings.spotify_download_enabled", True)
+    monkeypatch.setattr("bot.services.spotify_handler.is_spotify_download_enabled", lambda _s: True)
     monkeypatch.setattr(
         "bot.services.spotify_handler.fetch_release",
         lambda link_type, resource_id, settings: release,
     )
+    monkeypatch.setattr(
+        "bot.services.spotify_handler.run_spotify_dl",
+        lambda url, output_dir, settings: [SpotifyDlTrack(path=audio_path, title="Track One")],
+    )
+
+    class FakeTempDir:
+        def __enter__(self):
+            return tmp_path
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(
+        "bot.services.spotify_handler.tempfile_manager",
+        lambda _task_id: FakeTempDir(),
+    )
 
     await handle_group_message(message, lang="en")
+    await asyncio.sleep(0.05)
 
     assert len(message.replies) == 2
     assert message.bot.sent_audio
     assert "Finished: 1/1 tracks sent." in message.replies[1].edited_texts[-1]
-
-    register_audio_providers(None, None)

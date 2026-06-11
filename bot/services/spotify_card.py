@@ -1,7 +1,8 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from bot.config import Settings
 from bot.locale import get
-from bot.services.audio_providers import has_audio_download_pipeline
+from bot.services.spotify_dl import is_spotify_download_enabled
 from bot.services.spotify_models import NormalizedSpotifyRelease
 
 
@@ -19,7 +20,11 @@ def _format_duration(duration_ms: int) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
-def build_spotify_card_text(release: NormalizedSpotifyRelease, lang: str) -> str:
+def build_spotify_card_text(
+    release: NormalizedSpotifyRelease,
+    lang: str,
+    settings: Settings,
+) -> str:
     is_single_track = release.album_type == "track" or (
         len(release.tracks) == 1 and release.album_type not in ("album", "single", "compilation")
     )
@@ -52,7 +57,10 @@ def build_spotify_card_text(release: NormalizedSpotifyRelease, lang: str) -> str
             get("spotify.release_date", lang, date=release.release_date),
         ]
 
-    if not has_audio_download_pipeline():
+    if is_spotify_download_enabled(settings):
+        lines.append("")
+        lines.append(get("spotify.download_queued", lang))
+    else:
         lines.append("")
         lines.append(get("spotify.no_download", lang))
 
