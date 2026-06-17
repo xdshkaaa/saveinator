@@ -136,3 +136,49 @@ def test_download_task_times_out_slow_download(monkeypatch):
     assert sent_files == []
     assert "try again later" in fake_bot.edited[-1][2]
     assert recorded[0][4] == DownloadStatus.FAILED
+
+
+def test_download_task_processes_youtube_with_quality_and_ratio(monkeypatch):
+    fake_bot = FakeBot()
+    sent_files: list[tuple[Path, int, str]] = []
+    processed: list[tuple[str, int]] = []
+
+    def fake_download(url: str, output_dir: Path, format_id: str):
+        assert "height<=720" in format_id
+        (output_dir / "video.mp4").write_bytes(b"video")
+        return {"title": "youtube-test"}
+
+    def fake_apply_aspect_ratio(path: Path, aspect_ratio: str, quality: int):
+        processed.append((aspect_ratio, quality))
+        output = path.with_name("video_16_9.mp4")
+        output.write_bytes(b"processed")
+        return output
+
+    async def fake_send_file(bot, path: Path, chat_id: int, lang: str, title: str):
+        sent_files.append((path, chat_id, title))
+
+    async def fake_record_download_safe(url, platform, format_id, size_mb, *_args, **_kwargs):
+        assert platform == "youtube"
+        assert "q720" in format_id
+        assert "r16_9" in format_id
+
+    monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.download", fake_download)
+    monkeypatch.setattr("workers.tasks.apply_aspect_ratio", fake_apply_aspect_ratio)
+    monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+    monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
+
+    download_and_send_task.run(
+        url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        platform="youtube",
+        chat_id=1,
+        user_id=2,
+        message_id=3,
+        lang="ru",
+        quality=720,
+        aspect_ratio="16_9",
+    )
+
+    assert processed == [("16_9", 720)]
+    assert sent_files[0][0].name == "video_16_9.mp4"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VPS_HOST="31.76.76.12"
+VPS_HOST="103.214.69.38"
 VPS_USER="root"
 APP_DIR="/opt/saveinator"
 REPO="git@github.com:pyfig/saveinator.git"

@@ -2,6 +2,7 @@ from aiogram import Dispatcher
 
 from bot.handlers.admin import admin_router
 from bot.handlers.onboarding import onboarding_router
+from bot.handlers.youtube import youtube_router
 from bot.handlers.group import group_router
 from bot.handlers.errors import errors_router
 from bot.middleware.locale import LocaleMiddleware
@@ -25,6 +26,7 @@ def create_dispatcher() -> Dispatcher:
 
     dp.include_router(admin_router)
     dp.include_router(onboarding_router)
+    dp.include_router(youtube_router)
     dp.include_router(group_router)
     dp.include_router(errors_router)
 

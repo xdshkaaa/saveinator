@@ -82,5 +82,12 @@
     "all_too_large": "❌ All media files exceeded the size limit.",
     "invalid": "❌ Invalid or unsupported Pinterest URL.",
     "private": "❌ This Pinterest content is private or requires authorized access."
+  },
+  "youtube": {
+    "choose_quality": "Choose video quality:",
+    "choose_ratio": "Choose aspect ratio:",
+    "processing": "Processing video. Quality: {quality}p, format: {ratio}",
+    "process_failed": "Could not process the video. Try another link or a different quality.",
+    "session_expired": "Session expired. Send the link again."
   }
 }

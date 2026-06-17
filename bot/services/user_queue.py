@@ -95,6 +95,11 @@ async def release_user_lock(user_id: int, token: str, scenario: UserScenario) ->
     )
 
 
+async def is_user_busy(user_id: int) -> bool:
+    redis_client = await get_async_redis()
+    return bool(await redis_client.exists(_lock_key(user_id)))
+
+
 def acquire_user_lock_sync(
     user_id: int,
     scenario: UserScenario,
