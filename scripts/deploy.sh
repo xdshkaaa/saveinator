@@ -52,7 +52,7 @@ ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
     docker compose pull
     docker compose build
-    docker compose up -d
+    docker compose up -d --force-recreate bot worker
 "
 
 echo "[4/6] Running database migrations..."

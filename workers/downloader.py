@@ -17,6 +17,7 @@ def build_ydl_opts(output_dir: Path, format_id: str | None = None) -> dict:
     }
     if format_id:
         opts["format"] = format_id
+        opts["merge_output_format"] = "mp4"
     return opts
 
 

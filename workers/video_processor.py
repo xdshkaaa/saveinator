@@ -7,6 +7,8 @@ RATIO_DIMENSIONS: dict[str, dict[int, tuple[int, int]]] = {
     "9_16": {1080: (1080, 1920), 720: (720, 1280), 480: (480, 854)},
 }
 
+_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mkv", ".mov", ".m4v"})
+
 
 class VideoProcessingError(Exception):
     pass
@@ -22,15 +24,22 @@ def target_dimensions(aspect_ratio: str, quality: int) -> tuple[int, int]:
     return dimensions
 
 
+def _run_ffmpeg(command: list[str]) -> None:
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or f"exit code {result.returncode}").strip()
+        raise VideoProcessingError(detail[:500])
+
+
 def apply_aspect_ratio(source_path: Path, aspect_ratio: str, quality: int) -> Path:
     width, height = target_dimensions(aspect_ratio, quality)
-    output_path = source_path.with_name(f"{source_path.stem}_{aspect_ratio}{source_path.suffix}")
+    output_path = source_path.with_name(f"{source_path.stem}_{aspect_ratio}.mp4")
 
     vf = (
         f"scale={width}:{height}:force_original_aspect_ratio=increase,"
         f"crop={width}:{height}"
     )
-    command = [
+    base_command = [
         "ffmpeg",
         "-y",
         "-i",
@@ -41,14 +50,11 @@ def apply_aspect_ratio(source_path: Path, aspect_ratio: str, quality: int) -> Pa
         "libx264",
         "-preset",
         "fast",
-        "-c:a",
-        "copy",
-        str(output_path),
     ]
 
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or f"exit code {result.returncode}").strip()
-        raise VideoProcessingError(detail[:500])
+    try:
+        _run_ffmpeg([*base_command, "-c:a", "copy", str(output_path)])
+    except VideoProcessingError:
+        _run_ffmpeg([*base_command, "-c:a", "aac", "-b:a", "128k", str(output_path)])
 
     return output_path

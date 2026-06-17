@@ -40,3 +40,4 @@ def test_apply_aspect_ratio_invokes_ffmpeg(monkeypatch, tmp_path: Path):
     assert "-vf" in captured["command"]
     vf_index = captured["command"].index("-vf")
     assert "crop=1920:1080" in captured["command"][vf_index + 1]
+    assert captured["command"][-1].endswith("video_16_9.mp4")

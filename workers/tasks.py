@@ -23,6 +23,8 @@ from workers.youtube_format import build_youtube_format
 
 logger = structlog.get_logger()
 
+_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mkv", ".mov", ".m4v"})
+
 
 class DownloadTimeoutError(Exception):
     pass
@@ -79,6 +81,17 @@ def _youtube_error_message(lang: str, platform: str) -> str:
     return get("errors.generic", lang)
 
 
+def _find_downloaded_video(task_dir: Path) -> Path | None:
+    candidates = [
+        path
+        for path in task_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in _VIDEO_EXTENSIONS
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_size)
+
+
 @app.task(bind=True, max_retries=1)
 def download_and_send_task(
     self,
@@ -111,11 +124,7 @@ def download_and_send_task(
                 info = _download_with_timeout(url, task_dir, ytdlp_format, platform)
                 title = info.get("title") or "video"
 
-                downloaded_path: Path | None = None
-                for f in task_dir.iterdir():
-                    if f.is_file():
-                        downloaded_path = f
-                        break
+                downloaded_path = _find_downloaded_video(task_dir)
 
                 if not downloaded_path:
                     await _edit_message(
