@@ -7,7 +7,7 @@ RATIO_DIMENSIONS: dict[str, dict[int, tuple[int, int]]] = {
     "9_16": {1080: (1080, 1920), 720: (720, 1280), 480: (480, 854)},
 }
 
-_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mkv", ".mov", ".m4v"})
+_FFMPEG_TIMEOUT_SECONDS = 300
 
 
 class VideoProcessingError(Exception):
@@ -24,8 +24,50 @@ def target_dimensions(aspect_ratio: str, quality: int) -> tuple[int, int]:
     return dimensions
 
 
+def _probe_dimensions(source_path: Path) -> tuple[int, int] | None:
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "csv=p=0:s=x",
+            str(source_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        return None
+    raw = (result.stdout or "").strip()
+    if "x" not in raw:
+        return None
+    width_str, height_str = raw.split("x", 1)
+    try:
+        return int(width_str), int(height_str)
+    except ValueError:
+        return None
+
+
 def _run_ffmpeg(command: list[str]) -> None:
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_FFMPEG_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise VideoProcessingError(
+            f"ffmpeg timed out after {_FFMPEG_TIMEOUT_SECONDS} seconds"
+        ) from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or f"exit code {result.returncode}").strip()
         raise VideoProcessingError(detail[:500])
@@ -34,6 +76,23 @@ def _run_ffmpeg(command: list[str]) -> None:
 def apply_aspect_ratio(source_path: Path, aspect_ratio: str, quality: int) -> Path:
     width, height = target_dimensions(aspect_ratio, quality)
     output_path = source_path.with_name(f"{source_path.stem}_{aspect_ratio}.mp4")
+
+    probed = _probe_dimensions(source_path)
+    if probed == (width, height):
+        if source_path == output_path:
+            return source_path
+        _run_ffmpeg([
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(source_path),
+            "-c",
+            "copy",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ])
+        return output_path
 
     vf = (
         f"scale={width}:{height}:force_original_aspect_ratio=increase,"
@@ -49,7 +108,11 @@ def apply_aspect_ratio(source_path: Path, aspect_ratio: str, quality: int) -> Pa
         "-c:v",
         "libx264",
         "-preset",
-        "fast",
+        "ultrafast",
+        "-threads",
+        "0",
+        "-movflags",
+        "+faststart",
     ]
 
     try:

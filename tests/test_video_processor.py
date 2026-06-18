@@ -22,7 +22,13 @@ def test_apply_aspect_ratio_invokes_ffmpeg(monkeypatch, tmp_path: Path):
 
     captured: dict[str, list[str]] = {}
 
-    def fake_run(command, capture_output=True, text=True, check=False):
+    def fake_run(command, capture_output=True, text=True, check=False, timeout=None):
+        if command and command[0] == "ffprobe":
+            class ProbeResult:
+                returncode = 1
+                stdout = ""
+                stderr = ""
+            return ProbeResult()
         captured["command"] = command
         output = Path(command[-1])
         output.write_bytes(b"processed")
@@ -40,4 +46,5 @@ def test_apply_aspect_ratio_invokes_ffmpeg(monkeypatch, tmp_path: Path):
     assert "-vf" in captured["command"]
     vf_index = captured["command"].index("-vf")
     assert "crop=1920:1080" in captured["command"][vf_index + 1]
+    assert "ultrafast" in captured["command"]
     assert captured["command"][-1].endswith("video_16_9.mp4")

@@ -61,6 +61,37 @@ def _download_with_timeout(url: str, output_dir: Path, format_id: str, platform:
         signal.signal(signal.SIGALRM, previous_handler)
 
 
+def _call_with_timeout(fn, timeout: int):
+    if timeout <= 0:
+        return fn()
+
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, _raise_download_timeout)
+    signal.setitimer(signal.ITIMER_REAL, timeout)
+    try:
+        return fn()
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+
+
+def _download_and_process_youtube(
+    url: str,
+    task_dir: Path,
+    ytdlp_format: str,
+    aspect_ratio: str,
+    quality: int,
+) -> tuple[dict, Path]:
+    info = download(url, task_dir, ytdlp_format)
+    downloaded_path = _find_downloaded_video(task_dir)
+    if not downloaded_path:
+        raise VideoProcessingError("no video file after download")
+    processed_path = apply_aspect_ratio(downloaded_path, aspect_ratio, quality)
+    if processed_path != downloaded_path:
+        downloaded_path.unlink(missing_ok=True)
+    return info, processed_path
+
+
 def _resolve_format_id(
     platform: str,
     format_id: str,
@@ -121,23 +152,14 @@ def download_and_send_task(
                 if not (platform == "youtube" and quality is not None and aspect_ratio):
                     await _edit_message(bot, chat_id, message_id, get("download.downloading", lang))
 
-                info = _download_with_timeout(url, task_dir, ytdlp_format, platform)
-                title = info.get("title") or "video"
-
-                downloaded_path = _find_downloaded_video(task_dir)
-
-                if not downloaded_path:
-                    await _edit_message(
-                        bot, chat_id, message_id, _youtube_error_message(lang, platform),
-                    )
-                    return
-
                 if platform == "youtube" and quality is not None and aspect_ratio:
                     try:
-                        processed_path = apply_aspect_ratio(downloaded_path, aspect_ratio, quality)
-                        if processed_path != downloaded_path:
-                            downloaded_path.unlink(missing_ok=True)
-                        downloaded_path = processed_path
+                        info, downloaded_path = _call_with_timeout(
+                            lambda: _download_and_process_youtube(
+                                url, task_dir, ytdlp_format, aspect_ratio, quality,
+                            ),
+                            _platform_download_timeout_seconds(platform),
+                        )
                     except VideoProcessingError as exc:
                         YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
                         logger.warning(
@@ -155,6 +177,17 @@ def download_and_send_task(
                             str(exc)[:500],
                         )
                         return
+                else:
+                    info = _download_with_timeout(url, task_dir, ytdlp_format, platform)
+                    downloaded_path = _find_downloaded_video(task_dir)
+
+                title = info.get("title") or "video"
+
+                if not downloaded_path:
+                    await _edit_message(
+                        bot, chat_id, message_id, _youtube_error_message(lang, platform),
+                    )
+                    return
 
                 size_mb = os.path.getsize(downloaded_path) / (1024 * 1024)
 
