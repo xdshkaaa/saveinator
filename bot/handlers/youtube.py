@@ -1,14 +1,9 @@
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery
 
 from bot.locale import get
-from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL, USER_QUEUE_REJECTED_TOTAL
-from bot.services.user_queue import UserScenario, acquire_user_lock, is_user_busy
-from bot.services.youtube_keyboards import (
-    format_ratio_label,
-    get_quality_keyboard,
-    get_ratio_keyboard,
-)
+from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL
+from bot.services.youtube_keyboards import format_ratio_label, get_ratio_keyboard
 from bot.services.youtube_session import (
     YoutubePendingSession,
     clear_youtube_session,
@@ -102,12 +97,6 @@ async def handle_ratio_choice(callback: CallbackQuery, lang: str = "en"):
         await callback.answer()
         return
 
-    lock_token = await acquire_user_lock(user_id, UserScenario.VIDEO)
-    if lock_token is None:
-        USER_QUEUE_REJECTED_TOTAL.labels(scenario=UserScenario.VIDEO.value).inc()
-        await callback.answer(get("errors.busy", session.lang), show_alert=True)
-        return
-
     ratio_label = format_ratio_label(aspect_ratio)
     await callback.message.edit_text(
         get(
@@ -122,15 +111,20 @@ async def handle_ratio_choice(callback: CallbackQuery, lang: str = "en"):
 
     await clear_youtube_session(user_id)
 
+    bot: Bot = callback.bot
+    status_msg = await bot.send_message(
+        chat_id=session.chat_id,
+        text=get("download.downloading", session.lang),
+    )
+
     DOWNLOADS_ENQUEUED_TOTAL.labels(platform="youtube").inc()
     download_and_send_task.delay(
         url=session.url,
         platform="youtube",
         chat_id=session.chat_id,
         user_id=user_id,
-        message_id=session.message_id,
+        message_id=status_msg.message_id,
         lang=session.lang,
-        lock_token=lock_token,
         quality=session.quality,
         aspect_ratio=aspect_ratio,
     )

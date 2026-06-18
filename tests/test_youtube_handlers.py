@@ -45,11 +45,24 @@ class FakeCallbackMessage(FakeStatusMessage):
     chat = FakeChat()
 
 
+class FakeSentMessage:
+    message_id = 999
+
+
+class FakeBot:
+    sent_messages: list[tuple] = []
+
+    async def send_message(self, chat_id: int, text: str):
+        FakeBot.sent_messages.append((chat_id, text))
+        return FakeSentMessage()
+
+
 class FakeCallbackQuery:
     def __init__(self, data: str):
         self.data = data
         self.from_user = FakeCallbackUser()
         self.message = FakeCallbackMessage()
+        self.bot = FakeBot()
         self.answers: list[tuple] = []
 
     async def answer(self, text: str | None = None, show_alert: bool = False):
@@ -60,15 +73,10 @@ async def _acquire_lock(*_args, **_kwargs):
     return "test-lock-token"
 
 
-async def _not_busy(_user_id):
-    return False
-
-
 async def test_youtube_link_shows_quality_menu(monkeypatch, fake_redis):
     delayed: list[dict] = []
     message = FakeMessage("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
-    monkeypatch.setattr("bot.handlers.group.is_user_busy", _not_busy)
     monkeypatch.setattr(
         "bot.handlers.group.download_and_send_task.delay",
         lambda **kwargs: delayed.append(kwargs),
@@ -132,7 +140,7 @@ async def test_ratio_callback_starts_youtube_download(monkeypatch, fake_redis):
     )
 
     delayed: list[dict] = []
-    monkeypatch.setattr("bot.handlers.youtube.acquire_user_lock", _acquire_lock)
+    FakeBot.sent_messages = []
     monkeypatch.setattr(
         "bot.handlers.youtube.download_and_send_task.delay",
         lambda **kwargs: delayed.append(kwargs),
@@ -145,5 +153,9 @@ async def test_ratio_callback_starts_youtube_download(monkeypatch, fake_redis):
     assert delayed[0]["platform"] == "youtube"
     assert delayed[0]["quality"] == 720
     assert delayed[0]["aspect_ratio"] == "16_9"
+    assert delayed[0].get("lock_token", "") == ""
+    assert delayed[0]["message_id"] == 999
+    assert delayed[0]["message_id"] != 30
+    assert FakeBot.sent_messages == [(10, "⏳ Скачиваю...")]
     assert "720p" in callback.message.text
     assert "16:9" in callback.message.text

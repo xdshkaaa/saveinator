@@ -7,7 +7,7 @@ from bot.locale import get
 from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL, SPOTIFY_REQUESTS_TOTAL, USER_QUEUE_REJECTED_TOTAL
 from bot.services.link_parser import extract_urls
 from bot.services.spotify_handler import reply_spotify_link
-from bot.services.user_queue import UserScenario, acquire_user_lock, is_user_busy
+from bot.services.user_queue import UserScenario, acquire_user_lock
 from bot.services.youtube_keyboards import get_quality_keyboard
 from bot.handlers.youtube import start_youtube_quality_menu
 from db.models import Platform
@@ -102,11 +102,6 @@ async def handle_group_message(message: Message, lang: str = "en"):
         return
 
     if platform == Platform.YOUTUBE:
-        if await is_user_busy(user_id):
-            await message.reply(get("errors.busy", lang))
-            USER_QUEUE_REJECTED_TOTAL.labels(scenario=UserScenario.VIDEO.value).inc()
-            return
-
         status_msg = await message.reply(
             get("youtube.choose_quality", lang),
             reply_markup=get_quality_keyboard(),
