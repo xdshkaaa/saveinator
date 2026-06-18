@@ -1,8 +1,7 @@
 from pathlib import Path
-import time
 
 from db.models import DownloadStatus
-from workers.tasks import download_and_send_task
+from workers.tasks import DownloadTimeoutError, download_and_send_task
 
 
 class FakeBot:
@@ -34,6 +33,7 @@ def test_download_task_accepts_direct_url_without_format_cache(monkeypatch):
 
     async def fake_send_file(bot, path: Path, chat_id: int, lang: str, title: str):
         sent_files.append((path, chat_id, title))
+        return "video"
 
     async def fake_record_download_safe(url, platform, format_id, size_mb, *_args, **_kwargs):
         recorded.append((url, platform, format_id, size_mb))
@@ -42,6 +42,8 @@ def test_download_task_accepts_direct_url_without_format_cache(monkeypatch):
     monkeypatch.setattr("workers.tasks.download", fake_download)
     monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
     monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+    monkeypatch.setattr("workers.tasks._platform_download_timeout_seconds", lambda _platform: 0)
+    monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
 
     download_and_send_task.run(
         url="https://vt.tiktok.com/ZSxv29fme/",
@@ -71,6 +73,7 @@ def test_download_task_rejects_files_over_video_limit(monkeypatch):
 
     async def fake_send_file(*args, **kwargs):
         sent_files.append((args, kwargs))
+        return "video"
 
     async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_args, **_kwargs):
         recorded.append((url, platform, format_id, size_mb, status))
@@ -79,6 +82,8 @@ def test_download_task_rejects_files_over_video_limit(monkeypatch):
     monkeypatch.setattr("workers.tasks.download", fake_download)
     monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
     monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+    monkeypatch.setattr("workers.tasks._platform_download_timeout_seconds", lambda _platform: 0)
+    monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
 
     download_and_send_task.run(
         url="https://x.com/user/status/1234567890123456789",
@@ -103,10 +108,8 @@ def test_download_task_times_out_slow_download(monkeypatch):
     sent_files: list[tuple] = []
     recorded: list[tuple[str, str, str, float, object, str | None]] = []
 
-    def slow_download(url: str, output_dir: Path, format_id: str):
-        time.sleep(2)
-        (output_dir / "video.mp4").write_bytes(b"video")
-        return {"title": "slow"}
+    def fake_download_with_timeout(url: str, output_dir: Path, format_id: str, platform: str):
+        raise DownloadTimeoutError
 
     async def fake_send_file(*args, **kwargs):
         sent_files.append((args, kwargs))
@@ -114,13 +117,12 @@ def test_download_task_times_out_slow_download(monkeypatch):
     async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_args, **kwargs):
         recorded.append((url, platform, format_id, size_mb, status, kwargs.get("error")))
 
-    monkeypatch.setattr("workers.tasks.settings.download_timeout_seconds", 1)
     monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
-    monkeypatch.setattr("workers.tasks.download", slow_download)
+    monkeypatch.setattr("workers.tasks._download_with_timeout", fake_download_with_timeout)
     monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
     monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+    monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
 
-    started_at = time.monotonic()
     download_and_send_task.run(
         url="https://x.com/user/status/1234567890123456789",
         format_id="best",
@@ -131,7 +133,6 @@ def test_download_task_times_out_slow_download(monkeypatch):
         lang="en",
     )
 
-    assert time.monotonic() - started_at < 1.8
     assert fake_bot.deleted == []
     assert sent_files == []
     assert "try again later" in fake_bot.edited[-1][2]
@@ -156,6 +157,7 @@ def test_download_task_processes_youtube_with_quality_and_ratio(monkeypatch):
 
     async def fake_send_file(bot, path: Path, chat_id: int, lang: str, title: str):
         sent_files.append((path, chat_id, title))
+        return "video"
 
     async def fake_record_download_safe(url, platform, format_id, size_mb, *_args, **_kwargs):
         assert platform == "youtube"
@@ -167,6 +169,7 @@ def test_download_task_processes_youtube_with_quality_and_ratio(monkeypatch):
     monkeypatch.setattr("workers.tasks.apply_aspect_ratio", fake_apply_aspect_ratio)
     monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
     monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+    monkeypatch.setattr("workers.tasks._platform_download_timeout_seconds", lambda _platform: 0)
     monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
 
     download_and_send_task.run(

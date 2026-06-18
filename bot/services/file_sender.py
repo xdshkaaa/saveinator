@@ -1,11 +1,15 @@
 import os
 from pathlib import Path
+
+import structlog
 from aiogram import Bot
 from aiogram.types import FSInputFile
 
 from bot.config import settings
 from bot.locale import get
 from bot.services.runtime_settings import send_document_limit_mb
+
+logger = structlog.get_logger()
 
 _IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
 
@@ -47,8 +51,13 @@ async def send_file(
                 supports_streaming=True,
             )
             return "video"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "send_video failed, falling back to document",
+                chat_id=chat_id,
+                size_mb=round(size_mb, 2),
+                error=str(exc),
+            )
 
     if size_mb <= send_document_limit_mb():
         caption = (get("download.sent_as_doc", lang, size=f"{size_mb:.1f}")

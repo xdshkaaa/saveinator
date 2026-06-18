@@ -9,7 +9,7 @@ from aiogram import Bot
 
 from bot.config import settings
 from bot.locale import get
-from bot.services import runtime_settings
+from bot.services.runtime_settings import platform_max_file_mb, platform_download_timeout_seconds, send_document_limit_mb
 from bot.services.tempfiles import tempfile_manager, sweep_stale
 from bot.services.file_sender import send_file
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
@@ -39,11 +39,11 @@ def _raise_download_timeout(_signum, _frame):
 
 
 def _platform_max_file_mb(platform: str) -> int:
-    return runtime_settings.platform_max_file_mb(platform)
+    return platform_max_file_mb(platform)
 
 
 def _platform_download_timeout_seconds(platform: str) -> int:
-    return runtime_settings.platform_download_timeout_seconds(platform)
+    return platform_download_timeout_seconds(platform)
 
 
 def _download_with_timeout(url: str, output_dir: Path, format_id: str, platform: str) -> dict:
@@ -160,8 +160,26 @@ def download_and_send_task(
 
                 max_file_mb = _platform_max_file_mb(platform)
                 if size_mb <= max_file_mb:
+                    send_result = await send_file(bot, downloaded_path, chat_id, lang, title)
+                    if send_result == "too_large":
+                        doc_limit = send_document_limit_mb()
+                        await _edit_message(
+                            bot, chat_id, message_id,
+                            get(
+                                "download.too_large",
+                                lang,
+                                size=f"{size_mb:.1f}",
+                                limit=doc_limit,
+                            ),
+                        )
+                        await _record_download_safe(
+                            url, platform, resolved_format_id, size_mb,
+                            DownloadStatus.FAILED, user_id, chat_id,
+                            f"file exceeds Telegram send limit of {doc_limit} MB",
+                        )
+                        return
+
                     await _delete_message(bot, chat_id, message_id)
-                    await send_file(bot, downloaded_path, chat_id, lang, title)
                     await _record_download_safe(
                         url, platform, resolved_format_id, size_mb,
                         DownloadStatus.COMPLETED, user_id, chat_id,
