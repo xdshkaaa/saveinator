@@ -1,16 +1,16 @@
 # Saveinator Monitoring
 
-Production monitoring stack for the Saveinator bot VPS (`31.76.76.12`).
+Production monitoring stack for the Saveinator bot VPS (`103.214.69.38`).
 
 ## What runs
 
 | Service | Port (localhost) | Purpose |
 |---------|------------------|---------|
-| Prometheus | `9090` | Metrics storage and alerting |
+| Prometheus | `9091` | Metrics storage and alerting |
 | Grafana | `3000` | Dashboards |
 | Alertmanager | `9093` | Alert routing |
 | node_exporter | `9100` | VPS CPU/RAM/disk/network |
-| cAdvisor | `8080` | Docker container metrics |
+| cAdvisor | `8180` | Docker container metrics |
 | Bot metrics | `9101` | Telegram bot `/metrics` |
 | Worker metrics | `9102` | Celery worker `/metrics` |
 | postgres_exporter | `9187` | PostgreSQL metrics |
@@ -44,7 +44,7 @@ docker compose -f docker-compose.monitoring.yml --env-file .env.monitoring up -d
 
 ```bash
 # Prometheus targets (all should be UP)
-curl -s http://127.0.0.1:9090/api/v1/targets | python3 -m json.tool | grep health
+curl -s http://127.0.0.1:9091/api/v1/targets | python3 -m json.tool | grep health
 
 # Bot metrics
 curl -s http://127.0.0.1:9101/metrics | head
@@ -55,13 +55,34 @@ curl -s http://127.0.0.1:9102/metrics | head
 
 ## Grafana access
 
-Grafana listens on `127.0.0.1:3000` only. Use SSH tunnel from your laptop:
+Grafana listens on `127.0.0.1:3000` and is exposed through Caddy + Cloudflare Tunnel at:
+
+**https://saveinator.xdshka.party**
+
+Log in with credentials from `.env.monitoring`.
+
+### Origin routing (once per VPS)
+
+1. Add the Caddy block from `monitoring/caddy-grafana.caddyfile` to `/etc/caddy/Caddyfile`, then:
 
 ```bash
-ssh -L 3000:127.0.0.1:3000 root@31.76.76.12
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
 ```
 
-Open http://localhost:3000 and log in with credentials from `.env.monitoring`.
+2. Add the Cloudflared ingress rule from `monitoring/cloudflared-ingress.yml` before the final `http_status:404` rule, then:
+
+```bash
+sudo systemctl restart cloudflared
+```
+
+3. In Cloudflare DNS, point `saveinator.xdshka.party` at the tunnel (same CNAME pattern as other `*.xdshka.party` hosts).
+
+Verify:
+
+```bash
+curl -fsSI https://saveinator.xdshka.party/login
+```
 
 ## Dashboards (auto-provisioned)
 
@@ -79,7 +100,7 @@ Manual re-import: Grafana → Dashboards → Import → upload JSON file.
 - Prometheus is **not** exposed publicly.
 - Change `GRAFANA_ADMIN_PASSWORD` immediately after first login.
 - Do not commit `.env.monitoring` or bot tokens.
-- Optional: put Grafana behind Caddy/nginx with basic auth for remote access.
+- Optional: put Grafana behind Caddy with Grafana login (already configured for `saveinator.xdshka.party`).
 
 ## Bot metrics exposed
 
@@ -107,7 +128,7 @@ Disable metrics: `METRICS_ENABLED=false` in app `.env`.
       - targets: ["127.0.0.1:9103"]
 ```
 
-3. Reload Prometheus: `curl -X POST http://127.0.0.1:9090/-/reload`
+3. Reload Prometheus: `curl -X POST http://127.0.0.1:9091/-/reload`
 4. Duplicate panels in `telegram-bots.json` or create a new dashboard JSON.
 
 ## Alerts

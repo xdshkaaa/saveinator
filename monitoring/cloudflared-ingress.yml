@@ -1,0 +1,2 @@
+- hostname: saveinator.xdshka.party
+  service: http://localhost:8092
