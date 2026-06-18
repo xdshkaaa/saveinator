@@ -11,7 +11,7 @@ from bot.config import settings
 from bot.locale import get
 from bot.services.runtime_settings import platform_max_file_mb, platform_download_timeout_seconds, send_document_limit_mb
 from bot.services.tempfiles import tempfile_manager, sweep_stale
-from bot.services.file_sender import send_file
+from bot.services.file_sender import send_file, telegram_upload_limit_mb
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
 from db.session import async_session_factory
 from bot.services.user_queue import UserScenario, release_user_lock_sync
@@ -99,10 +99,9 @@ def _resolve_format_id(
     aspect_ratio: str | None,
 ) -> str:
     if platform == "youtube" and quality is not None:
-        ytdlp_format = build_youtube_format(quality)
         if aspect_ratio:
-            return f"{ytdlp_format}|q{quality}|r{aspect_ratio}"
-        return f"{ytdlp_format}|q{quality}"
+            return f"q{quality}|r{aspect_ratio}"
+        return f"q{quality}"
     return format_id
 
 
@@ -195,7 +194,7 @@ def download_and_send_task(
                 if size_mb <= max_file_mb:
                     send_result = await send_file(bot, downloaded_path, chat_id, lang, title)
                     if send_result == "too_large":
-                        doc_limit = send_document_limit_mb()
+                        doc_limit = telegram_upload_limit_mb()
                         await _edit_message(
                             bot, chat_id, message_id,
                             get(

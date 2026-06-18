@@ -109,6 +109,8 @@ def apply_aspect_ratio(source_path: Path, aspect_ratio: str, quality: int) -> Pa
         "libx264",
         "-preset",
         "ultrafast",
+        "-crf",
+        "28",
         "-threads",
         "1",
         "-movflags",

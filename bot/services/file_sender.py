@@ -12,6 +12,11 @@ from bot.services.runtime_settings import send_document_limit_mb
 logger = structlog.get_logger()
 
 _IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
+_TELEGRAM_BOT_UPLOAD_LIMIT_MB = 50
+
+
+def telegram_upload_limit_mb() -> int:
+    return min(send_document_limit_mb(), _TELEGRAM_BOT_UPLOAD_LIMIT_MB)
 
 
 def _is_image_path(file_path: Path) -> bool:
@@ -59,14 +64,25 @@ async def send_file(
                 error=str(exc),
             )
 
-    if size_mb <= send_document_limit_mb():
+    if size_mb <= telegram_upload_limit_mb():
         caption = (get("download.sent_as_doc", lang, size=f"{size_mb:.1f}")
                    if size_mb > settings.send_video_limit_mb else None)
-        await bot.send_document(
-            chat_id=chat_id,
-            document=FSInputFile(file_path),
-            caption=caption,
-        )
-        return "document"
+        try:
+            await bot.send_document(
+                chat_id=chat_id,
+                document=FSInputFile(file_path),
+                caption=caption,
+            )
+            return "document"
+        except Exception as exc:
+            logger.warning(
+                "send_document failed",
+                chat_id=chat_id,
+                size_mb=round(size_mb, 2),
+                error=str(exc),
+            )
+            if "entity too large" in str(exc).lower() or "too large" in str(exc).lower():
+                return "too_large"
+            raise
 
     return "too_large"

@@ -5,7 +5,7 @@ git fetch origin && git reset --hard origin/main
 docker compose up -d --force-recreate worker
 sleep 3
 w=$(docker compose ps -q worker)
-for f in workers/downloader.py workers/youtube_format.py workers/video_processor.py workers/tasks.py; do
+for f in workers/downloader.py workers/youtube_format.py workers/video_processor.py workers/tasks.py bot/services/file_sender.py; do
   docker cp "$f" "$w:/app/$f"
 done
 docker compose restart worker
