@@ -4,6 +4,7 @@ from workers.youtube_format import build_youtube_format
 def test_build_youtube_format_1080():
     fmt = build_youtube_format(1080)
     assert "height<=1080" in fmt
+    assert "acodec!=none" in fmt
     assert "bestaudio" in fmt
 
 

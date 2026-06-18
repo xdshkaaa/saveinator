@@ -110,7 +110,7 @@ def apply_aspect_ratio(source_path: Path, aspect_ratio: str, quality: int) -> Pa
         "-preset",
         "ultrafast",
         "-threads",
-        "0",
+        "1",
         "-movflags",
         "+faststart",
     ]

@@ -5,15 +5,22 @@ import yt_dlp
 
 logger = logging.getLogger(__name__)
 
+_YTDLP_COMMON_OPTS: dict = {
+    "quiet": True,
+    "no_warnings": True,
+    "noplaylist": True,
+    "extract_flat": False,
+    "ignoreerrors": False,
+    "js_runtimes": {"deno": {}},
+    "remote_components": {"ejs:github"},
+    "postprocessor_args": {"ffmpeg": ["-threads", "1"]},
+}
+
 
 def build_ydl_opts(output_dir: Path, format_id: str | None = None) -> dict:
     opts: dict = {
+        **_YTDLP_COMMON_OPTS,
         "outtmpl": str(output_dir / "%(title).100s_%(id)s.%(ext)s"),
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "extract_flat": False,
-        "ignoreerrors": False,
     }
     if format_id:
         opts["format"] = format_id

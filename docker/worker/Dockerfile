@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -e . \
     && deno --version \
     && python -c "import curl_cffi; import yt_dlp; print(yt_dlp.version.__version__)"
 
-CMD ["celery", "-A", "workers.app", "worker", "--loglevel=info", "-B"]
+CMD ["celery", "-A", "workers.app", "worker", "--loglevel=info", "-B", "-c", "1", "--max-tasks-per-child=1"]
