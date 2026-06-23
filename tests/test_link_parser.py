@@ -158,6 +158,18 @@ class TestLinkParser:
         assert urls[0].soundcloud_link is not None
         assert urls[0].soundcloud_link.type == "playlist"
 
+    def test_soundcloud_discover_playlist_url(self):
+        text = (
+            "https://soundcloud.com/discover/sets/personalized-tracks::pufig:2285384033"
+            "?si=baafabe621b845b4af6db0f7a39a9a1f&utm_source=clipboard"
+        )
+        urls = extract_urls(text)
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.SOUNDCLOUD
+        assert urls[0].soundcloud_link is not None
+        assert urls[0].soundcloud_link.type == "playlist"
+        assert urls[0].soundcloud_link.url.endswith("personalized-tracks::pufig:2285384033")
+
     def test_soundcloud_short_url(self):
         urls = extract_urls("https://on.soundcloud.com/abc123")
         assert len(urls) == 1

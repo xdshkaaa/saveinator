@@ -16,6 +16,18 @@ class TestSoundCloudParser:
             url="https://soundcloud.com/artist/sets/playlist-name",
         )
 
+    def test_parse_discover_personalized_playlist_url(self):
+        url = (
+            "https://soundcloud.com/discover/sets/personalized-tracks::pufig:2285384033"
+            "?si=baafabe621b845b4af6db0f7a39a9a1f"
+            "&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing"
+        )
+        link = parse_soundcloud_link(url)
+        assert link == SoundCloudLink(
+            type="playlist",
+            url="https://soundcloud.com/discover/sets/personalized-tracks::pufig:2285384033",
+        )
+
     def test_parse_short_url(self):
         link = parse_soundcloud_link("https://on.soundcloud.com/abc123")
         assert link == SoundCloudLink(type="short", url="https://on.soundcloud.com/abc123")

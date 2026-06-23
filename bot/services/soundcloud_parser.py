@@ -5,8 +5,12 @@ from urllib.parse import urlparse
 
 SoundCloudLinkType = Literal["track", "playlist", "short"]
 
+_DISCOVER_PLAYLIST_URL = re.compile(
+    r"(?:https?://)?(?:www\.)?soundcloud\.com/discover/sets/[^\s?#]+",
+    re.IGNORECASE,
+)
 _PLAYLIST_URL = re.compile(
-    r"(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[\w.-]+",
+    r"(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[^\s?#]+",
     re.IGNORECASE,
 )
 _TRACK_URL = re.compile(
@@ -49,6 +53,7 @@ def parse_soundcloud_link(url: str) -> SoundCloudLink | None:
         return None
 
     for pattern, link_type in (
+        (_DISCOVER_PLAYLIST_URL, "playlist"),
         (_PLAYLIST_URL, "playlist"),
         (_SHORT_URL, "short"),
         (_TRACK_URL, "track"),

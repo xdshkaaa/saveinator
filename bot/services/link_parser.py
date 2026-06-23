@@ -61,7 +61,14 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     (
         Platform.SOUNDCLOUD,
         re.compile(
-            r"(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[\w.-]+(?:[/?#&]\S*)?",
+            r"(?:https?://)?(?:www\.)?soundcloud\.com/discover/sets/[^\s?#]+(?:[/?#&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Platform.SOUNDCLOUD,
+        re.compile(
+            r"(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[^\s?#]+(?:[/?#&]\S*)?",
             re.IGNORECASE,
         ),
     ),
