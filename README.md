@@ -105,6 +105,19 @@ celery -A workers.app worker --loglevel=info
 USE_POLLING=true python -m bot.main
 ```
 
+## Production webhook
+
+Production Docker defaults to Telegram webhook mode. The public webhook host is:
+
+```env
+USE_POLLING=false
+WEBHOOK_HOST=https://saveinator-hooks.xdshka.party
+WEBHOOK_PATH=/webhook
+WEBHOOK_SECRET_TOKEN=long-random-value
+```
+
+The webhook app also serves `GET /health` for origin checks. Keep `/metrics` private on `127.0.0.1:9101`; the Caddy/Cloudflare route for `saveinator-hooks.xdshka.party` only forwards `/`, `/health`, and `/webhook*`.
+
 ## Tests
 
 ```bash
@@ -118,7 +131,10 @@ pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_
 | `BOT_TOKEN` | required | Telegram bot token |
 | `DATABASE_URL` | SQLite dev DB | Async SQLAlchemy URL |
 | `REDIS_URL` | `redis://localhost:6379/0` | Rate limit / spam dedup |
-| `USE_POLLING` | `true` | Polling vs webhook mode |
+| `USE_POLLING` | `true` locally / `false` in Docker | Polling vs webhook mode |
+| `WEBHOOK_HOST` | `https://saveinator-hooks.xdshka.party` | Public Telegram webhook origin |
+| `WEBHOOK_PATH` | `/webhook` | Telegram webhook path |
+| `WEBHOOK_SECRET_TOKEN` | `""` | Optional Telegram webhook secret header validation |
 | `SPOTIFY_ENABLED` | `false` | Enable Spotify metadata cards |
 | `SPOTIFY_CLIENT_ID` | `""` | Spotify API client ID |
 | `SPOTIFY_CLIENT_SECRET` | `""` | Spotify API client secret |

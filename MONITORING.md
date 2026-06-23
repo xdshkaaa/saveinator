@@ -12,6 +12,7 @@ Production monitoring stack for the Saveinator bot VPS (`103.214.69.38`).
 | node_exporter | `9100` | VPS CPU/RAM/disk/network |
 | cAdvisor | `8180` | Docker container metrics |
 | Bot metrics | `9101` | Telegram bot `/metrics` |
+| Bot webhook | `8000` | Telegram webhook HTTP app (localhost only) |
 | Worker metrics | `9102` | Celery worker `/metrics` |
 | postgres_exporter | `9187` | PostgreSQL metrics |
 | redis_exporter | `9121` | Redis metrics |
@@ -59,7 +60,11 @@ Grafana listens on `127.0.0.1:3000` and is exposed through Caddy + Cloudflare Tu
 
 **https://saveinator.xdshka.party**
 
-Log in with credentials from `.env.monitoring`.
+Telegram webhook traffic is exposed separately at:
+
+**https://saveinator-hooks.xdshka.party/webhook**
+
+Log in to Grafana with credentials from `.env.monitoring`.
 
 ### Origin routing (once per VPS)
 
@@ -76,12 +81,13 @@ sudo systemctl reload caddy
 sudo systemctl restart cloudflared
 ```
 
-3. In Cloudflare DNS, point `saveinator.xdshka.party` at the tunnel (same CNAME pattern as other `*.xdshka.party` hosts).
+3. In Cloudflare DNS, point both `saveinator.xdshka.party` and `saveinator-hooks.xdshka.party` at the tunnel (same CNAME pattern as other `*.xdshka.party` hosts).
 
 Verify:
 
 ```bash
 curl -fsSI https://saveinator.xdshka.party/login
+curl -fsS https://saveinator-hooks.xdshka.party/health
 ```
 
 ## Dashboards (auto-provisioned)
@@ -98,6 +104,7 @@ Manual re-import: Grafana → Dashboards → Import → upload JSON file.
 ## Security
 
 - Prometheus is **not** exposed publicly.
+- The public webhook host only proxies `/`, `/health`, and `/webhook*`; bot `/metrics` stays localhost-only.
 - Change `GRAFANA_ADMIN_PASSWORD` immediately after first login.
 - Do not commit `.env.monitoring` or bot tokens.
 - Optional: put Grafana behind Caddy with Grafana login (already configured for `saveinator.xdshka.party`).

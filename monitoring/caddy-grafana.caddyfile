@@ -14,3 +14,26 @@
 		format console
 	}
 }
+
+:8093 {
+	@telegram_hooks path / /health /webhook*
+	handle @telegram_hooks {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		respond 404
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/saveinator-hooks.xdshka.party.access.log
+		format console
+	}
+}

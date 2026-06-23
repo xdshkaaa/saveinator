@@ -16,6 +16,20 @@ from bot.telegram_instrumentation import instrument_bot
 logger = logging.getLogger(__name__)
 
 
+def _webhook_path() -> str:
+    if settings.webhook_path.startswith("/"):
+        return settings.webhook_path
+    return f"/{settings.webhook_path}"
+
+
+def _webhook_url() -> str:
+    return f"{settings.webhook_host.rstrip('/')}{_webhook_path()}"
+
+
+def _webhook_secret_token() -> str | None:
+    return settings.webhook_secret_token or None
+
+
 async def _register_bot_commands(bot: Bot) -> None:
     await bot.set_my_commands(
         [
@@ -30,8 +44,9 @@ async def on_startup(bot: Bot):
     await bot.delete_webhook(drop_pending_updates=True)
     if not settings.use_polling:
         await bot.set_webhook(
-            f"{settings.webhook_host}{settings.webhook_path}",
+            _webhook_url(),
             drop_pending_updates=True,
+            secret_token=_webhook_secret_token(),
         )
     await _register_bot_commands(bot)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
@@ -40,6 +55,8 @@ async def on_startup(bot: Bot):
 async def on_shutdown(bot: Bot):
     if not settings.use_polling:
         await bot.delete_webhook()
+    from bot.services.redis_client import close_async_redis
+    await close_async_redis()
 
 
 async def health(_request: web.Request) -> web.Response:
@@ -47,26 +64,20 @@ async def health(_request: web.Request) -> web.Response:
 
 
 async def run_webhook(dp, bot: Bot):
-    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+    if settings.metrics_enabled:
+        await start_metrics_server()
 
-    from bot.metrics import init_platform_metrics, refresh_uptime
-
-    init_platform_metrics()
     app = web.Application()
+    app.router.add_get("/", health)
     app.router.add_get("/health", health)
-
-    async def metrics_handler(_request: web.Request) -> web.Response:
-        refresh_uptime()
-        return web.Response(
-            body=generate_latest(),
-            headers={"Content-Type": CONTENT_TYPE_LATEST},
-        )
-
-    app.router.add_get("/metrics", metrics_handler)
     if settings.download_api_enabled:
         register_download_routes(app)
-    webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
-    webhook_requests_handler.register(app, path=settings.webhook_path)
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+        secret_token=_webhook_secret_token(),
+    )
+    webhook_requests_handler.register(app, path=_webhook_path())
     setup_application(app, dp, bot=bot)
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)

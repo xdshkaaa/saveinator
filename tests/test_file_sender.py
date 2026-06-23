@@ -32,10 +32,11 @@ def test_download_task_send_file_too_large_keeps_status_message(monkeypatch):
     async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_args, **_kwargs):
         recorded.append((url, platform, status))
 
-    monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.get_bot", lambda: fake_bot)
     monkeypatch.setattr("workers.tasks.download", fake_download)
     monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
     monkeypatch.setattr("workers.tasks.send_document_limit_mb", lambda: 1999)
+    monkeypatch.setattr("workers.tasks.telegram_upload_limit_mb", lambda _platform=None: 1999)
     monkeypatch.setattr("workers.tasks._platform_max_file_mb", lambda _platform: 1999)
     monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
     monkeypatch.setattr("workers.tasks._platform_download_timeout_seconds", lambda _platform: 0)
@@ -70,7 +71,7 @@ def test_download_task_send_file_exception_shows_error(monkeypatch):
     async def fake_record_download(url, platform, format_id, size_mb, status, *_args, **_kwargs):
         recorded.append((status,))
 
-    monkeypatch.setattr("workers.tasks._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.get_bot", lambda: fake_bot)
     monkeypatch.setattr("workers.tasks.download", fake_download)
     monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
     monkeypatch.setattr("workers.tasks._record_download", fake_record_download)
@@ -111,8 +112,50 @@ async def test_send_file_falls_back_to_document_after_video_failure(monkeypatch,
 
     monkeypatch.setattr(file_sender.settings, "send_video_limit_mb", 50)
     monkeypatch.setattr(file_sender, "send_document_limit_mb", lambda: 1999)
+    monkeypatch.setattr(file_sender, "telegram_bot_upload_limit_mb", lambda: 1999)
 
     result = await file_sender.send_file(StubBot(), video, 1)
+
+    assert result == "document"
+    assert sent == ["document"]
+
+
+@pytest.mark.asyncio
+async def test_telegram_upload_limit_uses_platform_max(monkeypatch, tmp_path: Path):
+    from bot.services import file_sender
+
+    monkeypatch.setattr(file_sender, "send_document_limit_mb", lambda: 1999)
+    monkeypatch.setattr(file_sender, "telegram_bot_upload_limit_mb", lambda: 50)
+    monkeypatch.setattr(file_sender, "platform_max_file_mb", lambda platform: 200 if platform == "youtube" else 50)
+
+    assert file_sender.telegram_upload_limit_mb("youtube") == 200
+    assert file_sender.telegram_upload_limit_mb("tiktok") == 50
+    assert file_sender.telegram_upload_limit_mb() == 50
+
+
+@pytest.mark.asyncio
+async def test_send_file_sends_document_for_youtube_over_video_limit(monkeypatch, tmp_path: Path):
+    from bot.services import file_sender
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x" * int(63.4 * 1024 * 1024 / 10))  # small stub; size mocked below
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_video(self, **_kwargs):
+            sent.append("video")
+
+        async def send_document(self, **_kwargs):
+            sent.append("document")
+
+    monkeypatch.setattr(file_sender.settings, "send_video_limit_mb", 50)
+    monkeypatch.setattr(file_sender, "send_document_limit_mb", lambda: 1999)
+    monkeypatch.setattr(file_sender, "telegram_bot_upload_limit_mb", lambda: 50)
+    monkeypatch.setattr(file_sender, "platform_max_file_mb", lambda _platform: 200)
+    monkeypatch.setattr("bot.services.file_sender.os.path.getsize", lambda _path: int(63.4 * 1024 * 1024))
+
+    result = await file_sender.send_file(StubBot(), video, 1, platform="youtube")
 
     assert result == "document"
     assert sent == ["document"]

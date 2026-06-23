@@ -7,16 +7,30 @@ from aiogram.types import FSInputFile
 
 from bot.config import settings
 from bot.locale import get
-from bot.services.runtime_settings import send_document_limit_mb
+from bot.services.runtime_settings import (
+    platform_max_file_mb,
+    send_document_limit_mb,
+    telegram_bot_upload_limit_mb,
+)
 
 logger = structlog.get_logger()
 
 _IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
-_TELEGRAM_BOT_UPLOAD_LIMIT_MB = 50
 
 
-def telegram_upload_limit_mb() -> int:
-    return min(send_document_limit_mb(), _TELEGRAM_BOT_UPLOAD_LIMIT_MB)
+def telegram_upload_limit_mb(platform: str | None = None) -> int:
+    """Effective upload cap for send_file.
+
+    Per-platform max_file_mb from admin controls both download acceptance and
+    send attempts for that platform. Global telegram_bot_upload_limit_mb
+    applies when no platform is specified.
+    """
+    limits = [send_document_limit_mb()]
+    if platform is not None:
+        limits.append(platform_max_file_mb(platform))
+    else:
+        limits.append(telegram_bot_upload_limit_mb())
+    return min(limits)
 
 
 def _is_image_path(file_path: Path) -> bool:
@@ -31,6 +45,7 @@ async def send_file(
     title: str = "",
     bot_username: str = "saveinator_bot",
     media_type: str | None = None,
+    platform: str | None = None,
 ) -> str:
     size_mb = os.path.getsize(file_path) / (1024 * 1024)
     caption = (
@@ -64,7 +79,7 @@ async def send_file(
                 error=str(exc),
             )
 
-    if size_mb <= telegram_upload_limit_mb():
+    if size_mb <= telegram_upload_limit_mb(platform):
         caption = (get("download.sent_as_doc", lang, size=f"{size_mb:.1f}")
                    if size_mb > settings.send_video_limit_mb else None)
         try:

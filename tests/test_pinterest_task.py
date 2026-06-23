@@ -68,7 +68,7 @@ def test_pinterest_task_sends_single_image(monkeypatch):
     async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_a, **_k):
         recorded.append((url, platform, size_mb))
 
-    monkeypatch.setattr("workers.pinterest_task._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.pinterest_task.get_bot", lambda: fake_bot)
     monkeypatch.setattr(
         "workers.pinterest_task.download_pinterest", fake_download_pinterest
     )
@@ -120,7 +120,7 @@ def test_pinterest_task_sends_video_with_media_type(monkeypatch):
     async def fake_record_download_safe(*_a, **_k):
         pass
 
-    monkeypatch.setattr("workers.pinterest_task._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.pinterest_task.get_bot", lambda: fake_bot)
     monkeypatch.setattr(
         "workers.pinterest_task.download_pinterest", fake_download_pinterest
     )
@@ -152,7 +152,7 @@ def test_pinterest_task_handles_no_media(monkeypatch):
     async def fake_record_download_safe(*_a, **_k):
         pass
 
-    monkeypatch.setattr("workers.pinterest_task._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.pinterest_task.get_bot", lambda: fake_bot)
     monkeypatch.setattr(
         "workers.pinterest_task.download_pinterest", fake_download_pinterest
     )
@@ -186,7 +186,7 @@ def test_pinterest_task_handles_generic_error(monkeypatch):
     async def fake_record_download_safe(*_a, **_k):
         pass
 
-    monkeypatch.setattr("workers.pinterest_task._get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.pinterest_task.get_bot", lambda: fake_bot)
     monkeypatch.setattr(
         "workers.pinterest_task.download_pinterest", fake_download_pinterest
     )

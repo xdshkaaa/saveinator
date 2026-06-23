@@ -1,2 +1,4 @@
 - hostname: saveinator.xdshka.party
   service: http://localhost:8092
+- hostname: saveinator-hooks.xdshka.party
+  service: http://localhost:8093

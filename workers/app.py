@@ -1,7 +1,8 @@
+import asyncio
 import time
 
 from celery import Celery
-from celery.signals import task_failure, task_postrun, task_prerun, worker_ready
+from celery.signals import task_failure, task_postrun, task_prerun, worker_ready, worker_shutting_down
 
 from bot.config import settings
 from workers.metrics import (
@@ -69,3 +70,18 @@ def _on_task_postrun(task_id=None, task=None, state=None, kwargs=None, **_extra)
 def _on_task_failure(task_id=None, **_kwargs) -> None:
     if task_id and task_id in _task_start_times:
         _task_start_times.pop(task_id, None)
+
+
+@worker_shutting_down.connect
+def _on_worker_shutdown(**kwargs) -> None:
+    """Close shared Bot session on worker shutdown."""
+    from workers.bot import close_bot
+
+    try:
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(close_bot())
+        finally:
+            loop.close()
+    except Exception:
+        pass

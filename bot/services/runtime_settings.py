@@ -34,6 +34,7 @@ RUNTIME_SETTINGS: tuple[RuntimeSettingDef, ...] = (
     RuntimeSettingDef("pinterest.max_file_mb", "send_video_limit_mb", "pinterest", "max_file_mb"),
     RuntimeSettingDef("pinterest.timeout_sec", "pinterest_timeout_seconds", "pinterest", "timeout_sec"),
     RuntimeSettingDef("global.document_limit_mb", "send_document_limit_mb", "global", "max_file_mb"),
+    RuntimeSettingDef("global.telegram_upload_limit_mb", "telegram_bot_upload_limit_mb", "global", "max_file_mb"),
 )
 
 _SETTINGS_BY_REDIS_KEY = {item.redis_key: item for item in RUNTIME_SETTINGS}
@@ -125,6 +126,10 @@ def platform_download_timeout_seconds(platform: str) -> int:
 
 def send_document_limit_mb() -> int:
     return get_runtime_int("global.document_limit_mb")
+
+
+def telegram_bot_upload_limit_mb() -> int:
+    return get_runtime_int("global.telegram_upload_limit_mb")
 
 
 def spotify_track_timeout_seconds() -> int:

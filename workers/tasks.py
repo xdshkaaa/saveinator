@@ -1,11 +1,9 @@
 import asyncio
 import os
-import signal
 import uuid
 from pathlib import Path
 
 import structlog
-from aiogram import Bot
 
 from bot.config import settings
 from bot.locale import get
@@ -16,6 +14,7 @@ from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_na
 from db.session import async_session_factory
 from bot.services.user_queue import UserScenario, release_user_lock_sync
 from workers.app import app
+from workers.bot import get_bot
 from workers.downloader import download
 from workers.metrics import YTDLP_ERRORS_TOTAL
 from workers.video_processor import VideoProcessingError, apply_aspect_ratio
@@ -26,18 +25,6 @@ logger = structlog.get_logger()
 _VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mkv", ".mov", ".m4v"})
 
 
-class DownloadTimeoutError(Exception):
-    pass
-
-
-def _get_bot() -> Bot:
-    return Bot(token=settings.bot_token)
-
-
-def _raise_download_timeout(_signum, _frame):
-    raise DownloadTimeoutError
-
-
 def _platform_max_file_mb(platform: str) -> int:
     return platform_max_file_mb(platform)
 
@@ -46,50 +33,38 @@ def _platform_download_timeout_seconds(platform: str) -> int:
     return platform_download_timeout_seconds(platform)
 
 
-def _download_with_timeout(url: str, output_dir: Path, format_id: str, platform: str) -> dict:
+async def _download_with_timeout(url: str, output_dir: Path, format_id: str, platform: str) -> dict:
+    """Run yt-dlp download in a thread with an async timeout."""
     timeout = _platform_download_timeout_seconds(platform)
+    coro = asyncio.to_thread(download, url, output_dir, format_id)
     if timeout <= 0:
-        return download(url, output_dir, format_id)
-
-    previous_handler = signal.getsignal(signal.SIGALRM)
-    signal.signal(signal.SIGALRM, _raise_download_timeout)
-    signal.setitimer(signal.ITIMER_REAL, timeout)
-    try:
-        return download(url, output_dir, format_id)
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous_handler)
+        return await coro
+    return await asyncio.wait_for(coro, timeout=timeout)
 
 
-def _call_with_timeout(fn, timeout: int):
-    if timeout <= 0:
-        return fn()
-
-    previous_handler = signal.getsignal(signal.SIGALRM)
-    signal.signal(signal.SIGALRM, _raise_download_timeout)
-    signal.setitimer(signal.ITIMER_REAL, timeout)
-    try:
-        return fn()
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous_handler)
-
-
-def _download_and_process_youtube(
+async def _download_and_process_youtube(
     url: str,
     task_dir: Path,
     ytdlp_format: str,
     aspect_ratio: str,
     quality: int,
 ) -> tuple[dict, Path]:
-    info = download(url, task_dir, ytdlp_format)
-    downloaded_path = _find_downloaded_video(task_dir)
-    if not downloaded_path:
-        raise VideoProcessingError("no video file after download")
-    processed_path = apply_aspect_ratio(downloaded_path, aspect_ratio, quality)
-    if processed_path != downloaded_path:
-        downloaded_path.unlink(missing_ok=True)
-    return info, processed_path
+    """Download and transcode a YouTube video within a single timeout."""
+    timeout = _platform_download_timeout_seconds("youtube")
+
+    def _run() -> tuple[dict, Path]:
+        info = download(url, task_dir, ytdlp_format)
+        downloaded_path = _find_downloaded_video(task_dir)
+        if not downloaded_path:
+            raise VideoProcessingError("no video file after download")
+        processed_path = apply_aspect_ratio(downloaded_path, aspect_ratio, quality)
+        if processed_path != downloaded_path:
+            downloaded_path.unlink(missing_ok=True)
+        return info, processed_path
+
+    if timeout <= 0:
+        return await asyncio.to_thread(_run)
+    return await asyncio.wait_for(asyncio.to_thread(_run), timeout=timeout)
 
 
 def _resolve_format_id(
@@ -122,6 +97,164 @@ def _find_downloaded_video(task_dir: Path) -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_size)
 
 
+async def _run_download_and_send(
+    bot,
+    task_id: str,
+    url: str,
+    platform: str,
+    chat_id: int,
+    user_id: int,
+    message_id: int,
+    lang: str,
+    resolved_format_id: str,
+    ytdlp_format: str,
+    lock_token: str,
+    quality: int | None,
+    aspect_ratio: str | None,
+) -> None:
+    """Async core of download_and_send_task.
+
+    Extracted to module level so the Celery task function is a thin
+    ``asyncio.run()`` wrapper, keeping event-loop creation explicit.
+    """
+    with tempfile_manager(task_id) as task_dir:
+        try:
+            if not (platform == "youtube" and quality is not None and aspect_ratio):
+                await _edit_message(bot, chat_id, message_id, get("download.downloading", lang))
+
+            if platform == "youtube" and quality is not None and aspect_ratio:
+                try:
+                    info, downloaded_path = await _download_and_process_youtube(
+                        url, task_dir, ytdlp_format, aspect_ratio, quality,
+                    )
+                except asyncio.TimeoutError:
+                    YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
+                    logger.warning(
+                        "youtube processing timed out",
+                        task_id=task_id, url=url,
+                        timeout=_platform_download_timeout_seconds(platform),
+                    )
+                    await _edit_message(bot, chat_id, message_id, get("download.timeout", lang))
+                    await _record_download_safe(
+                        url, platform, resolved_format_id, 0,
+                        DownloadStatus.FAILED, user_id, chat_id,
+                        f"processing exceeded {_platform_download_timeout_seconds(platform)} seconds",
+                    )
+                    return
+                except VideoProcessingError as exc:
+                    YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
+                    logger.warning(
+                        "youtube video processing failed",
+                        task_id=task_id, url=url, detail=str(exc),
+                    )
+                    await _edit_message(
+                        bot, chat_id, message_id, _youtube_error_message(lang, platform),
+                    )
+                    await _record_download_safe(
+                        url, platform, resolved_format_id, 0,
+                        DownloadStatus.FAILED, user_id, chat_id,
+                        str(exc)[:500],
+                    )
+                    return
+            else:
+                try:
+                    info = await _download_with_timeout(url, task_dir, ytdlp_format, platform)
+                except asyncio.TimeoutError:
+                    YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
+                    logger.warning(
+                        "download timed out",
+                        task_id=task_id, url=url,
+                        timeout=_platform_download_timeout_seconds(platform),
+                    )
+                    await _edit_message(bot, chat_id, message_id, get("download.timeout", lang))
+                    await _record_download_safe(
+                        url, platform, resolved_format_id, 0,
+                        DownloadStatus.FAILED, user_id, chat_id,
+                        f"download exceeded {_platform_download_timeout_seconds(platform)} seconds",
+                    )
+                    return
+                downloaded_path = _find_downloaded_video(task_dir)
+
+            title = info.get("title") or "video"
+
+            if not downloaded_path:
+                await _edit_message(
+                    bot, chat_id, message_id, _youtube_error_message(lang, platform),
+                )
+                return
+
+            size_mb = os.path.getsize(downloaded_path) / (1024 * 1024)
+
+            max_file_mb = _platform_max_file_mb(platform)
+            if size_mb <= max_file_mb:
+                send_result = await send_file(
+                    bot, downloaded_path, chat_id, lang, title, platform=platform,
+                )
+                if send_result == "too_large":
+                    doc_limit = telegram_upload_limit_mb(platform)
+                    await _edit_message(
+                        bot, chat_id, message_id,
+                        get(
+                            "download.too_large",
+                            lang,
+                            size=f"{size_mb:.1f}",
+                            limit=doc_limit,
+                        ),
+                    )
+                    await _record_download_safe(
+                        url, platform, resolved_format_id, size_mb,
+                        DownloadStatus.FAILED, user_id, chat_id,
+                        f"file exceeds Telegram send limit of {doc_limit} MB",
+                    )
+                    return
+
+                await _delete_message(bot, chat_id, message_id)
+                await _record_download_safe(
+                    url, platform, resolved_format_id, size_mb,
+                    DownloadStatus.COMPLETED, user_id, chat_id,
+                )
+                return
+
+            await _edit_message(
+                bot, chat_id, message_id,
+                get(
+                    "download.too_large",
+                    lang,
+                    size=f"{size_mb:.1f}",
+                    limit=max_file_mb,
+                ),
+            )
+            await _record_download_safe(
+                url, platform, resolved_format_id, size_mb,
+                DownloadStatus.FAILED, user_id, chat_id,
+                f"file is larger than {max_file_mb} MB",
+            )
+
+        except Exception as exc:
+            YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
+            logger.exception("download_and_send_task failed", task_id=task_id)
+            try:
+                await _edit_message(
+                    bot, chat_id, message_id, _youtube_error_message(lang, platform),
+                )
+            except Exception as edit_err:
+                logger.warning(
+                    "failed to edit error message",
+                    chat_id=chat_id, message_id=message_id,
+                    error=str(edit_err),
+                )
+            try:
+                await _record_download(
+                    url, platform, resolved_format_id, 0,
+                    DownloadStatus.FAILED, user_id, chat_id,
+                    str(exc)[:500],
+                )
+            except Exception as rec_err:
+                logger.exception("failed to record failed download", task_id=task_id, error=str(rec_err))
+        finally:
+            release_user_lock_sync(user_id, lock_token, UserScenario.VIDEO)
+
+
 @app.task(bind=True, max_retries=1)
 def download_and_send_task(
     self,
@@ -136,7 +269,7 @@ def download_and_send_task(
     quality: int | None = None,
     aspect_ratio: str | None = None,
 ):
-    bot = _get_bot()
+    bot = get_bot()
     task_id = str(uuid.uuid4())
     resolved_format_id = _resolve_format_id(platform, format_id, quality, aspect_ratio)
     ytdlp_format = (
@@ -145,125 +278,25 @@ def download_and_send_task(
         else format_id
     )
 
-    async def _run():
-        with tempfile_manager(task_id) as task_dir:
-            try:
-                if not (platform == "youtube" and quality is not None and aspect_ratio):
-                    await _edit_message(bot, chat_id, message_id, get("download.downloading", lang))
-
-                if platform == "youtube" and quality is not None and aspect_ratio:
-                    try:
-                        info, downloaded_path = _call_with_timeout(
-                            lambda: _download_and_process_youtube(
-                                url, task_dir, ytdlp_format, aspect_ratio, quality,
-                            ),
-                            _platform_download_timeout_seconds(platform),
-                        )
-                    except VideoProcessingError as exc:
-                        YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
-                        logger.warning(
-                            "youtube video processing failed",
-                            task_id=task_id,
-                            url=url,
-                            detail=str(exc),
-                        )
-                        await _edit_message(
-                            bot, chat_id, message_id, _youtube_error_message(lang, platform),
-                        )
-                        await _record_download_safe(
-                            url, platform, resolved_format_id, 0,
-                            DownloadStatus.FAILED, user_id, chat_id,
-                            str(exc)[:500],
-                        )
-                        return
-                else:
-                    info = _download_with_timeout(url, task_dir, ytdlp_format, platform)
-                    downloaded_path = _find_downloaded_video(task_dir)
-
-                title = info.get("title") or "video"
-
-                if not downloaded_path:
-                    await _edit_message(
-                        bot, chat_id, message_id, _youtube_error_message(lang, platform),
-                    )
-                    return
-
-                size_mb = os.path.getsize(downloaded_path) / (1024 * 1024)
-
-                max_file_mb = _platform_max_file_mb(platform)
-                if size_mb <= max_file_mb:
-                    send_result = await send_file(bot, downloaded_path, chat_id, lang, title)
-                    if send_result == "too_large":
-                        doc_limit = telegram_upload_limit_mb()
-                        await _edit_message(
-                            bot, chat_id, message_id,
-                            get(
-                                "download.too_large",
-                                lang,
-                                size=f"{size_mb:.1f}",
-                                limit=doc_limit,
-                            ),
-                        )
-                        await _record_download_safe(
-                            url, platform, resolved_format_id, size_mb,
-                            DownloadStatus.FAILED, user_id, chat_id,
-                            f"file exceeds Telegram send limit of {doc_limit} MB",
-                        )
-                        return
-
-                    await _delete_message(bot, chat_id, message_id)
-                    await _record_download_safe(
-                        url, platform, resolved_format_id, size_mb,
-                        DownloadStatus.COMPLETED, user_id, chat_id,
-                    )
-                    return
-
-                await _edit_message(
-                    bot, chat_id, message_id,
-                    get(
-                        "download.too_large",
-                        lang,
-                        size=f"{size_mb:.1f}",
-                        limit=max_file_mb,
-                    ),
-                )
-                await _record_download_safe(
-                    url, platform, resolved_format_id, size_mb,
-                    DownloadStatus.FAILED, user_id, chat_id,
-                    f"file is larger than {max_file_mb} MB",
-                )
-
-            except DownloadTimeoutError:
-                YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
-                logger.warning("download timed out", task_id=task_id, url=url)
-                await _edit_message(bot, chat_id, message_id, get("download.timeout", lang))
-                await _record_download_safe(
-                    url, platform, resolved_format_id, 0,
-                    DownloadStatus.FAILED, user_id, chat_id,
-                    f"download exceeded {_platform_download_timeout_seconds(platform)} seconds",
-                )
-
-            except Exception as exc:
-                YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
-                logger.exception("download_and_send_task failed", task_id=task_id)
-                try:
-                    await _edit_message(
-                        bot, chat_id, message_id, _youtube_error_message(lang, platform),
-                    )
-                except Exception:
-                    pass
-                try:
-                    await _record_download(
-                        url, platform, resolved_format_id, 0,
-                        DownloadStatus.FAILED, user_id, chat_id,
-                        str(exc)[:500],
-                    )
-                except Exception:
-                    logger.exception("failed to record failed download", task_id=task_id)
-            finally:
-                release_user_lock_sync(user_id, lock_token, UserScenario.VIDEO)
-
-    asyncio.run(_run())
+    # Celery tasks are synchronous; asyncio.run() is the standard bridge
+    # to run the async core once per task.
+    asyncio.run(
+        _run_download_and_send(
+            bot=bot,
+            task_id=task_id,
+            url=url,
+            platform=platform,
+            chat_id=chat_id,
+            user_id=user_id,
+            message_id=message_id,
+            lang=lang,
+            resolved_format_id=resolved_format_id,
+            ytdlp_format=ytdlp_format,
+            lock_token=lock_token,
+            quality=quality,
+            aspect_ratio=aspect_ratio,
+        )
+    )
 
 
 @app.task
@@ -271,18 +304,28 @@ def cleanup_stale_task():
     sweep_stale()
 
 
-async def _edit_message(bot: Bot, chat_id: int, message_id: int, text: str):
+async def _edit_message(bot, chat_id: int, message_id: int, text: str):
     try:
         await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "edit_message failed",
+            chat_id=chat_id, message_id=message_id,
+            error=str(exc),
+            action="edit_message",
+        )
 
 
-async def _delete_message(bot: Bot, chat_id: int, message_id: int):
+async def _delete_message(bot, chat_id: int, message_id: int):
     try:
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "delete_message failed",
+            chat_id=chat_id, message_id=message_id,
+            error=str(exc),
+            action="delete_message",
+        )
 
 
 async def _record_download_safe(

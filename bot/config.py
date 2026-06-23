@@ -8,10 +8,11 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./dev.db"
     redis_url: str = "redis://localhost:6379/0"
 
-    webhook_host: str = "https://xdshka.party"
+    webhook_host: str = "https://saveinator-hooks.xdshka.party"
     webhook_path: str = "/webhook"
     webhook_port: int = 8000
     webhook_listen: str = "0.0.0.0"
+    webhook_secret_token: str = ""
 
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 500
     send_video_limit_mb: int = 50
     send_document_limit_mb: int = 1999
+    telegram_bot_upload_limit_mb: int = 50
     download_timeout_seconds: int = 60
     youtube_max_file_size_mb: int = 1999
     youtube_download_timeout_seconds: int = 600
@@ -59,7 +61,7 @@ class Settings(BaseSettings):
     metrics_port: int = 9101
     worker_metrics_port: int = 9102
 
-    admin_telegram_id: int = 339193247
+    admin_telegram_id: int = 0
 
 
 settings = Settings()
