@@ -18,6 +18,23 @@ from bot.services.broadcast_service import (
 from bot.filters.admin import IsAdminFilter
 
 
+class FakeCallbackForFilter:
+    def __init__(self, data: str):
+        self.data = data
+
+
+def _matching_broadcast_callbacks(data: str) -> list[str]:
+    from bot.handlers.broadcast import broadcast_router
+
+    callback = FakeCallbackForFilter(data)
+    matches: list[str] = []
+    for handler in broadcast_router.callback_query.handlers:
+        magic_filter = next((flt.magic for flt in handler.filters if flt.magic is not None), None)
+        if magic_filter is not None and magic_filter.resolve(callback):
+            matches.append(handler.callback.__name__)
+    return matches
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -166,3 +183,11 @@ class TestDisplayNames:
 
     def test_status_display_ru(self):
         assert "Завершена" in status_display_name(BroadcastStatus.COMPLETED, "ru")
+
+
+class TestBroadcastRouting:
+    def test_admin_menu_callback_opens_broadcast_menu(self):
+        assert _matching_broadcast_callbacks("admin|broadcasts") == ["broadcast_menu"]
+
+    def test_back_callback_returns_to_broadcast_menu(self):
+        assert _matching_broadcast_callbacks("broadcast|menu") == ["broadcast_menu"]

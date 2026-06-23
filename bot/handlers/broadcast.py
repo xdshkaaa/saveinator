@@ -99,6 +99,7 @@ def _menu_keyboard(lang: str) -> InlineKeyboardMarkup:
 
 
 @broadcast_router.callback_query(F.data == "admin|broadcasts", _is_admin)
+@broadcast_router.callback_query(F.data == "broadcast|menu", _is_admin)
 async def broadcast_menu(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
     await state.clear()
     await callback.message.edit_text(
