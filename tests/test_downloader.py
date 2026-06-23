@@ -1,6 +1,12 @@
 """Tests for workers/downloader.py helpers (no yt-dlp dependency)."""
 
+from pathlib import Path
+
+import pytest
+
 from workers.downloader import (
+    XTargetReplyNoMediaError,
+    download_with_reply_filter,
     _extract_status_id_from_url,
     _entry_matches_status_id,
     _entry_has_media,
@@ -96,3 +102,43 @@ class TestFindEntryIndex:
 
     def test_empty_list(self):
         assert _find_entry_index([], "1") is None
+
+
+class TestDownloadWithReplyFilter:
+    def test_x_status_rejects_external_youtube_card(self, monkeypatch, tmp_path: Path):
+        calls: list[tuple[str, bool]] = []
+
+        class FakeYoutubeDL:
+            def __init__(self, _opts):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def extract_info(self, url, download):
+                calls.append((url, download))
+                return {
+                    "id": "kdn3qYwzMDQ",
+                    "extractor_key": "Youtube",
+                    "title": "The Weirdest Create Mod Addon",
+                    "original_url": "https://x.com/FrMinecraft/status/2069305477947695422",
+                    "webpage_url": "https://www.youtube.com/watch?v=kdn3qYwzMDQ",
+                    "formats": [{"url": "https://youtube.example/video.mp4"}],
+                }
+
+        monkeypatch.setattr("yt_dlp.YoutubeDL", FakeYoutubeDL)
+
+        with pytest.raises(XTargetReplyNoMediaError):
+            download_with_reply_filter(
+                "https://x.com/FrMinecraft/status/2069305477947695422",
+                tmp_path,
+                "best",
+                "2069305477947695422",
+            )
+
+        assert calls == [
+            ("https://x.com/FrMinecraft/status/2069305477947695422", False),
+        ]

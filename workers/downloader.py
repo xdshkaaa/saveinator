@@ -1,6 +1,7 @@
 import logging
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import yt_dlp
 
@@ -18,6 +19,8 @@ _YTDLP_COMMON_OPTS: dict = {
 }
 
 _X_STATUS_ID_REGEX = re.compile(r"/status/(\d+)")
+_X_NATIVE_EXTRACTOR_KEYS = frozenset({"twitter", "x"})
+_X_HOSTS = frozenset({"x.com", "twitter.com", "mobile.twitter.com"})
 
 
 class XTargetReplyNotFoundError(Exception):
@@ -69,6 +72,30 @@ def _entry_matches_status_id(entry: dict, status_id: str) -> bool:
     return False
 
 
+def _is_x_status_url(url: str, status_id: str) -> bool:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host in _X_HOSTS and _extract_status_id_from_url(url) == status_id
+
+
+def _is_native_x_result(entry: dict, status_id: str) -> bool:
+    """Return True when yt-dlp metadata points at native X/Twitter media."""
+    extractor_key = str(entry.get("extractor_key") or "").lower()
+    if extractor_key in _X_NATIVE_EXTRACTOR_KEYS:
+        return True
+
+    webpage_url = str(entry.get("webpage_url") or "")
+    if webpage_url and _is_x_status_url(webpage_url, status_id):
+        return True
+
+    if extractor_key:
+        return False
+
+    return str(entry.get("id") or "") == status_id or str(entry.get("display_id") or "") == status_id
+
+
 def _entry_has_media(entry: dict) -> bool:
     """Check if a yt-dlp entry contains downloadable media (not just text)."""
     return bool(entry.get("url") or entry.get("formats"))
@@ -110,6 +137,10 @@ def download_with_reply_filter(
 
     entries = info.get("entries")
     if not entries:
+        if not _is_native_x_result(info, x_status_id):
+            raise XTargetReplyNoMediaError(
+                f"No native X/Twitter media in target tweet {x_status_id}"
+            )
         # Single tweet — download as-is
         dl_opts = build_ydl_opts(output_dir, format_id=format_id)
         with yt_dlp.YoutubeDL(dl_opts) as ydl:
@@ -123,6 +154,10 @@ def download_with_reply_filter(
         )
 
     target_entry = entries[target_idx - 1]
+    if not _is_native_x_result(target_entry, x_status_id):
+        raise XTargetReplyNoMediaError(
+            f"No native X/Twitter media in target tweet {x_status_id}"
+        )
     if not _entry_has_media(target_entry):
         raise XTargetReplyNoMediaError(
             f"No downloadable media in target X/Twitter reply {x_status_id}"
