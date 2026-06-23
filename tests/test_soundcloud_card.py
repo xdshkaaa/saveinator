@@ -70,14 +70,12 @@ class TestSoundCloudCard:
         assert "Midnight City" in text
         assert "4:02" in text
         assert "Electronic" in text
-        assert "Source: SoundCloud" in text
         assert "Audio download is disabled" in text
 
     def test_playlist_card_text(self):
         text = build_soundcloud_card_text(_playlist_release(), "en", _settings())
         assert "Summer Mix" in text
         assert "Tracks: 3" in text
-        assert "Source: SoundCloud" in text
 
     def test_open_button(self):
         keyboard = build_soundcloud_keyboard(_track_release(), "en")

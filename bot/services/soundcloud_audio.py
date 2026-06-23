@@ -1,8 +1,8 @@
-import shutil
-import subprocess
+import time
 from pathlib import Path
 
 import structlog
+import yt_dlp
 
 from bot.config import Settings
 from bot.metrics import (
@@ -36,8 +36,6 @@ class SoundCloudAudioTooLargeError(SoundCloudAudioError):
 
 
 def is_yt_dlp_available() -> bool:
-    if shutil.which("yt-dlp") is not None:
-        return True
     try:
         import yt_dlp  # noqa: F401
     except ImportError:
@@ -49,6 +47,35 @@ def is_soundcloud_download_enabled(settings: Settings) -> bool:
     return settings.soundcloud_download_enabled and is_yt_dlp_available()
 
 
+def _download_opts(output_dir: Path, settings: Settings) -> dict:
+    return {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "ignoreerrors": False,
+        "js_runtimes": {"deno": {}},
+        "remote_components": {"ejs:github"},
+        "postprocessor_args": {"ffmpeg": ["-threads", "1"]},
+        "outtmpl": str(output_dir / "%(title).100s.%(ext)s"),
+        "format": "bestaudio/best",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": settings.soundcloud_dl_output_format,
+                "preferredquality": "0",
+            }
+        ],
+        "socket_timeout": soundcloud_track_timeout_seconds(),
+    }
+
+
+def _find_audio_file(output_dir: Path) -> Path | None:
+    for path in sorted(output_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+        if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS:
+            return path
+    return None
+
+
 def download_track(
     track: NormalizedSoundCloudTrack,
     output_dir: Path,
@@ -57,61 +84,49 @@ def download_track(
     if not is_yt_dlp_available():
         raise SoundCloudAudioNotFoundError("yt-dlp is not installed")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    outtmpl = str(output_dir / "%(title).100s.%(ext)s")
-    command = [
-        "yt-dlp",
-        track.soundcloud_url,
-        "-x",
-        "--audio-format",
-        settings.soundcloud_dl_output_format,
-        "--audio-quality",
-        "0",
-        "--no-playlist",
-        "--no-warnings",
-        "--quiet",
-        "-o",
-        outtmpl,
-    ]
+    if not track.soundcloud_url:
+        raise SoundCloudAudioError("Track URL is missing")
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     timeout = soundcloud_track_timeout_seconds()
     logger.info("soundcloud audio download", url=track.soundcloud_url, title=track.title)
 
-    import time
-
     started = time.monotonic()
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
+        with yt_dlp.YoutubeDL(_download_opts(output_dir, settings)) as ydl:
+            ydl.download([track.soundcloud_url])
+    except yt_dlp.utils.DownloadError as exc:
+        detail = str(exc)
+        if "timed out" in detail.lower():
+            SOUNDCLOUD_DOWNLOADS_TIMEOUT_TOTAL.inc()
+            SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
+            raise SoundCloudAudioTimeoutError(
+                f"Track download timed out after {timeout}s"
+            ) from exc
+        SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
+        raise SoundCloudAudioError(detail) from exc
+    except Exception as exc:
+        if time.monotonic() - started > timeout:
+            SOUNDCLOUD_DOWNLOADS_TIMEOUT_TOTAL.inc()
+            SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
+            raise SoundCloudAudioTimeoutError(
+                f"Track download timed out after {timeout}s"
+            ) from exc
+        SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
+        raise SoundCloudAudioError(str(exc)) from exc
+
+    audio_path = _find_audio_file(output_dir)
+    if audio_path is None:
+        SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
+        raise SoundCloudAudioError(f"No audio file found for: {track.soundcloud_url}")
+
+    max_bytes = soundcloud_max_file_mb() * 1024 * 1024
+    if audio_path.stat().st_size > max_bytes:
+        SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
+        raise SoundCloudAudioTooLargeError(
+            f"Audio file exceeds {soundcloud_max_file_mb()} MB limit"
         )
-    except subprocess.TimeoutExpired as exc:
-        SOUNDCLOUD_DOWNLOADS_TIMEOUT_TOTAL.inc()
-        SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
-        raise SoundCloudAudioTimeoutError(
-            f"Track download timed out after {timeout}s"
-        ) from exc
 
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or f"exit code {result.returncode}").strip()
-        logger.warning("soundcloud yt-dlp failed", url=track.soundcloud_url, detail=detail[:500])
-        SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
-        raise SoundCloudAudioError(detail)
-
-    for path in sorted(output_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-        if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS:
-            max_bytes = soundcloud_max_file_mb() * 1024 * 1024
-            if path.stat().st_size > max_bytes:
-                SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
-                raise SoundCloudAudioTooLargeError(
-                    f"Audio file exceeds {soundcloud_max_file_mb()} MB limit"
-                )
-            SOUNDCLOUD_DOWNLOADS_SUCCESS_TOTAL.inc()
-            SOUNDCLOUD_DOWNLOAD_DURATION_SECONDS.observe(time.monotonic() - started)
-            return path
-
-    SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL.inc()
-    raise SoundCloudAudioError(f"No audio file found for: {track.soundcloud_url}")
+    SOUNDCLOUD_DOWNLOADS_SUCCESS_TOTAL.inc()
+    SOUNDCLOUD_DOWNLOAD_DURATION_SECONDS.observe(time.monotonic() - started)
+    return audio_path

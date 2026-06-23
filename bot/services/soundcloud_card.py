@@ -43,8 +43,6 @@ def build_soundcloud_card_text(
             get("soundcloud.tracks_count", lang, count=len(release.tracks)),
         ]
 
-    lines.append(get("soundcloud.source", lang))
-
     if not is_soundcloud_download_enabled(settings):
         lines.append("")
         lines.append(get("soundcloud.no_download", lang))

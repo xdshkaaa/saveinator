@@ -132,7 +132,6 @@ async def test_soundcloud_track_replies_metadata_card_without_download(monkeypat
     assert caption is not None
     assert "Artist One" in caption
     assert "Track One" in caption
-    assert "Source: SoundCloud" in caption
     assert message.replies[0].reply_markup is not None
 
 

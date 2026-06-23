@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import yt_dlp
 
 from bot.services.soundcloud_audio import (
     SoundCloudAudioError,
@@ -39,6 +40,20 @@ def _track() -> NormalizedSoundCloudTrack:
     )
 
 
+class FakeYoutubeDL:
+    def __init__(self, *_args, **_kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def download(self, _urls):
+        return None
+
+
 class TestSoundCloudAudio:
     def test_is_soundcloud_download_enabled_requires_yt_dlp(self, monkeypatch):
         monkeypatch.setattr("bot.services.soundcloud_audio.is_yt_dlp_available", lambda: False)
@@ -52,9 +67,8 @@ class TestSoundCloudAudio:
         audio_file = tmp_path / "Track One.mp3"
         audio_file.write_bytes(b"audio")
 
-        completed = MagicMock(returncode=0, stdout="", stderr="")
-        monkeypatch.setattr("bot.services.soundcloud_audio.shutil.which", lambda _: "/usr/bin/yt-dlp")
-        monkeypatch.setattr("bot.services.soundcloud_audio.subprocess.run", lambda *args, **kwargs: completed)
+        monkeypatch.setattr("bot.services.soundcloud_audio.is_yt_dlp_available", lambda: True)
+        monkeypatch.setattr("yt_dlp.YoutubeDL", FakeYoutubeDL)
         monkeypatch.setattr(
             "bot.services.soundcloud_audio.soundcloud_track_timeout_seconds",
             lambda: 30,
@@ -68,15 +82,12 @@ class TestSoundCloudAudio:
         assert result == audio_file
 
     def test_download_track_timeout(self, monkeypatch, tmp_path: Path):
-        import subprocess
+        class TimeoutYoutubeDL(FakeYoutubeDL):
+            def download(self, _urls):
+                raise yt_dlp.utils.DownloadError("timed out")
 
-        monkeypatch.setattr("bot.services.soundcloud_audio.shutil.which", lambda _: "/usr/bin/yt-dlp")
-        monkeypatch.setattr(
-            "bot.services.soundcloud_audio.subprocess.run",
-            lambda *args, **kwargs: (_ for _ in ()).throw(
-                subprocess.TimeoutExpired(cmd="yt-dlp", timeout=30)
-            ),
-        )
+        monkeypatch.setattr("bot.services.soundcloud_audio.is_yt_dlp_available", lambda: True)
+        monkeypatch.setattr("yt_dlp.YoutubeDL", TimeoutYoutubeDL)
         monkeypatch.setattr(
             "bot.services.soundcloud_audio.soundcloud_track_timeout_seconds",
             lambda: 30,
@@ -89,9 +100,8 @@ class TestSoundCloudAudio:
         audio_file = tmp_path / "Track One.mp3"
         audio_file.write_bytes(b"x" * 1024)
 
-        completed = MagicMock(returncode=0, stdout="", stderr="")
-        monkeypatch.setattr("bot.services.soundcloud_audio.shutil.which", lambda _: "/usr/bin/yt-dlp")
-        monkeypatch.setattr("bot.services.soundcloud_audio.subprocess.run", lambda *args, **kwargs: completed)
+        monkeypatch.setattr("bot.services.soundcloud_audio.is_yt_dlp_available", lambda: True)
+        monkeypatch.setattr("yt_dlp.YoutubeDL", FakeYoutubeDL)
         monkeypatch.setattr(
             "bot.services.soundcloud_audio.soundcloud_track_timeout_seconds",
             lambda: 30,
@@ -105,9 +115,12 @@ class TestSoundCloudAudio:
             download_track(_track(), tmp_path, _settings())
 
     def test_download_track_failure(self, monkeypatch, tmp_path: Path):
-        completed = MagicMock(returncode=1, stdout="", stderr="download failed")
-        monkeypatch.setattr("bot.services.soundcloud_audio.shutil.which", lambda _: "/usr/bin/yt-dlp")
-        monkeypatch.setattr("bot.services.soundcloud_audio.subprocess.run", lambda *args, **kwargs: completed)
+        class FailedYoutubeDL(FakeYoutubeDL):
+            def download(self, _urls):
+                raise yt_dlp.utils.DownloadError("download failed")
+
+        monkeypatch.setattr("bot.services.soundcloud_audio.is_yt_dlp_available", lambda: True)
+        monkeypatch.setattr("yt_dlp.YoutubeDL", FailedYoutubeDL)
         monkeypatch.setattr(
             "bot.services.soundcloud_audio.soundcloud_track_timeout_seconds",
             lambda: 30,
@@ -115,3 +128,21 @@ class TestSoundCloudAudio:
 
         with pytest.raises(SoundCloudAudioError):
             download_track(_track(), tmp_path, _settings())
+
+    def test_download_track_missing_url(self, monkeypatch, tmp_path: Path):
+        track = NormalizedSoundCloudTrack(
+            source_id="1",
+            title="Track One",
+            artist="Artist",
+            duration_ms=180000,
+            soundcloud_url="",
+            artwork_url=None,
+            genre="",
+            description="",
+            created_at="",
+            track_number=1,
+        )
+        monkeypatch.setattr("bot.services.soundcloud_audio.is_yt_dlp_available", lambda: True)
+
+        with pytest.raises(SoundCloudAudioError):
+            download_track(track, tmp_path, _settings())

@@ -151,27 +151,46 @@ async def _send_downloaded_tracks(
                     "title": raw_result.track.title,
                     "performer": raw_result.track.artist,
                 }
-                if raw_result.track.artwork_url:
-                    send_kwargs["thumbnail"] = raw_result.track.artwork_url
                 if raw_result.track.duration_ms:
                     send_kwargs["duration"] = raw_result.track.duration_ms // 1000
 
-                await bot.send_audio(**send_kwargs)
+                try:
+                    await bot.send_audio(**send_kwargs)
+                except Exception:
+                    logger.exception(
+                        "soundcloud send_audio failed",
+                        title=raw_result.track.title,
+                        path=raw_result.audio_path,
+                    )
+                    continue
+
                 sent += 1
-                await status_msg.edit_text(
-                    get("soundcloud.download_progress", lang, current=sent, total=len(tracks))
-                )
+                try:
+                    await status_msg.edit_text(
+                        get("soundcloud.download_progress", lang, current=sent, total=len(tracks))
+                    )
+                except Exception:
+                    logger.warning("soundcloud progress message edit failed", exc_info=True)
 
             for raw_result in results:
                 if isinstance(raw_result, Exception):
                     logger.exception("unexpected soundcloud track download task failure", error=raw_result)
 
-            if sent == 0:
-                await status_msg.edit_text(get("soundcloud.download_failed", lang))
-            else:
-                await status_msg.edit_text(
-                    get("soundcloud.download_done", lang, count=sent, total=len(tracks))
-                )
+            try:
+                if sent == 0:
+                    await status_msg.edit_text(get("soundcloud.download_failed", lang))
+                else:
+                    await status_msg.edit_text(
+                        get("soundcloud.download_done", lang, count=sent, total=len(tracks))
+                    )
+            except Exception:
+                logger.warning("soundcloud final status message edit failed", exc_info=True)
+    except Exception:
+        logger.exception("soundcloud download flow failed", url=soundcloud_link.url)
+        try:
+            await status_msg.edit_text(get("soundcloud.download_failed", lang))
+        except Exception:
+            logger.warning("soundcloud failure status message edit failed", exc_info=True)
     finally:
         await _release_release_download_lock(soundcloud_link.url)
 
