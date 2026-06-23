@@ -26,6 +26,7 @@ from bot.handlers.youtube import start_youtube_quality_menu
 from db.models import Platform
 from workers.tasks import download_and_send_task
 from workers.pinterest_task import pinterest_download_task
+from workers.tiktok_task import tiktok_download_task
 
 group_router = Router()
 group_router.message.filter(F.chat.type.in_([ChatType.PRIVATE, ChatType.GROUP, ChatType.SUPERGROUP]))
@@ -136,6 +137,22 @@ async def handle_group_message(message: Message, lang: str = "en"):
         )
         return
 
+    if platform == Platform.TIKTOK:
+        lock_token = await _acquire_scenario_lock(message, lang, UserScenario.TIKTOK)
+        if lock_token is None:
+            return
+        status_msg = await message.reply(get("tiktok.carousel_downloading", lang))
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform="tiktok").inc()
+        tiktok_download_task.delay(
+            url=url,
+            chat_id=message.chat.id,
+            user_id=user_id,
+            message_id=status_msg.message_id,
+            lang=lang,
+            lock_token=lock_token,
+        )
+        return
+
     if platform.value == "unknown":
         await message.reply(get("errors.unsupported", lang))
         return
@@ -219,4 +236,5 @@ async def handle_group_message(message: Message, lang: str = "en"):
         message_id=status_msg.message_id,
         lang=lang,
         lock_token=lock_token,
+        x_status_id=parsed_link.x_status_id,
     )

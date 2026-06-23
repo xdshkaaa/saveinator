@@ -159,6 +159,9 @@
     "shadow_reply": "⚠️ Your messages are not being delivered. Please contact support.",
     "admin_notice": "🚫 Shadow ban\nUser: {user}\nChat: {chat}"
   },
+  "x": {
+    "no_media_in_reply": "❌ No media found in the specified reply."
+  },
   "youtube": {
     "choose_quality": "Choose video quality:",
     "choose_ratio": "Choose aspect ratio:",
@@ -190,6 +193,13 @@
     "btn_reset": "♻️ Reset settings",
     "btn_back": "← Back",
     "reset_toast": "Settings reset to defaults"
+  },
+  "tiktok": {
+    "carousel_downloading": "📸 Downloading TikTok carousel...",
+    "carousel_empty": "❌ No images found in this TikTok slideshow.",
+    "carousel_audio_only": "🎵 This TikTok post has audio only.",
+    "carousel_partial": "⚠️ Could only download {count} out of {total} images.",
+    "audio_unavailable": "🎵 Audio track is not available for this post."
   },
   "pinterest": {
     "disabled": "Pinterest support is disabled on this bot.",

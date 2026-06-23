@@ -20,7 +20,7 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
         Platform.TIKTOK,
         re.compile(
             r"(?:https?://)?(?:www\.)?(?:"
-            r"tiktok\.com/@[\w.-]+/video/\d+(?:[/?#&]\S*)?"
+            r"tiktok\.com/@[\w.-]+/(?:video|photo)/\d+(?:[/?#&]\S*)?"
             r"|(?:vm|vt)\.tiktok\.com/[\w-]+/?(?:[?&]\S*)?"
             r")",
             re.IGNORECASE,
@@ -109,6 +109,7 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     ),
 ]
 
+_X_STATUS_ID_REGEX = re.compile(r"/status/(\d+)")
 _URL_EXTRACTOR = re.compile(r"https?://\S+", re.IGNORECASE)
 _SPOTIFY_URI_EXTRACTOR = re.compile(
     rf"spotify:(?:album|track):({_SPOTIFY_ID_IN_URL})",
@@ -122,6 +123,14 @@ class ParsedLink:
     url: str
     spotify_link: SpotifyLink | None = None
     soundcloud_link: SoundCloudLink | None = None
+    x_status_id: str | None = None
+
+
+def extract_x_status_id(url: str) -> str | None:
+    """Extract the numeric tweet/status ID from an X/Twitter URL."""
+    if match := _X_STATUS_ID_REGEX.search(url):
+        return match.group(1)
+    return None
 
 
 def extract_spotify_link(url_or_uri: str) -> SpotifyLink | None:
@@ -174,12 +183,14 @@ def extract_urls(text: str) -> list[ParsedLink]:
                         if soundcloud_link.url in seen_soundcloud_urls:
                             break
                         seen_soundcloud_urls.add(soundcloud_link.url)
+                x_status_id = extract_x_status_id(matched_url) if platform == Platform.X else None
                 results.append(
                     ParsedLink(
                         platform=platform,
                         url=matched_url,
                         spotify_link=spotify_link,
                         soundcloud_link=soundcloud_link,
+                        x_status_id=x_status_id,
                     )
                 )
                 break

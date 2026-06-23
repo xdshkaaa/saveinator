@@ -1,5 +1,6 @@
 import asyncio
 import os
+import subprocess
 import uuid
 from pathlib import Path
 
@@ -16,7 +17,12 @@ from db.session import async_session_factory
 from bot.services.user_queue import UserScenario, release_user_lock_sync
 from workers.app import app
 from workers.bot import get_bot
-from workers.downloader import download
+from workers.downloader import (
+    download,
+    download_with_reply_filter,
+    XTargetReplyNotFoundError,
+    XTargetReplyNoMediaError,
+)
 from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES, YTDLP_ERRORS_TOTAL
 from workers.video_processor import VideoProcessingError, apply_aspect_ratio
 from workers.youtube_format import build_youtube_format
@@ -24,6 +30,7 @@ from workers.youtube_format import build_youtube_format
 logger = structlog.get_logger()
 
 _VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mkv", ".mov", ".m4v"})
+_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 
 
 def _platform_max_file_mb(platform: str) -> int:
@@ -34,10 +41,19 @@ def _platform_download_timeout_seconds(platform: str) -> int:
     return platform_download_timeout_seconds(platform)
 
 
-async def _download_with_timeout(url: str, output_dir: Path, format_id: str, platform: str) -> dict:
+async def _download_with_timeout(
+    url: str,
+    output_dir: Path,
+    format_id: str,
+    platform: str,
+    x_status_id: str | None = None,
+) -> dict:
     """Run yt-dlp download in a thread with an async timeout."""
     timeout = _platform_download_timeout_seconds(platform)
-    coro = asyncio.to_thread(download, url, output_dir, format_id)
+    if x_status_id:
+        coro = asyncio.to_thread(download_with_reply_filter, url, output_dir, format_id, x_status_id)
+    else:
+        coro = asyncio.to_thread(download, url, output_dir, format_id)
     if timeout <= 0:
         return await coro
     return await asyncio.wait_for(coro, timeout=timeout)
@@ -98,6 +114,38 @@ def _find_downloaded_video(task_dir: Path) -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_size)
 
 
+def _find_downloaded_media(task_dir: Path) -> list[Path]:
+    """Find all downloaded media files (images and videos) in task_dir."""
+    return [
+        path
+        for path in task_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in (_VIDEO_EXTENSIONS | _IMAGE_EXTENSIONS)
+    ]
+
+
+def _has_audio_stream(file_path: Path) -> bool:
+    """Check if a media file has an audio stream using ffprobe.
+
+    Used to distinguish animated GIF-variants (no audio) from regular
+    videos on platforms like X/Twitter where both are delivered as .mp4.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "a",
+                "-show_entries", "stream=index",
+                "-of", "csv=p=0",
+                str(file_path),
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+        return bool(result.stdout.strip())
+    except Exception:
+        logger.warning("ffprobe check failed", path=str(file_path), exc_info=True)
+        return True  # assume audio present on error (safe default)
+
+
 async def _run_download_and_send(
     bot,
     task_id: str,
@@ -112,6 +160,7 @@ async def _run_download_and_send(
     lock_token: str,
     quality: int | None,
     aspect_ratio: str | None,
+    x_status_id: str | None = None,
 ) -> None:
     """Async core of download_and_send_task.
 
@@ -157,9 +206,24 @@ async def _run_download_and_send(
                         str(exc)[:500],
                     )
                     return
+                title = info.get("title") or "video"
             else:
                 try:
-                    info = await _download_with_timeout(url, task_dir, ytdlp_format, platform)
+                    info = await _download_with_timeout(
+                        url, task_dir, ytdlp_format, platform,
+                        x_status_id=x_status_id,
+                    )
+                except (XTargetReplyNotFoundError, XTargetReplyNoMediaError):
+                    await _edit_message(
+                        bot, chat_id, message_id,
+                        get("x.no_media_in_reply", lang),
+                    )
+                    await _record_download_safe(
+                        url, platform, resolved_format_id, 0,
+                        DownloadStatus.FAILED, user_id, chat_id,
+                        "target reply has no downloadable media",
+                    )
+                    return
                 except asyncio.TimeoutError:
                     YTDLP_ERRORS_TOTAL.labels(platform=platform).inc()
                     logger.warning(
@@ -174,9 +238,36 @@ async def _run_download_and_send(
                         f"download exceeded {_platform_download_timeout_seconds(platform)} seconds",
                     )
                     return
-                downloaded_path = _find_downloaded_video(task_dir)
+                media_files = _find_downloaded_media(task_dir)
+                video_files = [
+                    f for f in media_files
+                    if f.suffix.lower() in _VIDEO_EXTENSIONS
+                ]
+                image_files = [
+                    f for f in media_files
+                    if f.suffix.lower() in _IMAGE_EXTENSIONS
+                ]
+                title = info.get("title") or "video"
 
-            title = info.get("title") or "video"
+                # --- Image-only path (generic platforms only) ---
+                if not video_files and image_files:
+                    total_bytes = sum(os.path.getsize(p) for p in image_files)
+                    for img_path in image_files:
+                        await send_file(
+                            bot, img_path, chat_id, lang, title,
+                            platform=platform, media_type="image",
+                        )
+                    await _delete_message(bot, chat_id, message_id)
+                    await _record_download_safe(
+                        url, platform, resolved_format_id,
+                        total_bytes / (1024 * 1024),
+                        DownloadStatus.COMPLETED, user_id, chat_id,
+                    )
+                    DOWNLOAD_FILE_SIZE_BYTES.labels(platform=platform).observe(total_bytes)
+                    return
+
+                # --- Generic video path ---
+                downloaded_path = max(video_files, key=lambda p: p.stat().st_size) if video_files else None
 
             if not downloaded_path:
                 await _edit_message(
@@ -188,8 +279,15 @@ async def _run_download_and_send(
 
             max_file_mb = _platform_max_file_mb(platform)
             if size_mb <= max_file_mb:
+                # Detect X/Twitter GIFs (delivered as silent mp4) so they're sent
+                # as Telegram animations rather than regular videos.
+                media_type = "animation" if (
+                    platform == "x"
+                    and not _has_audio_stream(downloaded_path)
+                ) else None
                 send_result = await send_file(
-                    bot, downloaded_path, chat_id, lang, title, platform=platform,
+                    bot, downloaded_path, chat_id, lang, title,
+                    media_type=media_type, platform=platform,
                 )
                 if send_result == "too_large":
                     doc_limit = telegram_upload_limit_mb(platform)
@@ -272,6 +370,7 @@ def download_and_send_task(
     lock_token: str = "",
     quality: int | None = None,
     aspect_ratio: str | None = None,
+    x_status_id: str | None = None,
 ):
     bot = get_bot()
     task_id = str(uuid.uuid4())
@@ -299,6 +398,7 @@ def download_and_send_task(
             lock_token=lock_token,
             quality=quality,
             aspect_ratio=aspect_ratio,
+            x_status_id=x_status_id,
         )
     )
 

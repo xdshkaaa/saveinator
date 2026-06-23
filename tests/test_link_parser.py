@@ -1,5 +1,5 @@
 from db.models import Platform
-from bot.services.link_parser import extract_urls, extract_spotify_link
+from bot.services.link_parser import extract_urls, extract_spotify_link, extract_x_status_id
 
 
 class TestLinkParser:
@@ -85,6 +85,27 @@ class TestLinkParser:
         assert len(urls) == 1
         assert urls[0].platform == Platform.X
         assert urls[0].url.endswith("?s=20")
+
+    def test_x_status_id_extracted_from_x_domain(self):
+        """Test that x.com URLs have x_status_id populated."""
+        urls = extract_urls("https://x.com/user/status/1234567890123456789")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.X
+        assert urls[0].x_status_id == "1234567890123456789"
+
+    def test_x_status_id_extracted_from_twitter_domain(self):
+        """Test that twitter.com URLs have x_status_id populated."""
+        urls = extract_urls("https://twitter.com/user/status/9876543210987654321?s=20")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.X
+        assert urls[0].x_status_id == "9876543210987654321"
+        assert urls[0].url.endswith("?s=20")
+
+    def test_extract_x_status_id(self):
+        assert extract_x_status_id("https://x.com/user/status/12345") == "12345"
+        assert extract_x_status_id("https://twitter.com/user/status/67890?s=20") == "67890"
+        assert extract_x_status_id("https://example.com") is None
+        assert extract_x_status_id("") is None
 
     def test_unsupported(self):
         urls = extract_urls("https://example.com/video.mp4")
