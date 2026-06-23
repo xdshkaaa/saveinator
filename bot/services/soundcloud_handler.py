@@ -19,7 +19,11 @@ from bot.metrics import (
     SOUNDCLOUD_PLAYLIST_TRACKS,
 )
 from bot.services.audio_cover import fetch_audio_thumbnail, send_audio_with_thumbnail_fallback
-from bot.services.runtime_settings import soundcloud_track_timeout_seconds
+from bot.services.runtime_settings import (
+    soundcloud_enabled,
+    soundcloud_max_tracks,
+    soundcloud_track_timeout_seconds,
+)
 from bot.services.soundcloud_audio import (
     SoundCloudAudioError,
     SoundCloudAudioTimeoutError,
@@ -273,7 +277,7 @@ async def handle_soundcloud_link(
         if user_id and lock_token:
             await release_user_lock(user_id, lock_token, UserScenario.SOUNDCLOUD)
 
-    if not settings.soundcloud_enabled:
+    if not soundcloud_enabled():
         await message.reply(get("soundcloud.disabled", lang))
         await _release_lock()
         return
@@ -292,7 +296,7 @@ async def handle_soundcloud_link(
         return
     except SoundCloudPlaylistTooLargeError:
         await message.reply(
-            get("soundcloud.playlist_too_large", lang, limit=settings.soundcloud_max_tracks)
+            get("soundcloud.playlist_too_large", lang, limit=soundcloud_max_tracks())
         )
         await _release_lock()
         return

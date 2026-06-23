@@ -597,6 +597,8 @@ _SETTINGS_BY_SERVICE: dict[str, list[RuntimeSettingDef]] = {}
 for _s in RUNTIME_SETTINGS:
     _SETTINGS_BY_SERVICE.setdefault(_s.service, []).append(_s)
 
+_UNSET = object()
+
 
 def service_settings(service: str) -> list[RuntimeSettingDef]:
     return list(_SETTINGS_BY_SERVICE.get(service, []))
@@ -763,10 +765,10 @@ async def get_runtime_value(redis_key: str) -> Any:
         return fallback
 
 
-def get_runtime_value_sync(redis_key: str) -> Any:
+def get_runtime_value_sync(redis_key: str, default: Any = _UNSET) -> Any:
     """Synchronous version of get_runtime_value, for Celery workers."""
     defn = _SETTINGS_BY_REDIS_KEY.get(redis_key)
-    fallback = _default_value(defn) if defn else None
+    fallback = default if default is not _UNSET else (_default_value(defn) if defn else None)
     try:
         redis_client = get_sync_redis()
         raw = redis_client.hget(REDIS_KEY, redis_key)
@@ -776,6 +778,19 @@ def get_runtime_value_sync(redis_key: str) -> Any:
         record_rpc_failure("redis")
         logger.warning("runtime settings read failed", key=redis_key, exc_info=True)
         return fallback
+
+
+def get_runtime_bool(redis_key: str, default: bool | object = _UNSET) -> bool:
+    if default is _UNSET:
+        return bool(get_runtime_value_sync(redis_key))
+    return bool(get_runtime_value_sync(redis_key, default))
+
+
+def get_runtime_string(redis_key: str) -> str:
+    value = get_runtime_value_sync(redis_key)
+    if isinstance(value, (list, tuple)):
+        return str(value[0]) if value else ""
+    return str(value or "")
 
 
 async def set_runtime_value(redis_key: str, value: Any) -> None:
@@ -843,8 +858,28 @@ def soundcloud_track_timeout_seconds() -> int:
     return get_runtime_int("soundcloud.track_timeout_sec")
 
 
+def soundcloud_enabled() -> bool:
+    return get_runtime_bool("soundcloud.enabled")
+
+
+def soundcloud_download_enabled(default: bool | object = _UNSET) -> bool:
+    return get_runtime_bool("soundcloud.download_enabled", default)
+
+
+def soundcloud_max_tracks() -> int:
+    return get_runtime_int("soundcloud.max_tracks_per_playlist")
+
+
 def soundcloud_max_file_mb() -> int:
     return get_runtime_int("soundcloud.max_file_mb")
+
+
+def soundcloud_meta_cache_ttl_seconds() -> int:
+    return get_runtime_int("soundcloud.metadata_cache_ttl_sec")
+
+
+def soundcloud_audio_format() -> str:
+    return get_runtime_string("soundcloud.audio_format")
 
 
 def pinterest_timeout_seconds() -> int:

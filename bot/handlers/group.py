@@ -11,6 +11,7 @@ from bot.metrics import (
     USER_QUEUE_REJECTED_TOTAL,
 )
 from bot.services.link_parser import extract_urls
+from bot.services.runtime_settings import soundcloud_max_tracks
 from bot.services.soundcloud_handler import handle_soundcloud_link
 from bot.services.spotify_handler import reply_spotify_link
 from bot.services.download_cancel import build_download_queue_button
@@ -101,7 +102,7 @@ async def handle_group_message(message: Message, lang: str = "en"):
             message,
             lang,
             UserScenario.SOUNDCLOUD,
-            track_count=settings.soundcloud_max_tracks,
+            track_count=soundcloud_max_tracks(),
         )
         if lock_token is None:
             return

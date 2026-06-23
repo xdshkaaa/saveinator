@@ -6,7 +6,11 @@ import yt_dlp
 
 from bot.config import Settings
 from bot.metrics import SOUNDCLOUD_METADATA_FAILURES_TOTAL, SOUNDCLOUD_PLAYLIST_TRACKS
-from bot.services.runtime_settings import soundcloud_track_timeout_seconds
+from bot.services.runtime_settings import (
+    soundcloud_max_tracks,
+    soundcloud_meta_cache_ttl_seconds,
+    soundcloud_track_timeout_seconds,
+)
 from bot.services.soundcloud_cache import get_cached_release, set_cached_release
 from bot.services.soundcloud_models import (
     NormalizedSoundCloudRelease,
@@ -176,13 +180,14 @@ async def fetch_release(link: SoundCloudLink, settings: Settings) -> NormalizedS
 
     release = _normalize_release(info, link.url)
 
-    if release.release_type == "playlist" and len(release.tracks) > settings.soundcloud_max_tracks:
+    max_tracks = soundcloud_max_tracks()
+    if release.release_type == "playlist" and len(release.tracks) > max_tracks:
         raise SoundCloudPlaylistTooLargeError(
-            f"Playlist has {len(release.tracks)} tracks, limit is {settings.soundcloud_max_tracks}"
+            f"Playlist has {len(release.tracks)} tracks, limit is {max_tracks}"
         )
 
     if release.release_type == "playlist":
         SOUNDCLOUD_PLAYLIST_TRACKS.observe(len(release.tracks))
 
-    await set_cached_release(link.url, release, settings.soundcloud_meta_cache_ttl_seconds)
+    await set_cached_release(link.url, release, soundcloud_meta_cache_ttl_seconds())
     return release

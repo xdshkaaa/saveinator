@@ -11,7 +11,12 @@ from bot.metrics import (
     SOUNDCLOUD_DOWNLOADS_SUCCESS_TOTAL,
     SOUNDCLOUD_DOWNLOADS_TIMEOUT_TOTAL,
 )
-from bot.services.runtime_settings import soundcloud_max_file_mb, soundcloud_track_timeout_seconds
+from bot.services.runtime_settings import (
+    soundcloud_audio_format,
+    soundcloud_download_enabled,
+    soundcloud_max_file_mb,
+    soundcloud_track_timeout_seconds,
+)
 from bot.services.soundcloud_models import NormalizedSoundCloudTrack
 
 logger = structlog.get_logger()
@@ -44,7 +49,7 @@ def is_yt_dlp_available() -> bool:
 
 
 def is_soundcloud_download_enabled(settings: Settings) -> bool:
-    return settings.soundcloud_download_enabled and is_yt_dlp_available()
+    return soundcloud_download_enabled(settings.soundcloud_download_enabled) and is_yt_dlp_available()
 
 
 def _download_opts(output_dir: Path, settings: Settings) -> dict:
@@ -61,7 +66,7 @@ def _download_opts(output_dir: Path, settings: Settings) -> dict:
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
-                "preferredcodec": settings.soundcloud_dl_output_format,
+                "preferredcodec": soundcloud_audio_format(),
                 "preferredquality": "0",
             }
         ],
