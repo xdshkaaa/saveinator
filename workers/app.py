@@ -1,8 +1,16 @@
 import asyncio
+import os
 import time
 
 from celery import Celery
-from celery.signals import task_failure, task_postrun, task_prerun, worker_ready, worker_shutting_down
+from celery.signals import (
+    task_failure,
+    task_postrun,
+    task_prerun,
+    worker_process_shutdown,
+    worker_ready,
+    worker_shutting_down,
+)
 
 from bot.config import settings
 from workers.metrics import (
@@ -70,6 +78,14 @@ def _on_task_postrun(task_id=None, task=None, state=None, kwargs=None, **_extra)
 def _on_task_failure(task_id=None, **_kwargs) -> None:
     if task_id and task_id in _task_start_times:
         _task_start_times.pop(task_id, None)
+
+
+@worker_process_shutdown.connect
+def _on_worker_process_shutdown(pid=None, **_kwargs) -> None:
+    """Mark this child process's .db file as dead for multiprocess Prometheus."""
+    from prometheus_client.multiprocess import mark_process_dead
+
+    mark_process_dead(pid or os.getpid())
 
 
 @worker_shutting_down.connect

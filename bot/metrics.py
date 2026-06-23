@@ -3,6 +3,7 @@ import time
 from prometheus_client import Counter, Gauge, Histogram
 
 _START_TIME = time.monotonic()
+_ACTIVE_CHAT_WINDOW = 1800  # 30 minutes in seconds
 
 UPTIME_SECONDS = Gauge(
     "saveinator_uptime_seconds",
@@ -44,9 +45,27 @@ TELEGRAM_API_FAILURES_TOTAL = Counter(
     "Failed Telegram Bot API requests",
 )
 
+HTTP_REQUESTS_TOTAL = Counter(
+    "saveinator_http_requests_total",
+    "HTTP API requests by method, route, and status",
+    ["method", "route", "status"],
+)
+
+HTTP_REQUEST_LATENCY_SECONDS = Histogram(
+    "saveinator_http_request_latency_seconds",
+    "HTTP API request latency by method and route",
+    ["method", "route"],
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+)
+
 ACTIVE_CHATS = Gauge(
     "saveinator_active_chats",
     "Recently active unique chat IDs",
+)
+
+USERS_CREATED_TOTAL = Counter(
+    "saveinator_users_created_total",
+    "Users created in the Saveinator database",
 )
 
 DOWNLOAD_PLATFORMS = (
@@ -130,7 +149,13 @@ SPAM_BLOCKED_TOTAL = Counter(
     ["reason"],
 )
 
-_active_chat_ids: set[int] = set()
+RPC_FAILURES_TOTAL = Counter(
+    "saveinator_rpc_failures_total",
+    "Infrastructure RPC failures (database, redis, internal)",
+    ["rpc_type"],
+)
+
+_active_chat_ids: dict[int, float] = {}  # chat_id -> last_seen timestamp
 
 
 def init_platform_metrics() -> None:
@@ -145,8 +170,21 @@ def refresh_uptime() -> None:
 def record_message(chat_id: int | None) -> None:
     MESSAGES_RECEIVED_TOTAL.inc()
     if chat_id is not None:
-        _active_chat_ids.add(chat_id)
-        ACTIVE_CHATS.set(len(_active_chat_ids))
+        _active_chat_ids[chat_id] = time.monotonic()
+
+
+def refresh_active_chats() -> None:
+    """Prune chat IDs older than _ACTIVE_CHAT_WINDOW and update the gauge.
+
+    Called from the ``/metrics`` handler so the value is always fresh on
+    scrape — no background loop needed.
+    """
+    now = time.monotonic()
+    cutoff = now - _ACTIVE_CHAT_WINDOW
+    stale = [cid for cid, last_seen in _active_chat_ids.items() if last_seen < cutoff]
+    for cid in stale:
+        del _active_chat_ids[cid]
+    ACTIVE_CHATS.set(len(_active_chat_ids))
 
 
 def record_command(command: str) -> None:
@@ -155,3 +193,11 @@ def record_command(command: str) -> None:
 
 def record_error(source: str) -> None:
     ERRORS_TOTAL.labels(source=source).inc()
+
+
+def record_user_created() -> None:
+    USERS_CREATED_TOTAL.inc()
+
+
+def record_rpc_failure(rpc_type: str) -> None:
+    RPC_FAILURES_TOTAL.labels(rpc_type=rpc_type).inc()

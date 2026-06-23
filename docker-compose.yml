@@ -94,6 +94,7 @@ services:
       YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS: ${YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS:-600}
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       WORKER_METRICS_PORT: "9102"
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
     ports:
       - "127.0.0.1:9102:9102"
     depends_on:

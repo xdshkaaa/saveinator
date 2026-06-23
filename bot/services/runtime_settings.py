@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import structlog
 
 from bot.config import Settings, settings
+from bot.metrics import record_rpc_failure
 from bot.services.redis_client import get_async_redis, get_sync_redis
 
 logger = structlog.get_logger()
@@ -73,6 +74,7 @@ def get_runtime_int(redis_key: str, default: int | None = None) -> int:
         override = _parse_override(redis_client.hget(REDIS_KEY, redis_key))
         return override if override is not None else fallback
     except Exception:
+        record_rpc_failure("redis")
         logger.warning("runtime settings read failed", key=redis_key, exc_info=True)
         return fallback
 
@@ -85,6 +87,7 @@ async def get_runtime_int_async(redis_key: str, default: int | None = None) -> i
         override = _parse_override(await redis_client.hget(REDIS_KEY, redis_key))
         return override if override is not None else fallback
     except Exception:
+        record_rpc_failure("redis")
         logger.warning("runtime settings read failed", key=redis_key, exc_info=True)
         return fallback
 
