@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     soundcloud_enabled: bool = True
     soundcloud_download_enabled: bool = False
     soundcloud_track_timeout_seconds: int = 30
-    soundcloud_max_tracks: int = 20
+    soundcloud_max_tracks: int = 100
     soundcloud_dl_output_format: str = "mp3"
     soundcloud_max_file_mb: int = 50
     soundcloud_meta_cache_ttl_seconds: int = 3600
