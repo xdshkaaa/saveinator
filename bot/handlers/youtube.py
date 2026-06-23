@@ -109,9 +109,18 @@ async def handle_ratio_choice(callback: CallbackQuery, lang: str = "en"):
     )
     await callback.answer()
 
+    bot: Bot = callback.bot
+    await start_youtube_download(session, aspect_ratio, user_id, bot)
+
+
+async def start_youtube_download(
+    session: YoutubePendingSession,
+    aspect_ratio: str,
+    user_id: int,
+    bot: Bot,
+) -> None:
     await clear_youtube_session(user_id)
 
-    bot: Bot = callback.bot
     status_msg = await bot.send_message(
         chat_id=session.chat_id,
         text=get("download.downloading", session.lang),

@@ -93,3 +93,17 @@ class BannedLink(Base):
     url_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     reason: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id"), primary_key=True
+    )
+    youtube_quality: Mapped[str] = mapped_column(
+        String(16), default="ask", server_default="ask"
+    )
+    youtube_ratio: Mapped[str] = mapped_column(
+        String(16), default="ask", server_default="ask"
+    )

@@ -34,7 +34,7 @@ async def _register_bot_commands(bot: Bot) -> None:
     await bot.set_my_commands(
         [
             BotCommand(command="start", description="Start / language"),
-            BotCommand(command="admin", description="Runtime settings panel"),
+            BotCommand(command="settings", description="User settings"),
         ],
         scope=BotCommandScopeDefault(),
     )

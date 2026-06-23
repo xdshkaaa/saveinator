@@ -8,7 +8,12 @@ from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL, SPOTIFY_REQUESTS_TOTAL, USER_Q
 from bot.services.link_parser import extract_urls
 from bot.services.spotify_handler import reply_spotify_link
 from bot.services.user_queue import UserScenario, acquire_user_lock
-from bot.services.youtube_keyboards import get_quality_keyboard
+from bot.services.user_settings import get_or_create_user_settings
+from bot.services.youtube_keyboards import format_ratio_label, get_quality_keyboard, get_ratio_keyboard
+from bot.services.youtube_session import (
+    YoutubePendingSession,
+    save_youtube_session,
+)
 from bot.handlers.youtube import start_youtube_quality_menu
 from db.models import Platform
 from workers.tasks import download_and_send_task
@@ -102,6 +107,56 @@ async def handle_group_message(message: Message, lang: str = "en"):
         return
 
     if platform == Platform.YOUTUBE:
+        user_settings = await get_or_create_user_settings(user_id)
+        auto_quality = None
+        auto_ratio = None
+        if user_settings.youtube_quality != "ask":
+            auto_quality = int(user_settings.youtube_quality)
+        if user_settings.youtube_ratio != "ask":
+            auto_ratio = user_settings.youtube_ratio
+
+        if auto_quality is not None and auto_ratio is not None:
+            status_msg = await message.reply(
+                get(
+                    "youtube.processing",
+                    lang,
+                    quality=auto_quality,
+                    ratio=format_ratio_label(auto_ratio),
+                ),
+            )
+            DOWNLOADS_ENQUEUED_TOTAL.labels(platform="youtube").inc()
+            send_msg = await message.bot.send_message(
+                chat_id=message.chat.id,
+                text=get("download.downloading", lang),
+            )
+            download_and_send_task.delay(
+                url=url,
+                platform="youtube",
+                chat_id=message.chat.id,
+                user_id=user_id,
+                message_id=send_msg.message_id,
+                lang=lang,
+                quality=auto_quality,
+                aspect_ratio=auto_ratio,
+            )
+            return
+
+        if auto_quality is not None:
+            session = YoutubePendingSession(
+                user_id=user_id,
+                url=url,
+                chat_id=message.chat.id,
+                message_id=0,
+                lang=lang,
+                quality=auto_quality,
+            )
+            await save_youtube_session(session)
+            status_msg = await message.reply(
+                get("youtube.choose_ratio", lang),
+                reply_markup=get_ratio_keyboard(),
+            )
+            return
+
         status_msg = await message.reply(
             get("youtube.choose_quality", lang),
             reply_markup=get_quality_keyboard(),
