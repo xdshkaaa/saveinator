@@ -41,6 +41,21 @@ cp .env.monitoring.example .env.monitoring
 docker compose -f docker-compose.monitoring.yml --env-file .env.monitoring up -d
 ```
 
+### Slim mode for small VPS
+
+Use the slim stack when the VPS is memory constrained and you only need Grafana,
+Prometheus, VPS metrics, and bot/worker metrics:
+
+```bash
+cd /opt/saveinator
+docker compose -f docker-compose.monitoring.yml --env-file .env.monitoring stop \
+  alertmanager cadvisor postgres_exporter redis_exporter loki promtail
+docker compose -f docker-compose.monitoring.slim.yml --env-file .env.monitoring up -d
+```
+
+This keeps `saveinator.xdshka.party` available while disabling logs, container,
+PostgreSQL, Redis, and Alertmanager metrics.
+
 ## Verify
 
 ```bash

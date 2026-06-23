@@ -15,7 +15,8 @@ from bot.services.runtime_settings import (
 
 logger = structlog.get_logger()
 
-_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"})
+_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".bmp"})
+_GIF_EXTENSION = ".gif"
 
 
 def telegram_upload_limit_mb(platform: str | None = None) -> int:
@@ -54,15 +55,43 @@ async def send_file(
         else None
     )
 
-    if media_type == "image" or (media_type is None and _is_image_path(file_path)):
-        await bot.send_photo(
-            chat_id=chat_id,
-            photo=FSInputFile(file_path),
-            caption=caption,
-        )
-        return "photo"
+    is_animation = media_type == "animation" or (
+        media_type is None and file_path.suffix.lower() == _GIF_EXTENSION
+    )
+    if is_animation:
+        try:
+            await bot.send_animation(
+                chat_id=chat_id,
+                animation=FSInputFile(file_path),
+                caption=caption,
+            )
+            return "animation"
+        except Exception as exc:
+            logger.warning(
+                "send_animation failed, falling back to document",
+                chat_id=chat_id,
+                size_mb=round(size_mb, 2),
+                error=str(exc),
+            )
 
-    if size_mb <= settings.send_video_limit_mb:
+    is_image = media_type == "image" or (media_type is None and _is_image_path(file_path))
+
+    if is_image:
+        try:
+            await bot.send_photo(
+                chat_id=chat_id,
+                photo=FSInputFile(file_path),
+                caption=caption,
+            )
+            return "photo"
+        except Exception as exc:
+            logger.warning(
+                "send_photo failed, falling back to document",
+                chat_id=chat_id,
+                error=str(exc),
+            )
+
+    if not is_image and not is_animation and size_mb <= settings.send_video_limit_mb:
         try:
             await bot.send_video(
                 chat_id=chat_id,

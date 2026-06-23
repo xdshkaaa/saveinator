@@ -95,14 +95,15 @@ async def test_tiktok_link_still_starts_download_task(monkeypatch, fake_redis):
 
     monkeypatch.setattr("bot.handlers.group.acquire_user_lock", _acquire_lock)
     monkeypatch.setattr(
-        "bot.handlers.group.download_and_send_task.delay",
+        "bot.handlers.group.tiktok_download_task.delay",
         lambda **kwargs: delayed.append(kwargs),
     )
 
     await handle_group_message(message, lang="en")
 
     assert delayed
-    assert delayed[0]["platform"] == "tiktok"
+    assert "url" in delayed[0]
+    assert delayed[0]["chat_id"] == 10
 
 
 async def test_quality_callback_updates_ratio_menu(monkeypatch, fake_redis):

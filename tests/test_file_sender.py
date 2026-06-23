@@ -121,6 +121,120 @@ async def test_send_file_falls_back_to_document_after_video_failure(monkeypatch,
 
 
 @pytest.mark.asyncio
+async def test_send_file_sends_animation_with_media_type_animation(monkeypatch, tmp_path: Path):
+    from bot.services import file_sender
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"animation-data")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_animation(self, **_kwargs):
+            sent.append("animation")
+
+    result = await file_sender.send_file(StubBot(), video, 1, media_type="animation")
+
+    assert result == "animation"
+    assert sent == ["animation"]
+
+
+@pytest.mark.asyncio
+async def test_send_file_sends_gif_as_animation(monkeypatch, tmp_path: Path):
+    from bot.services import file_sender
+
+    gif = tmp_path / "clip.gif"
+    gif.write_bytes(b"gif-data")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_animation(self, **_kwargs):
+            sent.append("animation")
+
+    result = await file_sender.send_file(StubBot(), gif, 1)
+
+    assert result == "animation"
+    assert sent == ["animation"]
+
+
+@pytest.mark.asyncio
+async def test_send_file_gif_not_sent_as_photo(monkeypatch, tmp_path: Path):
+    """Even without explicit media_type, .gif files are NOT sent through
+    send_photo — they go through send_animation."""
+    from bot.services import file_sender
+
+    gif = tmp_path / "clip.gif"
+    gif.write_bytes(b"gif-data")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_animation(self, **_kwargs):
+            sent.append("animation")
+        async def send_photo(self, **_kwargs):
+            sent.append("photo")
+
+    result = await file_sender.send_file(StubBot(), gif, 1)
+
+    assert result == "animation"
+    assert sent == ["animation"]
+
+
+@pytest.mark.asyncio
+async def test_send_file_falls_back_to_document_when_animation_fails(monkeypatch, tmp_path: Path):
+    from bot.services import file_sender
+
+    gif = tmp_path / "clip.gif"
+    gif.write_bytes(b"gif-data")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_animation(self, **_kwargs):
+            raise RuntimeError("animation too large")
+        async def send_document(self, **_kwargs):
+            sent.append("document")
+
+    monkeypatch.setattr(file_sender, "send_document_limit_mb", lambda: 1999)
+    monkeypatch.setattr(file_sender, "telegram_bot_upload_limit_mb", lambda: 1999)
+
+    result = await file_sender.send_file(StubBot(), gif, 1)
+
+    assert result == "document"
+    assert sent == ["document"]
+
+
+@pytest.mark.asyncio
+async def test_send_file_animation_fallback_does_not_try_video(monkeypatch, tmp_path: Path):
+    """When send_animation fails, it should skip straight to document,
+    not try send_video."""
+    from bot.services import file_sender
+
+    gif = tmp_path / "clip.gif"
+    gif.write_bytes(b"gif-data")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_animation(self, **_kwargs):
+            raise RuntimeError("animation too large")
+        async def send_video(self, **_kwargs):
+            sent.append("video")
+        async def send_document(self, **_kwargs):
+            sent.append("document")
+
+    monkeypatch.setattr(file_sender.settings, "send_video_limit_mb", 50)
+    monkeypatch.setattr(file_sender, "send_document_limit_mb", lambda: 1999)
+    monkeypatch.setattr(file_sender, "telegram_bot_upload_limit_mb", lambda: 1999)
+
+    result = await file_sender.send_file(StubBot(), gif, 1)
+
+    assert result == "document"
+    assert sent == ["document"]  # no "video" in sent
+
+
+@pytest.mark.asyncio
 async def test_telegram_upload_limit_uses_platform_max(monkeypatch, tmp_path: Path):
     from bot.services import file_sender
 

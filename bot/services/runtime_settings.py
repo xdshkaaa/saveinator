@@ -269,6 +269,26 @@ RUNTIME_SETTINGS: tuple[RuntimeSettingDef, ...] = (
         desc_en="Send as document if video exceeds limits.",
         desc_ru="Отправлять документом, если видео не проходит лимит.",
     ),
+    RuntimeSettingDef(
+        "tiktok.carousel_max_items",
+        "tiktok_carousel_max_items",
+        "tiktok",
+        "carousel_max_items",
+        value_type="int", min_value=1, max_value=50,
+        label_en="Max carousel images", label_ru="Макс. фото в карусели",
+        desc_en="Maximum number of images to send from a slideshow (0 = no limit).",
+        desc_ru="Максимум фото из слайд-шоу (0 = без лимита).",
+    ),
+    RuntimeSettingDef(
+        "tiktok.carousel_audio_enabled",
+        "tiktok_carousel_audio_enabled",
+        "tiktok",
+        "carousel_audio_enabled",
+        value_type="bool",
+        label_en="Carousel audio", label_ru="Аудио карусели",
+        desc_en="Send audio track along with carousel images when available.",
+        desc_ru="Отправлять аудио-дорожку вместе с фото карусели, если доступно.",
+    ),
 
     # -- instagram ----------------------------------------------------------
     RuntimeSettingDef(

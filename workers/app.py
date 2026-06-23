@@ -24,7 +24,7 @@ app = Celery(
     "saveinator",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["workers.tasks", "workers.pinterest_task", "workers.broadcast_task"],
+    include=["workers.tasks", "workers.tiktok_task", "workers.pinterest_task", "workers.broadcast_task"],
 )
 
 app.conf.update(

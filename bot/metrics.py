@@ -125,6 +125,28 @@ SOUNDCLOUD_PLAYLIST_TRACKS = Histogram(
     buckets=(1, 2, 5, 10, 15, 20, 30, 50),
 )
 
+TIKTOK_CAROUSEL_REQUESTS_TOTAL = Counter(
+    "saveinator_tiktok_carousel_requests_total",
+    "TikTok carousel download requests",
+    ["status"],
+)
+
+TIKTOK_CAROUSEL_IMAGES_TOTAL = Counter(
+    "saveinator_tiktok_carousel_images_total",
+    "Images sent from TikTok carousels",
+)
+
+TIKTOK_CAROUSEL_AUDIO_TOTAL = Counter(
+    "saveinator_tiktok_carousel_audio_total",
+    "Audio tracks sent from TikTok carousels",
+)
+
+TIKTOK_CAROUSEL_FAILURES_TOTAL = Counter(
+    "saveinator_tiktok_carousel_failures_total",
+    "TikTok carousel failures",
+    ["reason"],
+)
+
 SOUNDCLOUD_DOWNLOAD_DURATION_SECONDS = Histogram(
     "saveinator_soundcloud_download_duration_seconds",
     "SoundCloud track download duration",

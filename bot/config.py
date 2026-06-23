@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     tiktok_max_duration_sec: int = 0
     tiktok_allow_photo_slideshows: bool = True
     tiktok_fallback_to_document: bool = True
+    tiktok_carousel_max_items: int = 20
+    tiktok_carousel_audio_enabled: bool = True
 
     instagram_max_items_per_post: int = 10
     instagram_allow_reels: bool = True

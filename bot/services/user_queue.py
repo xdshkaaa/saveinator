@@ -16,6 +16,7 @@ return 0
 
 class UserScenario(StrEnum):
     VIDEO = "video"
+    TIKTOK = "tiktok"
     PINTEREST = "pinterest"
     SPOTIFY = "spotify"
     SOUNDCLOUD = "soundcloud"
@@ -66,6 +67,11 @@ def lock_ttl_seconds(scenario: UserScenario, track_count: int = 0) -> int:
             platform_download_timeout_seconds("tiktok"),
             platform_download_timeout_seconds("instagram"),
             platform_download_timeout_seconds("x"),
+            1,
+        ) + buffer
+    if scenario == UserScenario.TIKTOK:
+        return max(
+            platform_download_timeout_seconds("tiktok"),
             1,
         ) + buffer
     if scenario == UserScenario.PINTEREST:
