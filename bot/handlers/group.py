@@ -4,8 +4,14 @@ from aiogram.enums import ChatType
 
 from bot.config import settings
 from bot.locale import get
-from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL, SPOTIFY_REQUESTS_TOTAL, USER_QUEUE_REJECTED_TOTAL
+from bot.metrics import (
+    DOWNLOADS_ENQUEUED_TOTAL,
+    SOUNDCLOUD_REQUESTS_TOTAL,
+    SPOTIFY_REQUESTS_TOTAL,
+    USER_QUEUE_REJECTED_TOTAL,
+)
 from bot.services.link_parser import extract_urls
+from bot.services.soundcloud_handler import handle_soundcloud_link
 from bot.services.spotify_handler import reply_spotify_link
 from bot.services.user_queue import UserScenario, acquire_user_lock
 from bot.services.user_settings import get_or_create_user_settings
@@ -77,6 +83,29 @@ async def handle_group_message(message: Message, lang: str = "en"):
         await reply_spotify_link(
             message,
             parsed_link.spotify_link,
+            settings,
+            lang,
+            lock_token=lock_token,
+        )
+        return
+
+    if platform == Platform.SOUNDCLOUD:
+        if not parsed_link.soundcloud_link:
+            await message.reply(get("errors.unsupported", lang))
+            return
+        lock_token = await _acquire_scenario_lock(
+            message,
+            lang,
+            UserScenario.SOUNDCLOUD,
+            track_count=settings.soundcloud_max_tracks,
+        )
+        if lock_token is None:
+            return
+        SOUNDCLOUD_REQUESTS_TOTAL.inc()
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform="soundcloud").inc()
+        await handle_soundcloud_link(
+            message,
+            parsed_link.soundcloud_link,
             settings,
             lang,
             lock_token=lock_token,

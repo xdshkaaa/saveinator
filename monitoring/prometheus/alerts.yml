@@ -28,43 +28,34 @@ groups:
           summary: Low disk space on {{ $labels.instance }}
           description: Root filesystem has less than 15% free space.
 
-  - name: saveinator-apps
+  - name: saveinator-targets
     rules:
-      - alert: ContainerDown
-        expr: up{job=~"saveinator-.*"} == 0
+      - alert: PrometheusTargetDown
+        expr: up{job="prometheus"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: Saveinator target down ({{ $labels.job }})
-          description: Prometheus cannot scrape {{ $labels.job }} for 2 minutes.
+          summary: Prometheus target is down
+          description: Prometheus cannot scrape itself on 127.0.0.1:9091.
 
-      - alert: BotErrorRateSpike
-        expr: rate(saveinator_errors_total[5m]) > 0.1
-        for: 5m
+      - alert: BotTargetDown
+        expr: up{job="saveinator-bot"} == 0
+        for: 2m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: Bot error rate spike
-          description: saveinator_errors_total is increasing faster than 0.1/s.
+          summary: Saveinator bot metrics target down
+          description: Prometheus cannot scrape the Telegram bot metrics endpoint.
 
-      - alert: TelegramAPIFailures
-        expr: rate(saveinator_telegram_api_failures_total[5m]) > 0.05
-        for: 5m
+      - alert: WorkerTargetDown
+        expr: up{job="saveinator-worker"} == 0
+        for: 2m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: Telegram API failures elevated
-          description: saveinator_telegram_api_failures_total rate is above threshold.
-
-      - alert: BotNotProcessingMessages
-        expr: increase(saveinator_messages_received_total[30m]) == 0 and up{job="saveinator-bot"} == 1
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: Bot not processing messages
-          description: No messages received in the last 30 minutes while bot target is up.
+          summary: Saveinator worker metrics target down
+          description: Prometheus cannot scrape the Celery worker metrics endpoint.
 
       - alert: PostgresDown
         expr: pg_up == 0
@@ -83,3 +74,77 @@ groups:
         annotations:
           summary: Redis exporter reports Redis down
           description: redis_up is 0 for 1 minute.
+
+      - alert: LokiNoLogsReceived
+        expr: absent_over_time(promtail_sent_entries_total[30m]) or increase(promtail_sent_entries_total[30m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Loki is not receiving logs from Promtail
+          description: Promtail has not reported log entries sent to Loki in the last 30 minutes.
+
+  - name: saveinator-product
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(saveinator_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Saveinator bot error rate is elevated
+          description: saveinator_errors_total is increasing faster than 0.1/s.
+
+      - alert: TelegramAPIFailuresSpike
+        expr: rate(saveinator_telegram_api_failures_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram API failures elevated
+          description: Telegram Bot API failures are above the warning threshold.
+
+      - alert: NoMessagesForThirtyMinutes
+        expr: increase(saveinator_messages_received_total[30m]) == 0 and up{job="saveinator-bot"} == 1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: No Telegram messages processed for 30 minutes
+          description: The bot target is up, but no incoming messages were observed.
+
+      - alert: HighDownloadFailureRate
+        expr: sum(rate(saveinator_ytdlp_errors_total[10m])) / clamp_min(sum(rate(saveinator_downloads_enqueued_total[10m])), 0.001) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Download failure rate is high
+          description: Download failures exceed 20% of enqueued downloads over 10 minutes.
+
+      - alert: HighTimeoutRate
+        expr: sum(rate(saveinator_ytdlp_errors_total[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Timeout-like download failures are elevated
+          description: Download failures are increasing quickly; inspect timeout logs in Grafana.
+
+      - alert: QueueBacklogTooHigh
+        expr: redis_db_keys{db="db0"} > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis queue/session key count is high
+          description: Redis db0 has more than 1000 keys; inspect queue locks and pending sessions.
+
+      - alert: WorkerTaskDurationTooHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(saveinator_download_duration_seconds_bucket[10m]))) > 300
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Worker task duration p95 is too high
+          description: Download task p95 duration is above 5 minutes.

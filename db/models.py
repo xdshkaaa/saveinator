@@ -18,6 +18,7 @@ class Platform(str, enum.Enum):
     INSTAGRAM = "instagram"
     X = "x"
     SPOTIFY = "spotify"
+    SOUNDCLOUD = "soundcloud"
     PINTEREST = "pinterest"
     UNKNOWN = "unknown"
 

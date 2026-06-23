@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, Spotify, or Pinterest link in any group. I can download videos, music, and images.",
+    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, or Pinterest link in any group. I can download videos, music, and images.",
     "btn_en": "\ud83c\uddec\ud83c\udde7 English",
     "btn_ru": "\ud83c\uddf7\ud83c\uddfa \u0420\u0443\u0441\u0441\u043a\u0438\u0439"
   },
@@ -13,7 +13,7 @@
     "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
   },
   "errors": {
-    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, and Pinterest links.",
+    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "busy": "Please wait until your current download finishes before sending another link.",
@@ -42,6 +42,25 @@
     "not_configured": "Spotify support is not configured on this bot.",
     "api_error": "Could not fetch Spotify release info. Please try again later.",
     "disabled": "Spotify support is disabled on this bot."
+  },
+  "soundcloud": {
+    "card_title": "🎧 {artist} — {name}",
+    "track_card_title": "🎧 {artist} — {title}",
+    "duration": "Duration: {duration}",
+    "genre": "Genre: {genre}",
+    "tracks_count": "Tracks: {count}",
+    "source": "Source: SoundCloud",
+    "btn_open": "Open in SoundCloud",
+    "no_download": "For SoundCloud, only the track card is available. Audio download is disabled on this bot.",
+    "download_starting": "Downloading {total} track(s)...",
+    "download_progress": "Sending tracks: {current}/{total}",
+    "download_done": "Finished: {count}/{total} tracks sent.",
+    "download_failed": "Could not download tracks. Please try again later.",
+    "download_timeout": "Download is taking too long. Please try again with a shorter playlist.",
+    "not_found": "SoundCloud track or playlist not found.",
+    "not_configured": "SoundCloud support is not configured on this bot.",
+    "disabled": "SoundCloud support is disabled on this bot.",
+    "playlist_too_large": "This playlist has too many tracks. Maximum allowed: {limit}."
   },
   "admin": {
     "menu_title": "⚙️ Runtime settings (hot-swap via Redis). Changes apply immediately for all users.",

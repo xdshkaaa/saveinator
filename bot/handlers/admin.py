@@ -42,6 +42,7 @@ SERVICE_LABELS = {
     "instagram": ("Instagram", "Instagram"),
     "x": ("X / Twitter", "X / Twitter"),
     "spotify": ("Spotify", "Spotify"),
+    "soundcloud": ("SoundCloud", "SoundCloud"),
     "pinterest": ("Pinterest", "Pinterest"),
     "global": ("Global", "Глобально"),
 }

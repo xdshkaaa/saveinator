@@ -17,6 +17,7 @@ class UserScenario(StrEnum):
     VIDEO = "video"
     PINTEREST = "pinterest"
     SPOTIFY = "spotify"
+    SOUNDCLOUD = "soundcloud"
 
 
 def _lock_key(user_id: int) -> str:
@@ -32,6 +33,7 @@ def lock_ttl_seconds(scenario: UserScenario, track_count: int = 0) -> int:
     from bot.services.runtime_settings import (
         pinterest_timeout_seconds,
         platform_download_timeout_seconds,
+        soundcloud_track_timeout_seconds,
         spotify_track_timeout_seconds,
     )
 
@@ -48,6 +50,10 @@ def lock_ttl_seconds(scenario: UserScenario, track_count: int = 0) -> int:
     if scenario == UserScenario.SPOTIFY:
         tracks = max(track_count, 1)
         per_track = max(spotify_track_timeout_seconds(), 1)
+        return tracks * per_track + buffer + 60
+    if scenario == UserScenario.SOUNDCLOUD:
+        tracks = max(track_count, 1)
+        per_track = max(soundcloud_track_timeout_seconds(), 1)
         return tracks * per_track + buffer + 60
     return 120
 

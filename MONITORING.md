@@ -97,6 +97,12 @@ curl -fsS https://saveinator-hooks.xdshka.party/health
 | VPS Overview | `monitoring/grafana/dashboards/vps-overview.json` |
 | Docker Containers | `monitoring/grafana/dashboards/docker-containers.json` |
 | Telegram Bots | `monitoring/grafana/dashboards/telegram-bots.json` |
+| Saveinator Operations | `monitoring/grafana/dashboards/operations.json` |
+| Download Operations | `monitoring/grafana/dashboards/downloads.json` |
+| Worker / Celery | `monitoring/grafana/dashboards/worker-celery.json` |
+| User Activity | `monitoring/grafana/dashboards/user-activity.json` |
+| Error & Reliability | `monitoring/grafana/dashboards/reliability-errors.json` |
+| PostgreSQL & Redis | `monitoring/grafana/dashboards/data-stores.json` |
 | Logs | `monitoring/grafana/dashboards/logs.json` |
 
 Manual re-import: Grafana → Dashboards → Import → upload JSON file.
@@ -118,7 +124,7 @@ Manual re-import: Grafana → Dashboards → Import → upload JSON file.
 | `saveinator_commands_handled_total` | Commands handled |
 | `saveinator_errors_total` | Errors by source |
 | `saveinator_telegram_api_*` | Telegram API requests, latency, failures |
-| `saveinator_downloads_enqueued_total` | Download jobs started (`platform`: youtube, tiktok, instagram, x, pinterest, spotify) |
+| `saveinator_downloads_enqueued_total` | Download jobs started (`platform`: youtube, tiktok, instagram, x, pinterest, spotify, soundcloud) |
 | `saveinator_celery_tasks_total` | Worker task counts |
 | `saveinator_ytdlp_errors_total` | Download failures |
 
@@ -147,7 +153,12 @@ Rules live in `monitoring/prometheus/alerts.yml`:
 - Error rate spike
 - Telegram API failures
 - No messages for 30 minutes
+- High download failure rate / timeout-like failures
+- Queue backlog too high
+- Worker task duration too high
 - Postgres / Redis down
+- Loki no logs received
+- Prometheus target down
 
 Configure Alertmanager webhook in `monitoring/alertmanager/alertmanager.yml` if needed.
 

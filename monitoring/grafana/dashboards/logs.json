@@ -4,27 +4,26 @@
   "tags": ["saveinator", "loki"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "service", "type": "query", "datasource": {"type": "loki", "uid": "loki"}, "query": "label_values(service)", "refresh": 1, "includeAll": true, "multi": true, "current": {"selected": true, "text": "All", "value": "$__all"}},
+      {"name": "container", "type": "query", "datasource": {"type": "loki", "uid": "loki"}, "query": "label_values(container)", "refresh": 1, "includeAll": true, "multi": true, "current": {"selected": true, "text": "All", "value": "$__all"}},
+      {"name": "level", "type": "custom", "query": ".*,debug,info,warning,error,critical", "current": {"selected": true, "text": ".*", "value": ".*"}},
+      {"name": "platform", "type": "custom", "query": ".*,youtube,tiktok,instagram,x,pinterest,spotify,soundcloud", "current": {"selected": true, "text": ".*", "value": ".*"}},
+      {"name": "user_id", "type": "textbox", "query": ".*", "current": {"text": ".*", "value": ".*"}},
+      {"name": "chat_id", "type": "textbox", "query": ".*", "current": {"text": ".*", "value": ".*"}},
+      {"name": "task_id", "type": "textbox", "query": ".*", "current": {"text": ".*", "value": ".*"}}
+    ]
+  },
   "panels": [
-    {
-      "id": 1,
-      "type": "logs",
-      "title": "Saveinator container logs",
-      "gridPos": {"h": 20, "w": 24, "x": 0, "y": 0},
-      "targets": [
-        {
-          "expr": "{container=~\"saveinator.*\"}",
-          "refId": "A",
-          "datasource": {"type": "loki", "uid": "loki"}
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending"
-      }
-    }
+    {"id": 1, "type": "logs", "title": "Filtered Saveinator Logs", "gridPos": {"h": 12, "w": 24, "x": 0, "y": 0}, "targets": [{"expr": "{service=~\"$service\", container=~\"$container\"} |~ \"$level\" |~ \"$platform\" |~ \"$user_id\" |~ \"$chat_id\" |~ \"$task_id\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}},
+    {"id": 2, "type": "logs", "title": "Recent Errors", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}, "targets": [{"expr": "{service=~\"$service\", container=~\"$container\"} |~ \"error|ERROR|failed|exception\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}},
+    {"id": 3, "type": "logs", "title": "Recent Warnings", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}, "targets": [{"expr": "{service=~\"$service\", container=~\"$container\"} |~ \"warning|WARN|WARNING\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}},
+    {"id": 4, "type": "logs", "title": "Failed Download Logs", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 20}, "targets": [{"expr": "{service=~\"$service\", container=~\"$container\"} |~ \"download|yt-dlp|pinterest|spotify|soundcloud\" |~ \"failed|error|timeout|too_large\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}},
+    {"id": 5, "type": "logs", "title": "Telegram API Failure Logs", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 20}, "targets": [{"expr": "{service=~\"$service\", container=~\"$container\"} |~ \"Telegram|telegram|Bot API\" |~ \"failed|error|exception|timeout\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}},
+    {"id": 6, "type": "logs", "title": "Worker Failure Logs", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 20}, "targets": [{"expr": "{service=~\"worker|$service\", container=~\"$container\"} |~ \"failed|error|exception|retry\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}},
+    {"id": 7, "type": "logs", "title": "Banned User Activity Logs", "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28}, "targets": [{"expr": "{service=~\"$service\", container=~\"$container\"} |~ \"ban|banned|blocked user\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}], "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}}
   ]
 }

@@ -41,6 +41,11 @@ class TestBotMetrics:
         output = generate_latest(REGISTRY).decode()
         assert 'platform="spotify"' in output
 
+    def test_downloads_enqueued_supports_soundcloud(self):
+        DOWNLOADS_ENQUEUED_TOTAL.labels(platform="soundcloud").inc()
+        output = generate_latest(REGISTRY).decode()
+        assert 'platform="soundcloud"' in output
+
     def test_init_platform_metrics_exports_instagram(self):
         init_platform_metrics()
         output = generate_latest(REGISTRY).decode()

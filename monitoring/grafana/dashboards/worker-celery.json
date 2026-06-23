@@ -1,0 +1,23 @@
+{
+  "uid": "saveinator-worker-celery",
+  "title": "Worker / Celery",
+  "tags": ["saveinator", "worker", "celery"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Worker Uptime", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}, "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "targets": [{"expr": "saveinator_worker_uptime_seconds", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 2, "type": "timeseries", "title": "Tasks Started", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}, "targets": [{"expr": "sum by (task) (rate(saveinator_celery_tasks_total[$__rate_interval]) * 60)", "legendFormat": "{{task}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 3, "type": "timeseries", "title": "Tasks Completed", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}, "targets": [{"expr": "sum by (task) (rate(saveinator_celery_tasks_total{status=\"SUCCESS\"}[$__rate_interval]) * 60)", "legendFormat": "{{task}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 4, "type": "timeseries", "title": "Tasks Failed", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}, "targets": [{"expr": "sum by (task, status) (rate(saveinator_celery_tasks_total{status=~\"FAILURE|RETRY|REVOKED\"}[$__rate_interval]) * 60)", "legendFormat": "{{task}} {{status}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 5, "type": "timeseries", "title": "Tasks Retried", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}, "targets": [{"expr": "sum by (task) (rate(saveinator_celery_tasks_total{status=\"RETRY\"}[$__rate_interval]) * 60)", "legendFormat": "{{task}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 6, "type": "timeseries", "title": "Task Duration p95", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}, "fieldConfig": {"defaults": {"unit": "s", "min": 0}, "overrides": []}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le, platform) (rate(saveinator_download_duration_seconds_bucket[$__rate_interval])))", "legendFormat": "{{platform}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 7, "type": "stat", "title": "Active Tasks", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 28}, "targets": [{"expr": "sum(rate(saveinator_celery_tasks_total[$__rate_interval]))", "legendFormat": "recent task activity", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 8, "type": "stat", "title": "Queue Backlog", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 28}, "targets": [{"expr": "redis_db_keys{db=\"db0\"}", "legendFormat": "redis keys", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 9, "type": "timeseries", "title": "Scheduled Cleanup Tasks", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}, "targets": [{"expr": "rate(saveinator_celery_tasks_total{task=\"workers.tasks.cleanup_stale_task\"}[$__rate_interval]) * 60", "legendFormat": "cleanup/min", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 10, "type": "timeseries", "title": "Worker Restarts", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36}, "targets": [{"expr": "changes(saveinator_worker_uptime_seconds[1h])", "legendFormat": "uptime resets", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 11, "type": "timeseries", "title": "Max Tasks per Child Impact", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36}, "targets": [{"expr": "changes(saveinator_worker_uptime_seconds[6h])", "legendFormat": "worker lifecycle churn", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]},
+    {"id": 12, "type": "timeseries", "title": "Memory Growth per Worker", "gridPos": {"h": 8, "w": 24, "x": 0, "y": 44}, "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "targets": [{"expr": "container_memory_working_set_bytes{name=~\"saveinator.*worker.*\"}", "legendFormat": "{{name}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]}
+  ]
+}

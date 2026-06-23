@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     spotify_meta_cache_ttl_seconds: int = 3600
     youtube_search_cache_ttl_seconds: int = 604800
 
+    soundcloud_enabled: bool = True
+    soundcloud_download_enabled: bool = False
+    soundcloud_track_timeout_seconds: int = 30
+    soundcloud_max_tracks: int = 20
+    soundcloud_dl_output_format: str = "mp3"
+    soundcloud_max_file_mb: int = 50
+    soundcloud_meta_cache_ttl_seconds: int = 3600
+
     pinterest_enabled: bool = True
     pinterest_timeout_seconds: int = 30
     pinterest_max_items: int = 1

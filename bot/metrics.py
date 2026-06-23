@@ -49,7 +49,15 @@ ACTIVE_CHATS = Gauge(
     "Recently active unique chat IDs",
 )
 
-DOWNLOAD_PLATFORMS = ("youtube", "tiktok", "instagram", "x", "pinterest", "spotify")
+DOWNLOAD_PLATFORMS = (
+    "youtube",
+    "tiktok",
+    "instagram",
+    "x",
+    "pinterest",
+    "spotify",
+    "soundcloud",
+)
 
 DOWNLOADS_ENQUEUED_TOTAL = Counter(
     "saveinator_downloads_enqueued_total",
@@ -60,6 +68,48 @@ DOWNLOADS_ENQUEUED_TOTAL = Counter(
 SPOTIFY_REQUESTS_TOTAL = Counter(
     "saveinator_spotify_requests_total",
     "Spotify link handling requests",
+)
+
+SOUNDCLOUD_REQUESTS_TOTAL = Counter(
+    "saveinator_soundcloud_requests_total",
+    "SoundCloud link handling requests",
+)
+
+SOUNDCLOUD_DOWNLOADS_ENQUEUED_TOTAL = Counter(
+    "saveinator_soundcloud_downloads_enqueued_total",
+    "SoundCloud track downloads started",
+)
+
+SOUNDCLOUD_DOWNLOADS_SUCCESS_TOTAL = Counter(
+    "saveinator_soundcloud_downloads_success_total",
+    "Successful SoundCloud track downloads",
+)
+
+SOUNDCLOUD_DOWNLOAD_FAILURES_TOTAL = Counter(
+    "saveinator_soundcloud_download_failures_total",
+    "Failed SoundCloud track downloads",
+)
+
+SOUNDCLOUD_DOWNLOADS_TIMEOUT_TOTAL = Counter(
+    "saveinator_soundcloud_download_timeouts_total",
+    "SoundCloud track download timeouts",
+)
+
+SOUNDCLOUD_METADATA_FAILURES_TOTAL = Counter(
+    "saveinator_soundcloud_metadata_failures_total",
+    "SoundCloud metadata fetch failures",
+)
+
+SOUNDCLOUD_PLAYLIST_TRACKS = Histogram(
+    "saveinator_soundcloud_playlist_tracks",
+    "Number of tracks in SoundCloud playlists",
+    buckets=(1, 2, 5, 10, 15, 20, 30, 50),
+)
+
+SOUNDCLOUD_DOWNLOAD_DURATION_SECONDS = Histogram(
+    "saveinator_soundcloud_download_duration_seconds",
+    "SoundCloud track download duration",
+    buckets=(1, 3, 5, 10, 15, 30, 60, 120),
 )
 
 RATE_LIMIT_DROPPED_TOTAL = Counter(

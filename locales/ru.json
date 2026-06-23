@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter, Spotify или Pinterest в любую группу. Я скачиваю видео, музыку и изображения.",
+    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud или Pinterest в любую группу. Я скачиваю видео, музыку и изображения.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -13,7 +13,7 @@
     "sent_as_doc": "📄 Отправлено как документ ({size} МБ)"
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter, Spotify и Pinterest.",
+    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "busy": "Подожди, пока завершится текущее скачивание, и только потом отправляй новую ссылку.",
@@ -42,6 +42,25 @@
     "not_configured": "Поддержка Spotify не настроена на этом боте.",
     "api_error": "Не удалось получить информацию о релизе Spotify. Попробуй позже.",
     "disabled": "Поддержка Spotify отключена на этом боте."
+  },
+  "soundcloud": {
+    "card_title": "🎧 {artist} — {name}",
+    "track_card_title": "🎧 {artist} — {title}",
+    "duration": "Длительность: {duration}",
+    "genre": "Жанр: {genre}",
+    "tracks_count": "Треков: {count}",
+    "source": "Источник: SoundCloud",
+    "btn_open": "Открыть в SoundCloud",
+    "no_download": "Для SoundCloud доступна только карточка трека. Скачивание аудио отключено на этом боте.",
+    "download_starting": "Скачиваю {total} трек(ов)...",
+    "download_progress": "Отправляю треки: {current}/{total}",
+    "download_done": "Готово: {count}/{total} треков отправлено.",
+    "download_failed": "Не удалось скачать треки. Попробуй позже.",
+    "download_timeout": "Скачивание заняло слишком много времени. Попробуй более короткий плейлист.",
+    "not_found": "Трек или плейлист SoundCloud не найден.",
+    "not_configured": "Поддержка SoundCloud не настроена на этом боте.",
+    "disabled": "Поддержка SoundCloud отключена на этом боте.",
+    "playlist_too_large": "В этом плейлисте слишком много треков. Максимум: {limit}."
   },
   "admin": {
     "menu_title": "⚙️ Runtime-настройки (hot-swap через Redis). Меняются сразу для всех пользователей.",

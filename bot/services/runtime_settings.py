@@ -18,7 +18,7 @@ class RuntimeSettingDef:
     kind: str  # "max_file_mb" | "timeout_sec"
 
 
-SERVICE_ORDER = ("youtube", "tiktok", "instagram", "x", "spotify", "pinterest")
+SERVICE_ORDER = ("youtube", "tiktok", "instagram", "x", "spotify", "soundcloud", "pinterest")
 
 RUNTIME_SETTINGS: tuple[RuntimeSettingDef, ...] = (
     RuntimeSettingDef("youtube.max_file_mb", "youtube_max_file_size_mb", "youtube", "max_file_mb"),
@@ -31,6 +31,13 @@ RUNTIME_SETTINGS: tuple[RuntimeSettingDef, ...] = (
     RuntimeSettingDef("x.timeout_sec", "download_timeout_seconds", "x", "timeout_sec"),
     RuntimeSettingDef("spotify.timeout_sec", "spotify_track_timeout_seconds", "spotify", "timeout_sec"),
     RuntimeSettingDef("spotify.max_file_mb", "send_document_limit_mb", "spotify", "max_file_mb"),
+    RuntimeSettingDef(
+        "soundcloud.timeout_sec",
+        "soundcloud_track_timeout_seconds",
+        "soundcloud",
+        "timeout_sec",
+    ),
+    RuntimeSettingDef("soundcloud.max_file_mb", "soundcloud_max_file_mb", "soundcloud", "max_file_mb"),
     RuntimeSettingDef("pinterest.max_file_mb", "send_video_limit_mb", "pinterest", "max_file_mb"),
     RuntimeSettingDef("pinterest.timeout_sec", "pinterest_timeout_seconds", "pinterest", "timeout_sec"),
     RuntimeSettingDef("global.document_limit_mb", "send_document_limit_mb", "global", "max_file_mb"),
@@ -134,6 +141,14 @@ def telegram_bot_upload_limit_mb() -> int:
 
 def spotify_track_timeout_seconds() -> int:
     return get_runtime_int("spotify.timeout_sec")
+
+
+def soundcloud_track_timeout_seconds() -> int:
+    return get_runtime_int("soundcloud.timeout_sec")
+
+
+def soundcloud_max_file_mb() -> int:
+    return get_runtime_int("soundcloud.max_file_mb")
 
 
 def pinterest_timeout_seconds() -> int:

@@ -88,7 +88,8 @@
         {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"instagram\"}[5m]) * 60", "legendFormat": "instagram", "refId": "C"},
         {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"x\"}[5m]) * 60", "legendFormat": "x", "refId": "D"},
         {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"pinterest\"}[5m]) * 60", "legendFormat": "pinterest", "refId": "E"},
-        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"spotify\"}[5m]) * 60", "legendFormat": "spotify", "refId": "F"}
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"spotify\"}[5m]) * 60", "legendFormat": "spotify", "refId": "F"},
+        {"expr": "rate(saveinator_downloads_enqueued_total{platform=\"soundcloud\"}[5m]) * 60", "legendFormat": "soundcloud", "refId": "G"}
       ]
     },
     {

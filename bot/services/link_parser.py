@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from db.models import Platform
 from bot.services.spotify_parser import SpotifyLink, parse_spotify_link
+from bot.services.soundcloud_parser import SoundCloudLink, parse_soundcloud_link
 
 _SPOTIFY_ID_IN_URL = r"[A-Za-z0-9]{22}"
 
@@ -58,6 +59,27 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
         ),
     ),
     (
+        Platform.SOUNDCLOUD,
+        re.compile(
+            r"(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[\w.-]+(?:[/?#&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Platform.SOUNDCLOUD,
+        re.compile(
+            r"(?:https?://)?on\.soundcloud\.com/[\w-]+(?:[/?#&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Platform.SOUNDCLOUD,
+        re.compile(
+            r"(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/(?!sets/)[\w.-]+(?:[/?#&]\S*)?",
+            re.IGNORECASE,
+        ),
+    ),
+    (
         Platform.PINTEREST,
         re.compile(
             r"(?:https?://)?(?:www\.)?pinterest\.com/pin/[\w-]+/?(?:[?&]\S*)?",
@@ -92,10 +114,15 @@ class ParsedLink:
     platform: Platform
     url: str
     spotify_link: SpotifyLink | None = None
+    soundcloud_link: SoundCloudLink | None = None
 
 
 def extract_spotify_link(url_or_uri: str) -> SpotifyLink | None:
     return parse_spotify_link(url_or_uri)
+
+
+def extract_soundcloud_link(url: str) -> SoundCloudLink | None:
+    return parse_soundcloud_link(url)
 
 
 def _parse_spotify_uri(text: str, seen: set[str]) -> list[ParsedLink]:
@@ -118,6 +145,7 @@ def _parse_spotify_uri(text: str, seen: set[str]) -> list[ParsedLink]:
 def extract_urls(text: str) -> list[ParsedLink]:
     results: list[ParsedLink] = []
     seen_spotify_ids: set[str] = set()
+    seen_soundcloud_urls: set[str] = set()
     raw_urls = _URL_EXTRACTOR.findall(text)
 
     for raw_url in raw_urls:
@@ -128,15 +156,23 @@ def extract_urls(text: str) -> list[ParsedLink]:
             if match:
                 matched_url = match.group(0)
                 spotify_link = None
+                soundcloud_link = None
                 if platform == Platform.SPOTIFY:
                     spotify_link = parse_spotify_link(matched_url)
                     if spotify_link:
                         seen_spotify_ids.add(spotify_link.id)
+                elif platform == Platform.SOUNDCLOUD:
+                    soundcloud_link = parse_soundcloud_link(matched_url)
+                    if soundcloud_link:
+                        if soundcloud_link.url in seen_soundcloud_urls:
+                            break
+                        seen_soundcloud_urls.add(soundcloud_link.url)
                 results.append(
                     ParsedLink(
                         platform=platform,
                         url=matched_url,
                         spotify_link=spotify_link,
+                        soundcloud_link=soundcloud_link,
                     )
                 )
                 break

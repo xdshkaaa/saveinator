@@ -1,6 +1,6 @@
 # save-yt-tiktok (Saveinator)
 
-Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, Pinterest images/videos, plus Spotify album/single/track metadata and audio downloads via yt-dlp YouTube search.
+Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, Pinterest images/videos, Spotify album/single/track metadata and audio downloads via yt-dlp YouTube search, plus SoundCloud track/playlist metadata and audio downloads via yt-dlp.
 
 ## Features
 
@@ -8,6 +8,8 @@ Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitt
 - Download Pinterest pins and boards via [`pinterest-dl`](https://github.com/sean1832/pinterest-dl)
 - Show Spotify album/single/compilation/track metadata from the Spotify Web API
 - Download Spotify album/track audio via yt-dlp YouTube search (not Spotify streaming)
+- Show SoundCloud track/playlist metadata via yt-dlp
+- Download SoundCloud track/playlist audio via yt-dlp (public content only)
 - `POST /download/pinterest` HTTP API for programmatic downloads
 - EN/RU localization
 - Celery workers for background video downloads
@@ -66,6 +68,56 @@ Spotify metadata → yt-dlp ytsearch → audio files → Telegram
 2. Set credentials in `.env`
 3. Enable the feature flag: `SPOTIFY_ENABLED=true`
 
+## SoundCloud support
+
+SoundCloud metadata and audio downloads use yt-dlp directly on public SoundCloud URLs. The bot does **not** bypass private tracks, authentication, or DRM.
+
+### Supported links
+
+- `https://soundcloud.com/{artist}/{track-name}`
+- `https://soundcloud.com/{artist}/sets/{playlist-name}`
+- `https://on.soundcloud.com/{short-code}`
+- URLs with query parameters — query/hash are stripped before parsing
+
+### What happens on a SoundCloud link
+
+1. The bot parses the URL and detects track, playlist, or short link.
+2. Metadata is fetched via yt-dlp in metadata-only mode.
+3. Data is normalized into internal track/release models.
+4. The user receives a metadata card with artwork (when available) and an **Open in SoundCloud** button.
+5. If `SOUNDCLOUD_DOWNLOAD_ENABLED=true`, tracks are downloaded in the background and sent as audio files.
+
+**Track card example:**
+
+```text
+🎧 Artist — Track title
+Duration: 3:42
+Genre: Electronic
+Source: SoundCloud
+```
+
+**Playlist card example:**
+
+```text
+🎧 Artist — Playlist title
+Tracks: 12
+Source: SoundCloud
+```
+
+If download is disabled (`SOUNDCLOUD_DOWNLOAD_ENABLED=false`), the bot replies with a metadata-only message.
+
+### Enable SoundCloud
+
+```env
+SOUNDCLOUD_ENABLED=true
+SOUNDCLOUD_DOWNLOAD_ENABLED=false
+SOUNDCLOUD_TRACK_TIMEOUT_SECONDS=30
+SOUNDCLOUD_MAX_TRACKS=20
+SOUNDCLOUD_DL_OUTPUT_FORMAT=mp3
+SOUNDCLOUD_MAX_FILE_MB=50
+SOUNDCLOUD_META_CACHE_TTL_SECONDS=3600
+```
+
 ## Setup
 
 ```bash
@@ -121,7 +173,7 @@ The webhook app also serves `GET /health` for origin checks. Keep `/metrics` pri
 ## Tests
 
 ```bash
-pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py -q
+pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py tests/test_soundcloud_parser.py tests/test_soundcloud_client.py tests/test_soundcloud_card.py tests/test_soundcloud_handler.py tests/test_soundcloud_audio.py -q
 ```
 
 ## Environment variables
@@ -142,6 +194,13 @@ pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_
 | `SPOTIFY_DOWNLOAD_ENABLED` | `true` | Enable Spotify audio downloads |
 | `SPOTIFY_TRACK_TIMEOUT_SECONDS` | `15` | Per-track yt-dlp timeout |
 | `SPOTIFY_DL_OUTPUT_FORMAT` | `mp3` | Output format (`mp3`, `flac`, `wav`, `aac`) |
+| `SOUNDCLOUD_ENABLED` | `true` | Enable SoundCloud metadata cards |
+| `SOUNDCLOUD_DOWNLOAD_ENABLED` | `false` | Enable SoundCloud audio downloads |
+| `SOUNDCLOUD_TRACK_TIMEOUT_SECONDS` | `30` | Per-track yt-dlp timeout |
+| `SOUNDCLOUD_MAX_TRACKS` | `20` | Maximum playlist tracks to process |
+| `SOUNDCLOUD_DL_OUTPUT_FORMAT` | `mp3` | Output format |
+| `SOUNDCLOUD_MAX_FILE_MB` | `50` | Maximum audio file size |
+| `SOUNDCLOUD_META_CACHE_TTL_SECONDS` | `3600` | Metadata cache TTL |
 
 See [`.env.example`](.env.example) for the full list.
 
@@ -163,4 +222,7 @@ Pinterest pins, short links (`pin.it`), and boards are downloaded in the Celery 
 - Spotify metadata: `bot/handlers/group.py` → `bot/services/spotify_handler.py` → `bot/services/spotify_client.py`
 - Spotify audio download: `bot/services/spotify_handler.py` → `bot/services/youtube_audio.py` (yt-dlp)
 - Spotify URL parsing: `bot/services/spotify_parser.py`
-- Feature flags: `SPOTIFY_ENABLED`, `PINTEREST_ENABLED`
+- SoundCloud metadata: `bot/handlers/group.py` → `bot/services/soundcloud_handler.py` → `bot/services/soundcloud_client.py` (yt-dlp)
+- SoundCloud audio download: `bot/services/soundcloud_handler.py` → `bot/services/soundcloud_audio.py` (yt-dlp)
+- SoundCloud URL parsing: `bot/services/soundcloud_parser.py`
+- Feature flags: `SPOTIFY_ENABLED`, `SOUNDCLOUD_ENABLED`, `PINTEREST_ENABLED`

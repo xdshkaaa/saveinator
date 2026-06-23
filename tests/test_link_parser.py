@@ -143,3 +143,24 @@ class TestLinkParser:
 
     def test_extract_spotify_link_invalid(self):
         assert extract_spotify_link("https://open.spotify.com/track/abc") is None
+
+    def test_soundcloud_track_url(self):
+        urls = extract_urls("https://soundcloud.com/artist/track-name")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.SOUNDCLOUD
+        assert urls[0].soundcloud_link is not None
+        assert urls[0].soundcloud_link.type == "track"
+
+    def test_soundcloud_playlist_url(self):
+        urls = extract_urls("https://soundcloud.com/artist/sets/playlist-name")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.SOUNDCLOUD
+        assert urls[0].soundcloud_link is not None
+        assert urls[0].soundcloud_link.type == "playlist"
+
+    def test_soundcloud_short_url(self):
+        urls = extract_urls("https://on.soundcloud.com/abc123")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.SOUNDCLOUD
+        assert urls[0].soundcloud_link is not None
+        assert urls[0].soundcloud_link.type == "short"
