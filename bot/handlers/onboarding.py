@@ -7,7 +7,7 @@ from aiogram.fsm.state import State, StatesGroup
 from db.models import User, Language
 from db.session import async_session_factory
 from bot.locale import get
-from bot.metrics import record_command
+from bot.metrics import record_command, record_user_created
 
 onboarding_router = Router()
 
@@ -68,6 +68,7 @@ async def language_chosen(callback: CallbackQuery, state: FSMContext):
         )
         session.add(user_obj)
         await session.commit()
+        record_user_created()
 
     await state.clear()
     await callback.message.edit_text(

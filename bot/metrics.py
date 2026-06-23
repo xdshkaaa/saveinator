@@ -149,6 +149,28 @@ SPAM_BLOCKED_TOTAL = Counter(
     ["reason"],
 )
 
+BROADCASTS_TOTAL = Counter(
+    "saveinator_broadcasts_total",
+    "Broadcasts created",
+    ["audience"],
+)
+
+BROADCAST_MESSAGES_SENT_TOTAL = Counter(
+    "saveinator_broadcast_messages_sent_total",
+    "Broadcast messages successfully sent",
+)
+
+BROADCAST_MESSAGES_FAILED_TOTAL = Counter(
+    "saveinator_broadcast_messages_failed_total",
+    "Broadcast messages that failed to send",
+)
+
+ADMIN_RUNTIME_SETTINGS_CHANGED_TOTAL = Counter(
+    "saveinator_admin_runtime_settings_changed_total",
+    "Admin runtime setting changes",
+    ["service"],
+)
+
 RPC_FAILURES_TOTAL = Counter(
     "saveinator_rpc_failures_total",
     "Infrastructure RPC failures (database, redis, internal)",

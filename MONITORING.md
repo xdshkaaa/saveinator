@@ -124,7 +124,10 @@ Manual re-import: Grafana → Dashboards → Import → upload JSON file.
 | `saveinator_commands_handled_total` | Commands handled |
 | `saveinator_errors_total` | Errors by source |
 | `saveinator_telegram_api_*` | Telegram API requests, latency, failures |
+| `saveinator_http_*` | Internal HTTP/API route request counts and latency |
+| `saveinator_users_created_total` | Users created in the database |
 | `saveinator_downloads_enqueued_total` | Download jobs started (`platform`: youtube, tiktok, instagram, x, pinterest, spotify, soundcloud) |
+| `saveinator_download_file_size_bytes` | Completed download file size distribution |
 | `saveinator_celery_tasks_total` | Worker task counts |
 | `saveinator_ytdlp_errors_total` | Download failures |
 

@@ -2,6 +2,7 @@ from typing import Any
 
 from db.models import Language, User, UserSettings
 from db.session import async_session_factory
+from bot.metrics import record_user_created
 
 
 _DEFAULT_QUALITY = "ask"
@@ -26,6 +27,7 @@ async def ensure_user(
         )
         session.add(user)
         await session.commit()
+        record_user_created()
         return user
 
 
@@ -36,6 +38,7 @@ async def get_or_create_user_settings(user_id: int) -> UserSettings:
             user = User(id=user_id)
             session.add(user)
             await session.flush()
+            record_user_created()
         settings = await session.get(UserSettings, user_id)
         if settings is not None:
             return settings
@@ -54,6 +57,7 @@ async def _ensure_user(
         user = User(id=user_id)
         session.add(user)
         await session.flush()
+        record_user_created()
 
 
 async def set_user_language(user_id: int, language: str) -> None:

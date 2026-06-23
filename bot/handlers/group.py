@@ -13,6 +13,7 @@ from bot.metrics import (
 from bot.services.link_parser import extract_urls
 from bot.services.soundcloud_handler import handle_soundcloud_link
 from bot.services.spotify_handler import reply_spotify_link
+from bot.services.download_cancel import build_download_queue_button
 from bot.services.user_queue import UserScenario, acquire_user_lock
 from bot.services.user_settings import get_or_create_user_settings
 from bot.services.youtube_keyboards import format_ratio_label, get_quality_keyboard, get_ratio_keyboard
@@ -46,7 +47,10 @@ async def _acquire_scenario_lock(
         track_count=track_count,
     )
     if token is None:
-        await message.reply(get("errors.busy", lang))
+        await message.reply(
+            get("errors.busy", lang),
+            reply_markup=build_download_queue_button(lang, user_id),
+        )
         USER_QUEUE_REJECTED_TOTAL.labels(scenario=scenario.value).inc()
         return None
     return token

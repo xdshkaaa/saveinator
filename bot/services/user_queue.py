@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass
 from enum import StrEnum
 
 from bot.config import settings
@@ -20,12 +21,34 @@ class UserScenario(StrEnum):
     SOUNDCLOUD = "soundcloud"
 
 
+@dataclass(frozen=True)
+class ActiveUserDownload:
+    user_id: int
+    scenario: UserScenario
+    token: str
+
+
 def _lock_key(user_id: int) -> str:
     return f"{_LOCK_PREFIX}:{user_id}"
 
 
 def _lock_value(scenario: UserScenario, token: str) -> str:
     return f"{scenario.value}:{token}"
+
+
+def _parse_lock_value(user_id: int, value: str | bytes | None) -> ActiveUserDownload | None:
+    if isinstance(value, bytes):
+        value = value.decode()
+    if not value or ":" not in value:
+        return None
+    scenario_value, token = value.split(":", 1)
+    if not token:
+        return None
+    try:
+        scenario = UserScenario(scenario_value)
+    except ValueError:
+        return None
+    return ActiveUserDownload(user_id=user_id, scenario=scenario, token=token)
 
 
 def lock_ttl_seconds(scenario: UserScenario, track_count: int = 0) -> int:
@@ -104,6 +127,12 @@ async def release_user_lock(user_id: int, token: str, scenario: UserScenario) ->
 async def is_user_busy(user_id: int) -> bool:
     redis_client = await get_async_redis()
     return bool(await redis_client.exists(_lock_key(user_id)))
+
+
+async def get_active_user_download(user_id: int) -> ActiveUserDownload | None:
+    redis_client = await get_async_redis()
+    value = await redis_client.get(_lock_key(user_id))
+    return _parse_lock_value(user_id, value)
 
 
 def acquire_user_lock_sync(

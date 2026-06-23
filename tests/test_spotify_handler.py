@@ -21,20 +21,25 @@ class FakeReplyMessage:
         self.texts: list[str] = []
         self.photos: list[tuple[str, str | None]] = []
         self.reply_markup = None
+        self.reply_markups = []
         self.edited_texts: list[str] = []
 
     async def reply(self, text: str, reply_markup=None):
         self.texts.append(text)
         self.reply_markup = reply_markup
+        self.reply_markups.append(reply_markup)
         return self
 
     async def reply_photo(self, photo: str, caption: str | None = None, reply_markup=None):
         self.photos.append((photo, caption))
         self.reply_markup = reply_markup
+        self.reply_markups.append(reply_markup)
         return self
 
-    async def edit_text(self, text: str):
+    async def edit_text(self, text: str, reply_markup=None):
         self.edited_texts.append(text)
+        self.reply_markup = reply_markup
+        self.reply_markups.append(reply_markup)
 
 
 class FakeBot:
@@ -206,6 +211,10 @@ async def test_spotify_downloads_tracks_via_youtube(monkeypatch, tmp_path: Path)
         "bot.services.spotify_handler._release_release_download_lock",
         AsyncMock(),
     )
+    monkeypatch.setattr(
+        "bot.services.spotify_handler.fetch_audio_thumbnail",
+        AsyncMock(return_value="cover-thumbnail"),
+    )
 
     class FakeTempDir:
         def __enter__(self):
@@ -224,5 +233,11 @@ async def test_spotify_downloads_tracks_via_youtube(monkeypatch, tmp_path: Path)
 
     assert len(message.replies) == 2
     assert message.bot.sent_audio
+    assert message.bot.sent_audio[0]["thumbnail"] == "cover-thumbnail"
     assert "Finished: 1/1 tracks sent." in message.replies[1].edited_texts[-1]
     assert "spotify-dl" not in message.replies[1].texts[0].lower()
+    assert message.replies[1].texts[0] == "Downloading 1 track(s)..."
+    assert message.replies[1].reply_markups[0] is not None
+    button = message.replies[1].reply_markups[0].inline_keyboard[0][0]
+    assert button.text == "Cancel"
+    assert button.callback_data.startswith("dlc:spotify:20:")

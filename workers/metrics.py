@@ -64,6 +64,28 @@ YTDLP_ERRORS_TOTAL = Counter(
 )
 
 
+BROADCASTS_TOTAL_WORKER = Counter(
+    "saveinator_worker_broadcasts_total",
+    "Broadcast tasks executed by worker",
+    ["audience"],
+)
+
+BROADCAST_MESSAGES_SENT_TOTAL_WORKER = Counter(
+    "saveinator_worker_broadcast_messages_sent_total",
+    "Broadcast messages sent by worker",
+)
+
+BROADCAST_MESSAGES_FAILED_TOTAL_WORKER = Counter(
+    "saveinator_worker_broadcast_messages_failed_total",
+    "Broadcast messages that failed in worker",
+)
+
+BROADCAST_MESSAGES_BLOCKED_TOTAL_WORKER = Counter(
+    "saveinator_worker_broadcast_messages_blocked_total",
+    "Users who blocked the bot during broadcast",
+)
+
+
 def init_worker_platform_metrics() -> None:
     for platform in YTDLP_PLATFORMS:
         YTDLP_ERRORS_TOTAL.labels(platform=platform).inc(0)

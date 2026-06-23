@@ -29,6 +29,29 @@ class Settings(BaseSettings):
     download_timeout_seconds: int = 60
     youtube_max_file_size_mb: int = 1999
     youtube_download_timeout_seconds: int = 600
+    youtube_allowed_qualities: str = "1080,720,480"
+    youtube_default_quality: str = "ask"
+    youtube_allowed_ratios: str = "16_9,21_9,9_16"
+    youtube_transcode_enabled: bool = True
+    youtube_max_duration_sec: int = 0
+
+    tiktok_max_duration_sec: int = 0
+    tiktok_allow_photo_slideshows: bool = True
+    tiktok_fallback_to_document: bool = True
+
+    instagram_max_items_per_post: int = 10
+    instagram_allow_reels: bool = True
+    instagram_allow_posts: bool = True
+    instagram_allow_stories: bool = True
+    instagram_fallback_to_document: bool = True
+
+    x_max_items_per_post: int = 4
+    x_allow_gif: bool = True
+    x_allow_video: bool = True
+    x_fallback_to_document: bool = True
+
+    broadcast_delay_ms: int = 50
+    broadcast_batch_size: int = 20
 
     sentry_dsn: str = ""
     log_level: str = "INFO"

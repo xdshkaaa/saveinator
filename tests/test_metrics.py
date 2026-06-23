@@ -3,13 +3,17 @@ from prometheus_client import REGISTRY, generate_latest
 from bot.metrics import (
     DOWNLOADS_ENQUEUED_TOTAL,
     ERRORS_TOTAL,
+    HTTP_REQUESTS_TOTAL,
     MESSAGES_RECEIVED_TOTAL,
+    USERS_CREATED_TOTAL,
     init_platform_metrics,
     record_command,
     record_error,
     record_message,
+    record_user_created,
     refresh_uptime,
 )
+from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES
 
 
 class TestBotMetrics:
@@ -55,3 +59,26 @@ class TestBotMetrics:
         refresh_uptime()
         output = generate_latest(REGISTRY).decode()
         assert "saveinator_uptime_seconds" in output
+
+    def test_user_created_metric_exists(self):
+        before = USERS_CREATED_TOTAL._value.get()  # type: ignore[attr-defined]
+        record_user_created()
+        after = USERS_CREATED_TOTAL._value.get()  # type: ignore[attr-defined]
+        assert after == before + 1
+
+    def test_http_request_metric_exports_route_status(self):
+        HTTP_REQUESTS_TOTAL.labels(
+            method="POST",
+            route="/download/pinterest",
+            status="200",
+        ).inc()
+        output = generate_latest(REGISTRY).decode()
+        assert "saveinator_http_requests_total" in output
+        assert 'route="/download/pinterest"' in output
+        assert 'status="200"' in output
+
+    def test_download_file_size_histogram_exists(self):
+        DOWNLOAD_FILE_SIZE_BYTES.labels(platform="youtube").observe(5 * 1024 * 1024)
+        output = generate_latest(REGISTRY).decode()
+        assert "saveinator_download_file_size_bytes_bucket" in output
+        assert 'platform="youtube"' in output

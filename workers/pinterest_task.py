@@ -7,6 +7,7 @@ import structlog
 
 from bot.config import settings
 from bot.locale import get
+from bot.metrics import record_user_created
 from bot.services.runtime_settings import (
     pinterest_max_file_mb,
     pinterest_timeout_seconds,
@@ -24,6 +25,7 @@ from workers.pinterest_downloader import (
     PinterestNoMediaError,
     download_pinterest,
 )
+from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES
 
 logger = structlog.get_logger()
 
@@ -281,6 +283,7 @@ async def _record_download(
         if not user:
             user = User(id=user_id, username="unknown", language="en")
             session.add(user)
+            record_user_created()
 
         chat = await session.get(Chat, chat_id)
         if not chat:
@@ -302,3 +305,7 @@ async def _record_download(
         )
         session.add(dl)
         await session.commit()
+        if status == DownloadStatus.COMPLETED and size_mb:
+            DOWNLOAD_FILE_SIZE_BYTES.labels(platform=platform).observe(
+                size_mb * 1024 * 1024
+            )

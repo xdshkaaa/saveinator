@@ -7,6 +7,7 @@ import structlog
 
 from bot.config import settings
 from bot.locale import get
+from bot.metrics import record_user_created
 from bot.services.runtime_settings import platform_max_file_mb, platform_download_timeout_seconds, send_document_limit_mb
 from bot.services.tempfiles import tempfile_manager, sweep_stale
 from bot.services.file_sender import send_file, telegram_upload_limit_mb
@@ -16,7 +17,7 @@ from bot.services.user_queue import UserScenario, release_user_lock_sync
 from workers.app import app
 from workers.bot import get_bot
 from workers.downloader import download
-from workers.metrics import YTDLP_ERRORS_TOTAL
+from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES, YTDLP_ERRORS_TOTAL
 from workers.video_processor import VideoProcessingError, apply_aspect_ratio
 from workers.youtube_format import build_youtube_format
 
@@ -213,6 +214,9 @@ async def _run_download_and_send(
                     url, platform, resolved_format_id, size_mb,
                     DownloadStatus.COMPLETED, user_id, chat_id,
                 )
+                DOWNLOAD_FILE_SIZE_BYTES.labels(platform=platform).observe(
+                    size_mb * 1024 * 1024
+                )
                 return
 
             await _edit_message(
@@ -359,6 +363,7 @@ async def _record_download(
         if not user:
             user = User(id=user_id, username="unknown", language="en")
             session.add(user)
+            record_user_created()
 
         chat = await session.get(Chat, chat_id)
         if not chat:

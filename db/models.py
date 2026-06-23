@@ -108,3 +108,71 @@ class UserSettings(Base):
     youtube_ratio: Mapped[str] = mapped_column(
         String(16), default="ask", server_default="ask"
     )
+
+
+class BroadcastStatus(str, enum.Enum):
+    DRAFT = "draft"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class BroadcastAudience(str, enum.Enum):
+    ALL = "all"
+    RU = "ru"
+    EN = "en"
+    ACTIVE = "active"
+
+
+class BroadcastDeliveryStatus(str, enum.Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+
+
+class Broadcast(Base):
+    __tablename__ = "broadcasts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    admin_id: Mapped[int] = mapped_column(BigInteger)
+    text: Mapped[str] = mapped_column(Text)
+    audience: Mapped[BroadcastAudience] = mapped_column(
+        Enum(BroadcastAudience), default=BroadcastAudience.ALL
+    )
+    status: Mapped[BroadcastStatus] = mapped_column(
+        Enum(BroadcastStatus), default=BroadcastStatus.DRAFT
+    )
+    total_recipients: Mapped[int] = mapped_column(Integer, default=0)
+    sent_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0)
+    blocked_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    deliveries: Mapped[list["BroadcastDelivery"]] = relationship(back_populates="broadcast")
+
+
+class BroadcastDelivery(Base):
+    __tablename__ = "broadcast_deliveries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    broadcast_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("broadcasts.id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger)
+    status: Mapped[BroadcastDeliveryStatus] = mapped_column(
+        Enum(BroadcastDeliveryStatus), default=BroadcastDeliveryStatus.PENDING
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    broadcast: Mapped["Broadcast"] = relationship(back_populates="deliveries")
+
+    __table_args__ = (
+        Index("ix_broadcast_deliveries_broadcast_id", "broadcast_id"),
+        Index("ix_broadcast_deliveries_user_id", "user_id"),
+    )

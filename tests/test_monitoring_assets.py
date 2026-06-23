@@ -29,6 +29,7 @@ def _target_exprs(dashboard: dict) -> list[str]:
 
 def test_required_operational_dashboards_are_provisioned():
     expected = {
+        "saveinator-overview.json": "Saveinator Unified Monitoring",
         "operations.json": "Saveinator Operations",
         "downloads.json": "Download Operations",
         "worker-celery.json": "Worker / Celery",
@@ -54,6 +55,13 @@ def test_dashboards_cover_requested_monitoring_surfaces():
             "Active Chats",
             "Telegram API Latency p95",
             "Webhook Health",
+        },
+        "saveinator-overview.json": {
+            "Downloads by Platform",
+            "Telegram RPC Requests",
+            "Users and Messages",
+            "HTTP Handlers by Route",
+            "HTTP Handler Latency p95",
         },
         "downloads.json": {
             "Downloads Enqueued by Platform",
@@ -136,6 +144,8 @@ def test_dashboard_queries_use_prometheus_and_loki_datasources():
     )
     assert "saveinator_messages_received_total" in all_exprs
     assert "saveinator_celery_tasks_total" in all_exprs
+    assert "saveinator_http_requests_total" in all_exprs
+    assert "saveinator_users_created_total" in all_exprs
     assert "pg_up" in all_exprs
     assert "redis_up" in all_exprs
     assert "{container=~" in all_exprs
