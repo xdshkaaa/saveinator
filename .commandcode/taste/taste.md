@@ -27,9 +27,10 @@
 - Use git@github.com:pyfig/saveinator.git as the remote origin for this project. Confidence: 0.70
 
 # deployment
-- After completing feature work with all tests passing, deploy changes to production server (root@103.214.69.38) via git push + docker-compose restart. Confidence: 0.70
+- After completing feature work with all tests passing, deploy changes to production server (root@103.214.69.38) via git push + docker-compose restart. Confidence: 0.80
 
 # communication-style
 - When providing development plans, include concrete code snippets, callback data examples, and configuration samples throughout. Confidence: 0.75
+- Communicate with the user in Russian language. Confidence: 0.65
 
 
