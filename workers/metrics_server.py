@@ -24,16 +24,13 @@ def _create_multiprocess_registry() -> CollectorRegistry:
     Returns a **clean** registry that contains *only* the
     MultiProcessCollector — not the in-memory metric objects from the parent
     process (which would produce duplicate, zero-valued metric families).
+
+    Stale ``.db`` files from previous worker generations are cleaned in
+    ``workers/metrics.py`` at import time (before any metrics are created),
+    so there is no need to remove them here.
     """
     multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
     if multiproc_dir:
-        os.makedirs(multiproc_dir, exist_ok=True)
-        for entry in os.listdir(multiproc_dir):
-            if entry.endswith(".db"):
-                try:
-                    os.remove(os.path.join(multiproc_dir, entry))
-                except OSError:
-                    pass
         logger.info("Prometheus multiproc dir: %s", multiproc_dir)
 
     registry = CollectorRegistry()

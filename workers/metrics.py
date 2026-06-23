@@ -3,13 +3,19 @@ import time
 
 from prometheus_client import Counter, Gauge, Histogram
 
-# Ensure prometheus multiproc dir exists before any metrics are created.
-# prometheus_client checks the PROMETHEUS_MULTIPROC_DIR env var internally
-# and tries to create .db files there for each metric. If the dir doesn't
-# exist, metric creation fails with FileNotFoundError.
+# Ensure prometheus multiproc dir exists and is clean before any metrics
+# are created.  prometheus_client checks PROMETHEUS_MULTIPROC_DIR internally
+# and creates a .db file there for every metric.  If the dir doesn't exist,
+# metric creation fails with FileNotFoundError.
 _multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
 if _multiproc_dir:
     os.makedirs(_multiproc_dir, exist_ok=True)
+    for _entry in os.listdir(_multiproc_dir):
+        if _entry.endswith(".db"):
+            try:
+                os.remove(os.path.join(_multiproc_dir, _entry))
+            except OSError:
+                pass
 
 _START_TIME = time.monotonic()
 
