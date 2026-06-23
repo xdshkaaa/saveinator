@@ -46,6 +46,15 @@ def _now() -> datetime:
     return utc_now_naive()
 
 
+async def _mark_broadcast_failed(broadcast_id: int) -> None:
+    async with async_session_factory() as session:
+        broadcast = await session.get(Broadcast, broadcast_id)
+        if broadcast:
+            broadcast.status = BroadcastStatus.FAILED
+            broadcast.finished_at = _now()
+            await session.commit()
+
+
 def _get_broadcast_delay_ms() -> int:
     """Read the broadcast delay from runtime settings, with fallback."""
     val = get_runtime_value_sync("global.broadcast_delay_ms")
@@ -255,17 +264,7 @@ def execute_broadcast(
     except Exception as e:
         logger.exception("broadcast task crashed", broadcast_id=broadcast_id, error=str(e))
         try:
-            # Mark as failed
-            import asyncio
-            async def _mark_failed():
-                from db.models import async_session_factory
-                async with async_session_factory() as session:
-                    broadcast = await session.get(Broadcast, broadcast_id)
-                    if broadcast:
-                        broadcast.status = BroadcastStatus.FAILED
-                        broadcast.finished_at = _now()
-                        await session.commit()
-            asyncio.run(_mark_failed())
+            asyncio.run(_mark_broadcast_failed(broadcast_id))
         except Exception:
             logger.exception("failed to mark broadcast as failed", broadcast_id=broadcast_id)
 

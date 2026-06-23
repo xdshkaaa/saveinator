@@ -3,7 +3,14 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from db.models import User, Broadcast, BroadcastStatus, BroadcastAudience, utc_now_naive
+from db.models import (
+    User,
+    BroadcastDelivery,
+    BroadcastDeliveryStatus,
+    BroadcastStatus,
+    BroadcastAudience,
+    utc_now_naive,
+)
 from bot.services.broadcast_service import (
     create_broadcast,
     get_broadcast,
@@ -12,6 +19,7 @@ from bot.services.broadcast_service import (
     get_recipient_ids,
     get_broadcasts_history,
     get_active_broadcast,
+    get_broadcast_stats,
     audience_display_name,
     status_display_name,
 )
@@ -164,6 +172,45 @@ class TestGetActive:
         active = await get_active_broadcast()
         assert active is not None
         assert active.id == b.id
+
+
+class TestBroadcastStats:
+    async def test_counts_delivery_statuses(self, db_session, sample_users):
+        broadcast = await create_broadcast(1, "stats")
+        db_session.add_all(
+            [
+                BroadcastDelivery(
+                    broadcast_id=broadcast.id,
+                    user_id=100,
+                    status=BroadcastDeliveryStatus.SENT,
+                ),
+                BroadcastDelivery(
+                    broadcast_id=broadcast.id,
+                    user_id=200,
+                    status=BroadcastDeliveryStatus.FAILED,
+                ),
+                BroadcastDelivery(
+                    broadcast_id=broadcast.id,
+                    user_id=300,
+                    status=BroadcastDeliveryStatus.BLOCKED,
+                ),
+                BroadcastDelivery(
+                    broadcast_id=broadcast.id,
+                    user_id=400,
+                    status=BroadcastDeliveryStatus.PENDING,
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        stats = await get_broadcast_stats(broadcast.id)
+
+        assert stats == {
+            "total": 4,
+            "sent": 1,
+            "failed": 1,
+            "blocked": 1,
+        }
 
 
 # ---------------------------------------------------------------------------

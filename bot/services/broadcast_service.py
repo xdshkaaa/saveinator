@@ -178,19 +178,6 @@ async def update_delivery(
 async def get_broadcast_stats(broadcast_id: int) -> dict[str, int]:
     """Get current delivery stats for a broadcast."""
     async with async_session_factory() as session:
-        result = await session.execute(
-            select(
-                func.count().label("total"),
-                func.sum(
-                    func.cast(
-                        BroadcastDelivery.status == BroadcastDeliveryStatus.SENT,
-                        # count of sent — handled in Python below
-                    ),
-                ),
-            ).where(BroadcastDelivery.broadcast_id == broadcast_id)
-        )
-
-        # We'll use direct counting instead
         deliveries = await session.execute(
             select(BroadcastDelivery.status).where(
                 BroadcastDelivery.broadcast_id == broadcast_id

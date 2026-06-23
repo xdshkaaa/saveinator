@@ -217,10 +217,6 @@ async def broadcast_audience_selected(callback: CallbackQuery, lang: str = "en")
 
         admin_id = callback.from_user.id if callback.from_user else 0
         try:
-            from aiogram import Bot
-            from bot.dispatcher import _get_bot
-
-            # Try to get bot from the callback context
             bot = callback.bot
             await bot.send_message(admin_id, broadcast.text)
             await callback.answer(get("broadcast.test_sent", lang))
