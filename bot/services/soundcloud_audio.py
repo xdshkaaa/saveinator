@@ -36,7 +36,13 @@ class SoundCloudAudioTooLargeError(SoundCloudAudioError):
 
 
 def is_yt_dlp_available() -> bool:
-    return shutil.which("yt-dlp") is not None
+    if shutil.which("yt-dlp") is not None:
+        return True
+    try:
+        import yt_dlp  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def is_soundcloud_download_enabled(settings: Settings) -> bool:
