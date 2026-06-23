@@ -1,9 +1,12 @@
+import io
 from pathlib import Path
 
 from workers.tiktok_downloader import (
     TikTokPostType,
     _detect_post_type,
+    _download_image,
     _guess_extension,
+    download_tiktok,
 )
 
 
@@ -46,3 +49,107 @@ class TestTikTokDownloaderUtils:
 
     def test_guess_extension_unknown_ext(self):
         assert _guess_extension("https://example.com/image.gif") == ".gif"
+
+
+def test_download_tiktok_carousel_max_images(monkeypatch, tmp_path):
+    info = {
+        "is_slideshow": True,
+        "entries": [
+            {"thumbnail": "https://example.com/one.jpg"},
+            {"thumbnail": "https://example.com/two.jpg"},
+            {"thumbnail": "https://example.com/three.jpg"},
+        ],
+    }
+    downloaded: list[str] = []
+
+    def fake_download_image(url, output_path):
+        downloaded.append(url)
+        output_path.write_bytes(b"image")
+        return True
+
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._resolve_url",
+        lambda url: (url, info),
+    )
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._download_image",
+        fake_download_image,
+    )
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._download_audio_from_entry",
+        lambda *args, **kwargs: None,
+    )
+
+    result = download_tiktok(
+        "https://www.tiktok.com/@user/photo/123",
+        tmp_path,
+        max_images=2,
+        audio_enabled=False,
+    )
+
+    assert downloaded == [
+        "https://example.com/one.jpg",
+        "https://example.com/two.jpg",
+    ]
+    assert len(result.images) == 2
+    assert result.audio is None
+    assert result.post_type == TikTokPostType.CAROUSEL
+
+
+def test_download_tiktok_carousel_audio_disabled_skips_audio(monkeypatch, tmp_path):
+    info = {
+        "is_slideshow": True,
+        "entries": [{"thumbnail": "https://example.com/one.jpg"}],
+    }
+
+    def fake_download_image(url, output_path):
+        output_path.write_bytes(b"image")
+        return True
+
+    def fail_audio_download(*args, **kwargs):
+        raise AssertionError("audio download should be skipped")
+
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._resolve_url",
+        lambda url: (url, info),
+    )
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._download_image",
+        fake_download_image,
+    )
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._download_audio_from_entry",
+        fail_audio_download,
+    )
+
+    result = download_tiktok(
+        "https://www.tiktok.com/@user/photo/123",
+        tmp_path,
+        audio_enabled=False,
+    )
+
+    assert len(result.images) == 1
+    assert result.audio is None
+    assert result.post_type == TikTokPostType.CAROUSEL
+
+
+def test_download_image_uses_request_timeout(monkeypatch, tmp_path):
+    captured: dict[str, int] = {}
+
+    class FakeResponse(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(url, timeout):
+        captured["timeout"] = timeout
+        return FakeResponse(b"image-bytes")
+
+    monkeypatch.setattr("workers.tiktok_downloader.urllib.request.urlopen", fake_urlopen)
+
+    output_path = tmp_path / "image.jpg"
+    assert _download_image("https://example.com/image.jpg", output_path, timeout=3)
+    assert captured["timeout"] == 3
+    assert output_path.read_bytes() == b"image-bytes"

@@ -11,6 +11,7 @@ from workers.downloader import build_ydl_opts
 
 logger = logging.getLogger(__name__)
 
+_IMAGE_DOWNLOAD_TIMEOUT_SECONDS = 15
 _VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mov", ".mkv", ".m4v"})
 _IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 _AUDIO_EXTENSIONS = frozenset({".mp3", ".m4a", ".opus", ".aac", ".wav", ".flac", ".ogg"})
@@ -126,13 +127,20 @@ def _find_media_files(task_dir: Path) -> tuple[list[Path], Path | None, Path | N
     return images, video, audio
 
 
-def _download_image(url: str, output_path: Path) -> bool:
+def _download_image(
+    url: str,
+    output_path: Path,
+    *,
+    timeout: int = _IMAGE_DOWNLOAD_TIMEOUT_SECONDS,
+) -> bool:
     """Download a single image from URL to the given path."""
     try:
-        urllib.request.urlretrieve(url, output_path)
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            with output_path.open("wb") as output:
+                shutil.copyfileobj(response, output)
         return True
-    except Exception:
-        logger.warning("failed to download image", url=url)
+    except Exception as exc:
+        logger.warning("failed to download image from %s: %s", url, exc)
         return False
 
 
@@ -158,8 +166,8 @@ def _download_audio_from_entry(
         for path in output_dir.iterdir():
             if path.suffix.lower() in _AUDIO_EXTENSIONS:
                 return path
-    except Exception:
-        logger.warning("failed to download audio", url=url)
+    except Exception as exc:
+        logger.warning("failed to download audio from %s: %s", url, exc)
     return None
 
 
@@ -169,6 +177,7 @@ def download_tiktok(
     *,
     format_id: str = "best",
     max_images: int = 0,
+    audio_enabled: bool = True,
 ) -> TikTokDownloadResult:
     """Download a TikTok post (video or carousel) using yt-dlp.
 
@@ -203,13 +212,10 @@ def download_tiktok(
         for entry in entries:
             if not entry:
                 continue
-            thumb_url = (
-                entry.get("thumbnail")
-                or entry.get("url")
-                or entry.get("thumbnails", [{}])[0].get("url")
-                if entry.get("thumbnails")
-                else None
-            )
+            thumbnails = entry.get("thumbnails") or []
+            thumb_url = entry.get("thumbnail") or entry.get("url")
+            if not thumb_url and thumbnails:
+                thumb_url = thumbnails[0].get("url")
             if thumb_url and thumb_url not in image_urls:
                 image_urls.append(thumb_url)
 
@@ -226,18 +232,20 @@ def download_tiktok(
         if result.images:
             result.post_type = TikTokPostType.CAROUSEL
 
-            # Try to download audio for carousel
-            try:
+            if audio_enabled:
                 audio_path = _download_audio_from_entry(url, output_dir)
                 if audio_path:
                     result.audio = str(audio_path)
-            except Exception:
-                pass
 
             # If images downloaded but no audio — that's fine
             return result
 
         # No images downloaded — try audio-only
+        if not audio_enabled:
+            result.post_type = TikTokPostType.UNKNOWN
+            result.errors.append("no downloadable media found")
+            return result
+
         try:
             audio_path = _download_audio_from_entry(url, output_dir)
             if audio_path:

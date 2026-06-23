@@ -7,7 +7,11 @@ import structlog
 from bot.config import settings
 from bot.locale import get
 from bot.metrics import record_user_created
-from bot.services.runtime_settings import platform_max_file_mb, platform_download_timeout_seconds
+from bot.services.runtime_settings import (
+    get_runtime_int,
+    platform_max_file_mb,
+    platform_download_timeout_seconds,
+)
 from bot.services.tempfiles import tempfile_manager
 from bot.services.file_sender import send_file, telegram_upload_limit_mb
 from bot.services.tiktok_sender import send_carousel
@@ -45,14 +49,26 @@ async def _run_tiktok_download(
             )
 
             timeout = platform_download_timeout_seconds("tiktok")
+            carousel_max_items = get_runtime_int("tiktok.carousel_max_items", default=20)
+            carousel_audio_enabled = (
+                get_runtime_int("tiktok.carousel_audio_enabled", default=1) == 1
+            )
             try:
+                download_kwargs = {
+                    "max_images": carousel_max_items,
+                    "audio_enabled": carousel_audio_enabled,
+                }
                 if timeout > 0:
                     result = await asyncio.wait_for(
-                        asyncio.to_thread(download_tiktok, url, task_dir),
+                        asyncio.to_thread(
+                            download_tiktok, url, task_dir, **download_kwargs
+                        ),
                         timeout=timeout,
                     )
                 else:
-                    result = await asyncio.to_thread(download_tiktok, url, task_dir)
+                    result = await asyncio.to_thread(
+                        download_tiktok, url, task_dir, **download_kwargs
+                    )
             except asyncio.TimeoutError:
                 YTDLP_ERRORS_TOTAL.labels(platform="tiktok").inc()
                 logger.warning(

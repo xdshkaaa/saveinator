@@ -1,4 +1,4 @@
-import asyncio
+import time
 from pathlib import Path
 
 from db.models import DownloadStatus
@@ -37,6 +37,22 @@ class FakeBot:
         pass
 
 
+def _patch_tiktok_runtime_settings(
+    monkeypatch,
+    *,
+    carousel_max_items: int = 20,
+    carousel_audio_enabled: int = 1,
+):
+    def fake_get_runtime_int(key, default=None):
+        values = {
+            "tiktok.carousel_max_items": carousel_max_items,
+            "tiktok.carousel_audio_enabled": carousel_audio_enabled,
+        }
+        return values.get(key, default if default is not None else 0)
+
+    monkeypatch.setattr("workers.tiktok_task.get_runtime_int", fake_get_runtime_int)
+
+
 def test_tiktok_task_handles_video(monkeypatch):
     fake_bot = FakeBot()
     recorded: list[tuple] = []
@@ -65,6 +81,7 @@ def test_tiktok_task_handles_video(monkeypatch):
     monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0)
     monkeypatch.setattr("workers.tiktok_task.platform_max_file_mb", lambda _: 500)
     monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", lambda *a, **kw: None)
+    _patch_tiktok_runtime_settings(monkeypatch)
 
     tiktok_download_task.run(
         url="https://www.tiktok.com/@user/video/123",
@@ -83,6 +100,7 @@ def test_tiktok_task_handles_video(monkeypatch):
 def test_tiktok_task_handles_carousel(monkeypatch, tmp_path):
     fake_bot = FakeBot()
     recorded: list[tuple] = []
+    download_kwargs: list[dict] = []
 
     img_paths = []
     for i in range(3):
@@ -91,6 +109,7 @@ def test_tiktok_task_handles_carousel(monkeypatch, tmp_path):
         img_paths.append(str(p))
 
     def fake_download(url, output_dir, **kwargs):
+        download_kwargs.append(kwargs)
         return TikTokDownloadResult(
             source_url=url,
             resolved_url=url,
@@ -114,6 +133,9 @@ def test_tiktok_task_handles_carousel(monkeypatch, tmp_path):
     monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0)
     monkeypatch.setattr("workers.tiktok_task.platform_max_file_mb", lambda _: 500)
     monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", lambda *a, **kw: None)
+    _patch_tiktok_runtime_settings(
+        monkeypatch, carousel_max_items=2, carousel_audio_enabled=0
+    )
 
     tiktok_download_task.run(
         url="https://www.tiktok.com/@user/photo/123",
@@ -128,6 +150,7 @@ def test_tiktok_task_handles_carousel(monkeypatch, tmp_path):
     assert len(recorded) == 1
     assert recorded[0][1] == "tiktok"
     assert recorded[0][2] == "carousel"
+    assert download_kwargs == [{"max_images": 2, "audio_enabled": False}]
 
 
 def test_tiktok_task_handles_timeout(monkeypatch):
@@ -135,16 +158,22 @@ def test_tiktok_task_handles_timeout(monkeypatch):
     recorded: list[tuple] = []
 
     def fake_download_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError()
+        time.sleep(0.05)
+        return TikTokDownloadResult(
+            source_url=args[0],
+            resolved_url=args[0],
+            post_type=TikTokPostType.UNKNOWN,
+        )
 
     async def fake_record(url, platform, fmt, size, status, *_args, **kwargs):
         recorded.append((url, platform, fmt, size, status, kwargs.get("error")))
 
     monkeypatch.setattr("workers.tiktok_task.get_bot", lambda: fake_bot)
     monkeypatch.setattr("workers.tiktok_task.download_tiktok", fake_download_timeout)
-    monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 1)
+    monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0.01)
     monkeypatch.setattr("workers.tiktok_task._record_download_safe", fake_record)
     monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", lambda *a, **kw: None)
+    _patch_tiktok_runtime_settings(monkeypatch)
 
     tiktok_download_task.run(
         url="https://www.tiktok.com/@user/video/123",
@@ -174,6 +203,7 @@ def test_tiktok_task_releases_lock_on_exception(monkeypatch):
     monkeypatch.setattr("workers.tiktok_task.download_tiktok", fake_download)
     monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0)
     monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", fake_release)
+    _patch_tiktok_runtime_settings(monkeypatch)
 
     tiktok_download_task.run(
         url="https://www.tiktok.com/@user/video/123",
@@ -215,6 +245,7 @@ def test_tiktok_task_cleans_up_temp_dir(monkeypatch):
     monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0)
     monkeypatch.setattr("workers.tiktok_task.platform_max_file_mb", lambda _: 500)
     monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", lambda *a, **kw: None)
+    _patch_tiktok_runtime_settings(monkeypatch)
 
     tiktok_download_task.run(
         url="https://www.tiktok.com/@user/video/123",
