@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: saveinator
       POSTGRES_USER: saveinator
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -29,7 +29,7 @@ services:
       dockerfile: docker/webhook/Dockerfile
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
-      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:-changeme}@db:5432/saveinator
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
@@ -80,7 +80,7 @@ services:
     command: ["celery", "-A", "workers.app", "worker", "--loglevel=info", "-B", "-c", "1", "--max-tasks-per-child=1"]
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
-      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:-changeme}@db:5432/saveinator
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0

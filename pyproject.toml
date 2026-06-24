@@ -3,13 +3,23 @@ requires = ["setuptools>=75", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["bot", "bot.api", "bot.handlers", "bot.middleware", "bot.services", "workers", "db"]
+packages = [
+    "bot",
+    "bot.api",
+    "bot.filters",
+    "bot.handlers",
+    "bot.middleware",
+    "bot.services",
+    "workers",
+    "db",
+]
 
 [project]
 name = "save-yt-tiktok"
 version = "0.1.0"
 description = "Telegram bot for downloading videos from YouTube, TikTok, and Instagram"
 requires-python = ">=3.12"
+readme = "README.md"
 dependencies = [
     "aiogram>=3.7,<4",
     "aiohttp>=3.9",
@@ -45,3 +55,4 @@ filterwarnings = ["error"]
 
 [tool.ruff]
 target-version = "py312"
+line-length = 100

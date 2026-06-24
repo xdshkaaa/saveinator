@@ -2,6 +2,9 @@ __pycache__/
 *.py[cod]
 *.so
 .env
+.env.*
+!.env.example
+!.env.monitoring.example
 *.db
 dev.db
 /tmp/
@@ -9,5 +12,12 @@ dev.db
 .venv/
 venv/
 dist/
+build/
 *.egg-info/
 .DS_Store
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+repomix-output.*
+.commandcode/

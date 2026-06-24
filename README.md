@@ -123,13 +123,13 @@ SOUNDCLOUD_META_CACHE_TTL_SECONDS=3600
 ```bash
 cd save-yt-tiktok
 cp .env.example .env
-pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 Fill in at minimum:
 
 ```env
-BOT_TOKEN=your-telegram-bot-token
+BOT_TOKEN=replace_with_telegram_bot_token
 ```
 
 For Spotify metadata cards:
@@ -137,7 +137,7 @@ For Spotify metadata cards:
 ```env
 SPOTIFY_ENABLED=true
 SPOTIFY_CLIENT_ID=your-spotify-client-id
-SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+SPOTIFY_CLIENT_SECRET=<spotify-client-secret>
 SPOTIFY_API_TIMEOUT_SECONDS=15
 SPOTIFY_DOWNLOAD_ENABLED=true
 SPOTIFY_TRACK_TIMEOUT_SECONDS=15
@@ -147,14 +147,20 @@ SPOTIFY_DL_OUTPUT_FORMAT=mp3
 ## Run locally
 
 ```bash
-# terminal 1: Redis
+# terminal 1: Redis (or use docker compose -f docker-compose.dev.yml up -d)
 redis-server
 
 # terminal 2: Celery worker
-celery -A workers.app worker --loglevel=info
+uv run celery -A workers.app worker --loglevel=info
 
 # terminal 3: bot (polling)
-USE_POLLING=true python -m bot.main
+USE_POLLING=true uv run python -m bot.main
+```
+
+For the local Postgres/Redis helper stack:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 ## Production webhook
@@ -173,8 +179,10 @@ The webhook app also serves `GET /health` for origin checks. Keep `/metrics` pri
 ## Tests
 
 ```bash
-pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_parser.py tests/test_spotify_client.py tests/test_spotify_handler.py tests/test_soundcloud_parser.py tests/test_soundcloud_client.py tests/test_soundcloud_card.py tests/test_soundcloud_handler.py tests/test_soundcloud_audio.py -q
+uv run pytest -q
 ```
+
+The repository also runs the same test command in GitHub Actions.
 
 ## Environment variables
 
@@ -182,6 +190,7 @@ pytest tests/test_spotify_parser.py tests/test_youtube_audio.py tests/test_link_
 |----------|---------|-------------|
 | `BOT_TOKEN` | required | Telegram bot token |
 | `DATABASE_URL` | SQLite dev DB | Async SQLAlchemy URL |
+| `DB_PASSWORD` | required for Docker | PostgreSQL password used by the production Compose stack |
 | `REDIS_URL` | `redis://localhost:6379/0` | Rate limit / spam dedup |
 | `USE_POLLING` | `true` locally / `false` in Docker | Polling vs webhook mode |
 | `WEBHOOK_HOST` | `https://saveinator-hooks.xdshka.party` | Public Telegram webhook origin |
@@ -218,6 +227,13 @@ Pinterest pins, short links (`pin.it`), and boards are downloaded in the Celery 
 
 - Video downloads: `bot/handlers/group.py` → Celery `download_and_send_task` → `workers/downloader.py` (yt-dlp)
 - Pinterest downloads: `bot/handlers/group.py` → Celery `pinterest_download_task` → `workers/pinterest_downloader.py`
+- Spotify and SoundCloud audio downloads are matched through yt-dlp and sent through shared audio cover/file sender helpers.
+
+## Repository hygiene
+
+- Keep real `.env`, `.env.monitoring`, local databases, caches, generated repo bundles, and `.commandcode/` notes out of git.
+- Commit changes with `uv.lock` when dependency resolution changes.
+- Run `uv run pytest -q` before opening a pull request or deploying.
 - Pinterest HTTP API: `bot/api/pinterest.py`
 - Spotify metadata: `bot/handlers/group.py` → `bot/services/spotify_handler.py` → `bot/services/spotify_client.py`
 - Spotify audio download: `bot/services/spotify_handler.py` → `bot/services/youtube_audio.py` (yt-dlp)
