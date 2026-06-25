@@ -199,7 +199,10 @@
     "carousel_empty": "❌ В этом слайд-шоу TikTok нет изображений.",
     "carousel_audio_only": "🎵 В этом посте TikTok только аудио.",
     "carousel_partial": "⚠️ Удалось скачать только {count} из {total} изображений.",
-    "audio_unavailable": "🎵 Аудио-дорожка недоступна для этого поста."
+    "audio_unavailable": "🎵 Аудио-дорожка недоступна для этого поста.",
+    "btn_carousel_images": "📷 Скачать фото карусели",
+    "carousel_images_downloading": "📸 Скачиваю фото карусели...",
+    "carousel_images_unavailable": "❌ Ссылка устарела. Отправь TikTok-ссылку заново."
   },
   "pinterest": {
     "disabled": "Поддержка Pinterest отключена на этом боте.",

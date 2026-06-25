@@ -6,6 +6,7 @@ from bot.handlers.onboarding import onboarding_router
 from bot.handlers.settings import settings_router
 from bot.handlers.youtube import youtube_router
 from bot.handlers.download_cancel import download_cancel_router
+from bot.handlers.tiktok_carousel import tiktok_carousel_router
 from bot.handlers.group import group_router
 from bot.handlers.errors import errors_router
 from bot.middleware.locale import LocaleMiddleware
@@ -33,6 +34,7 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(settings_router)
     dp.include_router(youtube_router)
     dp.include_router(download_cancel_router)
+    dp.include_router(tiktok_carousel_router)
     dp.include_router(group_router)
     dp.include_router(errors_router)
 

@@ -95,7 +95,60 @@ def test_download_task_send_file_exception_shows_error(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_send_file_falls_back_to_document_after_video_failure(monkeypatch, tmp_path: Path):
+async def test_send_file_tiktok_empty_title_keeps_via_bot(monkeypatch, tmp_path: Path):
+    from bot.services import file_sender
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"video")
+
+    captured: dict = {}
+
+    class StubBot:
+        async def send_video(self, **_kwargs):
+            captured["caption"] = _kwargs.get("caption")
+            return None
+
+    monkeypatch.setattr(file_sender.settings, "send_video_limit_mb", 50)
+
+    result = await file_sender.send_file(
+        StubBot(), video, 1, lang="en", title="", platform="tiktok",
+    )
+
+    assert result == "video"
+    assert captured["caption"] == "via @saveinator_bot"
+
+
+@pytest.mark.asyncio
+async def test_send_file_passes_reply_markup_to_send_video(monkeypatch, tmp_path: Path):
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from bot.services import file_sender
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"video")
+
+    captured: dict = {}
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="btn", callback_data="ttk:img:1:tok")]]
+    )
+
+    class StubBot:
+        async def send_video(self, **_kwargs):
+            captured.update(_kwargs)
+            return None
+
+    monkeypatch.setattr(file_sender.settings, "send_video_limit_mb", 50)
+
+    result = await file_sender.send_file(
+        StubBot(), video, 1, lang="en", title="title", platform="tiktok",
+        reply_markup=markup,
+    )
+
+    assert result == "video"
+    assert captured["reply_markup"] is markup
+
+
+@pytest.mark.asyncio
+async def test_send_file_falls_back_to_document_when_video_fails(monkeypatch, tmp_path: Path):
     from bot.services import file_sender
 
     video = tmp_path / "clip.mp4"

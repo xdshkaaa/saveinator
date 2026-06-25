@@ -199,7 +199,10 @@
     "carousel_empty": "❌ No images found in this TikTok slideshow.",
     "carousel_audio_only": "🎵 This TikTok post has audio only.",
     "carousel_partial": "⚠️ Could only download {count} out of {total} images.",
-    "audio_unavailable": "🎵 Audio track is not available for this post."
+    "audio_unavailable": "🎵 Audio track is not available for this post.",
+    "btn_carousel_images": "📷 Download carousel photos",
+    "carousel_images_downloading": "📸 Downloading carousel photos...",
+    "carousel_images_unavailable": "❌ Link expired. Send the TikTok link again."
   },
   "pinterest": {
     "disabled": "Pinterest support is disabled on this bot.",

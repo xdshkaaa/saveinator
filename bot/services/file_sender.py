@@ -3,7 +3,7 @@ from pathlib import Path
 
 import structlog
 from aiogram import Bot
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, InlineKeyboardMarkup
 
 from bot.config import settings
 from bot.locale import get
@@ -38,6 +38,22 @@ def _is_image_path(file_path: Path) -> bool:
     return file_path.suffix.lower() in _IMAGE_EXTENSIONS
 
 
+def build_media_caption(
+    title: str,
+    lang: str,
+    *,
+    bot_username: str = "saveinator_bot",
+    platform: str | None = None,
+) -> str | None:
+    via_line = get("download.via_bot", lang, bot_username=bot_username)
+    stripped = title.strip()
+    if stripped:
+        return f"{stripped}\n\n{via_line}"
+    if platform == "tiktok":
+        return via_line
+    return None
+
+
 async def send_file(
     bot: Bot,
     file_path: Path,
@@ -47,12 +63,11 @@ async def send_file(
     bot_username: str = "saveinator_bot",
     media_type: str | None = None,
     platform: str | None = None,
+    reply_markup: InlineKeyboardMarkup | None = None,
 ) -> str:
     size_mb = os.path.getsize(file_path) / (1024 * 1024)
-    caption = (
-        f"{title}\n\n{get('download.via_bot', lang, bot_username=bot_username)}"
-        if title
-        else None
+    caption = build_media_caption(
+        title, lang, bot_username=bot_username, platform=platform,
     )
 
     is_animation = media_type == "animation" or (
@@ -64,6 +79,7 @@ async def send_file(
                 chat_id=chat_id,
                 animation=FSInputFile(file_path),
                 caption=caption,
+                reply_markup=reply_markup,
             )
             return "animation"
         except Exception as exc:
@@ -82,6 +98,7 @@ async def send_file(
                 chat_id=chat_id,
                 photo=FSInputFile(file_path),
                 caption=caption,
+                reply_markup=reply_markup,
             )
             return "photo"
         except Exception as exc:
@@ -98,6 +115,7 @@ async def send_file(
                 video=FSInputFile(file_path),
                 caption=caption,
                 supports_streaming=True,
+                reply_markup=reply_markup,
             )
             return "video"
         except Exception as exc:

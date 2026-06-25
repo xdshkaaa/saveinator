@@ -37,6 +37,8 @@ class TikTokDownloadResult:
     audio: str | None = None
     video_path: str | None = None
     errors: list[str] = field(default_factory=list)
+    carousel_images_available: bool = False
+    carousel_image_count: int = 0
 
 
 class TikTokDownloadError(Exception):
@@ -159,6 +161,41 @@ def _download_image(
         return False
 
 
+def _extract_carousel_image_urls(info: dict) -> list[str]:
+    """Extract deduplicated image URLs from yt-dlp carousel/slideshow info."""
+    entries = info.get("entries") or []
+    image_urls: list[str] = []
+    for entry in entries:
+        if not entry:
+            continue
+        thumbnails = entry.get("thumbnails") or []
+        thumb_url = entry.get("thumbnail") or entry.get("url")
+        if not thumb_url and thumbnails:
+            thumb_url = thumbnails[0].get("url")
+        if thumb_url and thumb_url not in image_urls:
+            image_urls.append(thumb_url)
+    return image_urls
+
+
+def _download_carousel_images(
+    image_urls: list[str],
+    output_dir: Path,
+    *,
+    max_images: int = 0,
+) -> list[str]:
+    """Download carousel image URLs to output_dir and return local paths."""
+    if max_images > 0:
+        image_urls = image_urls[:max_images]
+
+    downloaded: list[str] = []
+    for i, img_url in enumerate(image_urls):
+        ext = _guess_extension(img_url)
+        img_path = output_dir / f"image_{i:04d}{ext}"
+        if _download_image(img_url, img_path):
+            downloaded.append(str(img_path))
+    return downloaded
+
+
 def _download_audio_from_entry(
     url: str,
     output_dir: Path,
@@ -184,6 +221,26 @@ def _download_audio_from_entry(
     except Exception as exc:
         logger.warning("failed to download audio from %s: %s", url, exc)
     return None
+
+
+def _entries_contain_video(info: dict) -> bool:
+    for entry in info.get("entries") or []:
+        if not entry:
+            continue
+        vcodec = entry.get("vcodec")
+        if vcodec and vcodec != "none":
+            return True
+        url = entry.get("url") or ""
+        if Path(url.split("?", 1)[0]).suffix.lower() in _VIDEO_EXTENSIONS:
+            return True
+    return False
+
+
+def _prefer_video_delivery(info: dict) -> bool:
+    """True when slideshow metadata should deliver video, not auto-sent photos."""
+    if info.get("url"):
+        return True
+    return _entries_contain_video(info)
 
 
 def download_tiktok(
@@ -216,33 +273,15 @@ def download_tiktok(
     )
 
     # Step 2: Determine post type
+    image_urls = _extract_carousel_image_urls(info)
     is_slideshow = bool(info.get("is_slideshow")) or bool(info.get("entries"))
+    prefer_video = is_slideshow and _prefer_video_delivery(info)
 
-    if is_slideshow:
+    if is_slideshow and image_urls and not prefer_video:
         # Carousel/slideshow — download images and audio separately
-        entries = info.get("entries") or []
-        image_urls: list[str] = []
-        audio_url = info.get("url") or info.get("audio_url") or None
-
-        for entry in entries:
-            if not entry:
-                continue
-            thumbnails = entry.get("thumbnails") or []
-            thumb_url = entry.get("thumbnail") or entry.get("url")
-            if not thumb_url and thumbnails:
-                thumb_url = thumbnails[0].get("url")
-            if thumb_url and thumb_url not in image_urls:
-                image_urls.append(thumb_url)
-
-        if max_images > 0:
-            image_urls = image_urls[:max_images]
-
-        # Download each image
-        for i, img_url in enumerate(image_urls):
-            ext = _guess_extension(img_url)
-            img_path = output_dir / f"image_{i:04d}{ext}"
-            if _download_image(img_url, img_path):
-                result.images.append(str(img_path))
+        result.images = _download_carousel_images(
+            image_urls, output_dir, max_images=max_images,
+        )
 
         if result.images:
             result.post_type = TikTokPostType.CAROUSEL
@@ -288,6 +327,48 @@ def download_tiktok(
     result.audio = str(audio_path) if audio_path else None
     result.post_type = _detect_post_type(output_dir)
 
+    carousel_image_urls = image_urls
+    if len(carousel_image_urls) >= 2:
+        result.carousel_images_available = True
+        result.carousel_image_count = len(carousel_image_urls)
+
+    return result
+
+
+def download_tiktok_carousel_images(
+    url: str,
+    output_dir: Path,
+    *,
+    max_images: int = 0,
+) -> TikTokDownloadResult:
+    """Download only carousel images from a TikTok post."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    resolved_url, info = _resolve_url(url)
+    if not info:
+        raise TikTokNoMediaError("No info returned from yt-dlp")
+
+    title, author, description = _extract_metadata(info)
+    result = TikTokDownloadResult(
+        source_url=url,
+        resolved_url=resolved_url,
+        post_type=TikTokPostType.UNKNOWN,
+        title=title,
+        author=author,
+        description=description,
+    )
+
+    image_urls = _extract_carousel_image_urls(info)
+    result.carousel_image_count = len(image_urls)
+    result.images = _download_carousel_images(
+        image_urls, output_dir, max_images=max_images,
+    )
+
+    if result.images:
+        result.post_type = TikTokPostType.CAROUSEL
+        return result
+
+    result.errors.append("no downloadable media found")
     return result
 
 

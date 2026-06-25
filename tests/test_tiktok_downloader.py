@@ -5,10 +5,12 @@ from workers.tiktok_downloader import (
     TikTokPostType,
     _detect_post_type,
     _download_image,
+    _extract_carousel_image_urls,
     _extract_metadata,
     _guess_extension,
     _normalize_tiktok_title,
     download_tiktok,
+    download_tiktok_carousel_images,
 )
 
 
@@ -198,3 +200,103 @@ def test_download_image_uses_request_timeout(monkeypatch, tmp_path):
     assert _download_image("https://example.com/image.jpg", output_path, timeout=3)
     assert captured["timeout"] == 3
     assert output_path.read_bytes() == b"image-bytes"
+
+
+class TestExtractCarouselImageUrls:
+    def test_deduplicates_and_extracts_thumbnails(self):
+        info = {
+            "entries": [
+                {"thumbnail": "https://example.com/one.jpg"},
+                {"thumbnail": "https://example.com/two.jpg"},
+                {"thumbnail": "https://example.com/one.jpg"},
+            ]
+        }
+        assert _extract_carousel_image_urls(info) == [
+            "https://example.com/one.jpg",
+            "https://example.com/two.jpg",
+        ]
+
+    def test_falls_back_to_url_and_thumbnails_list(self):
+        info = {
+            "entries": [
+                {"url": "https://example.com/a.jpg"},
+                {"thumbnails": [{"url": "https://example.com/b.jpg"}]},
+            ]
+        }
+        assert _extract_carousel_image_urls(info) == [
+            "https://example.com/a.jpg",
+            "https://example.com/b.jpg",
+        ]
+
+
+def test_download_tiktok_carousel_images_only(monkeypatch, tmp_path):
+    info = {
+        "entries": [
+            {"thumbnail": "https://example.com/one.jpg"},
+            {"thumbnail": "https://example.com/two.jpg"},
+        ],
+    }
+
+    def fake_download_image(url, output_path):
+        output_path.write_bytes(b"image")
+        return True
+
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._resolve_url",
+        lambda url: (url, info),
+    )
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._download_image",
+        fake_download_image,
+    )
+
+    result = download_tiktok_carousel_images(
+        "https://www.tiktok.com/@user/video/123",
+        tmp_path,
+        max_images=0,
+    )
+
+    assert result.post_type == TikTokPostType.CAROUSEL
+    assert len(result.images) == 2
+    assert result.carousel_image_count == 2
+
+
+def test_download_tiktok_video_path_sets_carousel_flag(monkeypatch, tmp_path):
+    info = {
+        "url": "https://example.com/video.mp4",
+        "entries": [
+            {"thumbnail": "https://example.com/one.jpg", "vcodec": "h264"},
+            {"thumbnail": "https://example.com/two.jpg", "vcodec": "h264"},
+        ],
+    }
+
+    class FakeYdl:
+        def extract_info(self, url, download=False):
+            if download:
+                (tmp_path / "video.mp4").write_bytes(b"video")
+            return info
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(
+        "workers.tiktok_downloader._resolve_url",
+        lambda url: (url, info),
+    )
+    monkeypatch.setattr(
+        "workers.tiktok_downloader.yt_dlp.YoutubeDL",
+        lambda opts: FakeYdl(),
+    )
+
+    result = download_tiktok(
+        "https://www.tiktok.com/@user/video/123",
+        tmp_path,
+        audio_enabled=False,
+    )
+
+    assert result.post_type == TikTokPostType.VIDEO
+    assert result.carousel_images_available is True
+    assert result.carousel_image_count == 2

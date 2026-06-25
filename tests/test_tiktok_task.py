@@ -97,6 +97,116 @@ def test_tiktok_task_handles_video(monkeypatch):
     assert recorded[0][4] == DownloadStatus.COMPLETED
 
 
+def test_tiktok_task_video_with_carousel_button(monkeypatch):
+    fake_bot = FakeBot()
+    saved_sessions: list = []
+    send_kwargs: list[dict] = []
+
+    def fake_download(url, output_dir, **kwargs):
+        (output_dir / "video.mp4").write_bytes(b"video" * 1024 * 100)
+        return TikTokDownloadResult(
+            source_url=url,
+            resolved_url=url,
+            post_type=TikTokPostType.VIDEO,
+            title="test video",
+            author="testuser",
+            video_path=str(output_dir / "video.mp4"),
+            carousel_images_available=True,
+            carousel_image_count=3,
+        )
+
+    async def fake_send_file(bot, path, chat_id, lang, title, **kwargs):
+        send_kwargs.append(kwargs)
+        return "video"
+
+    async def fake_save_session(session):
+        saved_sessions.append(session)
+
+    async def fake_record(*args, **kwargs):
+        pass
+
+    monkeypatch.setattr("workers.tiktok_task.get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tiktok_task.download_tiktok", fake_download)
+    monkeypatch.setattr("workers.tiktok_task.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tiktok_task.save_tiktok_carousel_session", fake_save_session)
+    monkeypatch.setattr("workers.tiktok_task._record_download_safe", fake_record)
+    monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0)
+    monkeypatch.setattr("workers.tiktok_task.platform_max_file_mb", lambda _: 500)
+    monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", lambda *a, **kw: None)
+    _patch_tiktok_runtime_settings(monkeypatch)
+
+    tiktok_download_task.run(
+        url="https://www.tiktok.com/@user/video/123",
+        chat_id=1,
+        user_id=2,
+        message_id=3,
+        lang="en",
+        lock_token="test-token",
+    )
+
+    assert len(saved_sessions) == 1
+    assert saved_sessions[0].url.endswith("/123")
+    assert saved_sessions[0].user_id == 2
+    assert send_kwargs[0]["reply_markup"] is not None
+
+
+def test_tiktok_carousel_images_task_sends_photos(monkeypatch, tmp_path):
+    fake_bot = FakeBot()
+    sent: list = []
+    deleted_tokens: list[str] = []
+
+    img_paths = []
+    for i in range(2):
+        p = tmp_path / f"image_{i}.jpg"
+        p.write_bytes(b"img")
+        img_paths.append(str(p))
+
+    def fake_download(url, output_dir, **kwargs):
+        return TikTokDownloadResult(
+            source_url=url,
+            resolved_url=url,
+            post_type=TikTokPostType.CAROUSEL,
+            title="carousel",
+            author="user",
+            images=img_paths,
+            carousel_image_count=2,
+        )
+
+    async def fake_send_carousel(*args, **kwargs):
+        sent.append(kwargs)
+        return True
+
+    async def fake_delete_token(token):
+        deleted_tokens.append(token)
+
+    async def fake_record(*args, **kwargs):
+        pass
+
+    from workers.tiktok_task import tiktok_carousel_images_task
+
+    monkeypatch.setattr("workers.tiktok_task.get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tiktok_task.download_tiktok_carousel_images", fake_download)
+    monkeypatch.setattr("workers.tiktok_task.send_carousel", fake_send_carousel)
+    monkeypatch.setattr("workers.tiktok_task.delete_tiktok_carousel_session", fake_delete_token)
+    monkeypatch.setattr("workers.tiktok_task._record_download_safe", fake_record)
+    monkeypatch.setattr("workers.tiktok_task.platform_download_timeout_seconds", lambda _: 0)
+    monkeypatch.setattr("workers.tiktok_task.release_user_lock_sync", lambda *a, **kw: None)
+    _patch_tiktok_runtime_settings(monkeypatch)
+
+    tiktok_carousel_images_task.run(
+        url="https://www.tiktok.com/@user/video/123",
+        chat_id=1,
+        user_id=2,
+        lang="en",
+        lock_token="test-token",
+        session_token="sess-token",
+    )
+
+    assert sent
+    assert sent[0]["caption"]
+    assert deleted_tokens == ["sess-token"]
+
+
 def test_tiktok_task_handles_carousel(monkeypatch, tmp_path):
     fake_bot = FakeBot()
     recorded: list[tuple] = []
