@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 import structlog
+import yt_dlp
 
 from bot.config import settings
 from bot.locale import get
@@ -25,6 +26,11 @@ from workers.downloader import (
 )
 from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES, YTDLP_ERRORS_TOTAL
 from workers.video_processor import VideoProcessingError, apply_aspect_ratio
+from workers.x_downloader import (
+    XPhotoDownloadError,
+    XPhotosNotFoundError,
+    download_x_photos,
+)
 from workers.youtube_format import build_youtube_format
 
 logger = structlog.get_logger()
@@ -41,6 +47,31 @@ def _platform_download_timeout_seconds(platform: str) -> int:
     return platform_download_timeout_seconds(platform)
 
 
+def _is_x_no_video_error(exc: BaseException) -> bool:
+    return "no video could be found" in str(exc).lower()
+
+
+def _download_platform_media(
+    url: str,
+    output_dir: Path,
+    format_id: str,
+    platform: str,
+    x_status_id: str | None = None,
+) -> dict:
+    try:
+        if x_status_id:
+            return download_with_reply_filter(url, output_dir, format_id, x_status_id)
+        return download(url, output_dir, format_id)
+    except XTargetReplyNoMediaError:
+        if platform != "x":
+            raise
+        return download_x_photos(url, output_dir, status_id=x_status_id)
+    except yt_dlp.utils.DownloadError as exc:
+        if platform != "x" or not _is_x_no_video_error(exc):
+            raise
+        return download_x_photos(url, output_dir, status_id=x_status_id)
+
+
 async def _download_with_timeout(
     url: str,
     output_dir: Path,
@@ -48,12 +79,16 @@ async def _download_with_timeout(
     platform: str,
     x_status_id: str | None = None,
 ) -> dict:
-    """Run yt-dlp download in a thread with an async timeout."""
+    """Run platform download in a thread with an async timeout."""
     timeout = _platform_download_timeout_seconds(platform)
-    if x_status_id:
-        coro = asyncio.to_thread(download_with_reply_filter, url, output_dir, format_id, x_status_id)
-    else:
-        coro = asyncio.to_thread(download, url, output_dir, format_id)
+    coro = asyncio.to_thread(
+        _download_platform_media,
+        url,
+        output_dir,
+        format_id,
+        platform,
+        x_status_id,
+    )
     if timeout <= 0:
         return await coro
     return await asyncio.wait_for(coro, timeout=timeout)
@@ -213,7 +248,7 @@ async def _run_download_and_send(
                         url, task_dir, ytdlp_format, platform,
                         x_status_id=x_status_id,
                     )
-                except (XTargetReplyNotFoundError, XTargetReplyNoMediaError):
+                except (XTargetReplyNotFoundError, XPhotosNotFoundError, XPhotoDownloadError):
                     await _edit_message(
                         bot, chat_id, message_id,
                         get("x.no_media_in_reply", lang),

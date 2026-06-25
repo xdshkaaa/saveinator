@@ -189,13 +189,13 @@ def test_x_reply_normal_tweet_without_x_status_id_unchanged(monkeypatch):
 
 
 def test_x_reply_without_media_returns_no_media_message(monkeypatch):
-    """When the target reply has no media, show no-media message without fallback."""
+    """When tweet has no downloadable media, show no-media message."""
     fake_bot = FakeBot()
     recorded: list[tuple] = []
 
     async def fake_download_with_timeout(url, output_dir, format_id, platform, x_status_id=None):
-        from workers.downloader import XTargetReplyNoMediaError
-        raise XTargetReplyNoMediaError("no media")
+        from workers.x_downloader import XPhotosNotFoundError
+        raise XPhotosNotFoundError("no media")
 
     async def fake_record_download_safe(url, platform, format_id, size_mb, status, *_args, **_kwargs):
         recorded.append((url, platform, format_id, size_mb, status))
