@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup
 
-from bot.handlers.admin import AdminEdit, cmd_admin
+from bot.handlers.admin import AdminEdit, _main_keyboard, admin_stats, cmd_admin, cmd_stats
 from bot.config import Settings
 
 
@@ -96,3 +96,103 @@ async def test_admin_edit_saves_runtime_value(admin_settings, fake_redis, monkey
     from bot.services.runtime_settings import platform_download_timeout_seconds
 
     assert platform_download_timeout_seconds("youtube") == 120
+
+
+async def test_main_keyboard_includes_users_button(admin_settings):
+    keyboard = _main_keyboard("en")
+    labels = [button.text for row in keyboard.inline_keyboard for button in row]
+    assert any("Users" in label for label in labels)
+
+
+class FakeCallbackMessage:
+    def __init__(self):
+        self.text: str | None = None
+        self.reply_markup = None
+
+    async def edit_text(self, text: str, reply_markup=None):
+        self.text = text
+        self.reply_markup = reply_markup
+        return self
+
+
+class FakeCallback:
+    def __init__(self, user_id: int, data: str):
+        self.from_user = FakeUser(user_id)
+        self.data = data
+        self.message = FakeCallbackMessage()
+        self.answers: list[str] = []
+
+    async def answer(self, text: str | None = None):
+        if text is not None:
+            self.answers.append(text)
+
+
+async def test_admin_stats_callback_renders_snapshot(admin_settings, monkeypatch):
+    from bot.services.user_stats import UserStatsSnapshot
+
+    snapshot = UserStatsSnapshot(
+        total_users=10,
+        new_today=2,
+        new_yesterday=1,
+        new_7d=5,
+        new_30d=8,
+        active_now=3,
+        dau=4,
+        wau=6,
+        mau=7,
+        users_with_downloads=9,
+        returning_users=2,
+        language_en=6,
+        language_ru=4,
+        top_platforms_7d=[("youtube", 3)],
+        banned_count=0,
+    )
+    monkeypatch.setattr(
+        "bot.handlers.admin.fetch_user_stats",
+        AsyncMock(return_value=snapshot),
+    )
+
+    callback = FakeCallback(339193247, "admin|stats")
+    storage = MemoryStorage()
+    state = FSMContext(storage=storage, key="chat:1:user:339193247")
+
+    await admin_stats(callback, state, lang="en")
+
+    assert callback.message.text is not None
+    assert "Registered: 10" in callback.message.text
+    assert callback.message.reply_markup is not None
+
+
+async def test_stats_command_available_for_admin(admin_settings, monkeypatch):
+    from bot.services.user_stats import UserStatsSnapshot
+
+    snapshot = UserStatsSnapshot(
+        total_users=1,
+        new_today=0,
+        new_yesterday=0,
+        new_7d=1,
+        new_30d=1,
+        active_now=0,
+        dau=0,
+        wau=0,
+        mau=0,
+        users_with_downloads=0,
+        returning_users=0,
+        language_en=1,
+        language_ru=0,
+        top_platforms_7d=[],
+        banned_count=0,
+    )
+    monkeypatch.setattr(
+        "bot.handlers.admin.fetch_user_stats",
+        AsyncMock(return_value=snapshot),
+    )
+
+    message = FakeMessage(339193247, text="/stats")
+    storage = MemoryStorage()
+    state = FSMContext(storage=storage, key="chat:1:user:339193247")
+
+    await cmd_stats(message, state, lang="en")
+
+    assert message.answers
+    assert "User statistics" in message.answers[0]

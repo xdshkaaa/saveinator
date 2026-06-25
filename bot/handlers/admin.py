@@ -12,6 +12,8 @@ Actions
 - ``edit_bool|<redis_key>|<value>`` — set a bool setting directly
 - ``edit_enum|<redis_key>|<value>`` — set an enum setting directly
 - ``bans`` — bans management menu
+- ``stats`` — user statistics screen
+- ``stats|refresh`` — refresh user statistics
 - ``ban|add`` — add ban (FSM)
 - ``unban|<user_id>`` — unban a user
 - ``reset|all`` — reset all runtime overrides
@@ -54,6 +56,7 @@ from bot.services.runtime_settings import (
     validate_value,
 )
 from bot.services.user_bans import ban_user, list_banned_users, unban_user
+from bot.services.user_stats import UserStatsSnapshot, fetch_user_stats
 
 logger = structlog.get_logger()
 admin_router = Router()
@@ -93,6 +96,10 @@ def _main_keyboard(lang: str) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton(
         text=get("admin.btn_broadcasts", lang),
         callback_data="admin|broadcasts",
+    )])
+    rows.append([InlineKeyboardButton(
+        text=get("admin.btn_users", lang),
+        callback_data="admin|stats",
     )])
     rows.append([InlineKeyboardButton(
         text=get("admin.btn_bans", lang),
@@ -180,6 +187,70 @@ def _bans_keyboard(lang: str, banned_ids: list[int]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def _stats_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text=get("admin.btn_stats_refresh", lang),
+                callback_data="admin|stats|refresh",
+            ),
+            InlineKeyboardButton(
+                text=get("admin.btn_back", lang),
+                callback_data="admin|menu",
+            ),
+        ],
+    ])
+
+
+def _format_growth_delta(snapshot: UserStatsSnapshot, lang: str) -> str:
+    diff = snapshot.new_today - snapshot.new_yesterday
+    if diff == 0 and snapshot.new_today == 0:
+        return get("admin.stats_growth_delta_flat", lang)
+    if snapshot.new_yesterday == 0:
+        pct = "—" if diff == 0 else "new"
+    else:
+        pct = f"{round(100 * diff / snapshot.new_yesterday):+d}%"
+    return get("admin.stats_growth_delta", lang, diff=f"{diff:+d}", pct=pct)
+
+
+def _format_stats(snapshot: UserStatsSnapshot, lang: str) -> str:
+    if snapshot.top_platforms_7d:
+        platform_lines = "\n".join(
+            get("admin.stats_platform_line", lang, platform=platform, count=count)
+            for platform, count in snapshot.top_platforms_7d
+        )
+    else:
+        platform_lines = get("admin.stats_platforms_empty", lang)
+
+    body = get(
+        "admin.stats_body",
+        lang,
+        total=snapshot.total_users,
+        new_today=snapshot.new_today,
+        growth_delta=_format_growth_delta(snapshot, lang),
+        new_7d=snapshot.new_7d,
+        new_30d=snapshot.new_30d,
+        active_now=snapshot.active_now,
+        dau=snapshot.dau,
+        wau=snapshot.wau,
+        mau=snapshot.mau,
+        with_downloads=snapshot.users_with_downloads,
+        returning=snapshot.returning_users,
+        lang_en=snapshot.language_en,
+        lang_ru=snapshot.language_ru,
+        platform_lines=platform_lines,
+        banned=snapshot.banned_count,
+        active_note=get("admin.stats_active_note", lang),
+        download_note=get("admin.stats_download_note", lang),
+    )
+    return f"{get('admin.stats_title', lang)}\n\n{body}"
+
+
+async def _render_stats(lang: str) -> str:
+    snapshot = await fetch_user_stats()
+    return _format_stats(snapshot, lang)
+
+
 # ---------------------------------------------------------------------------
 # /admin command
 # ---------------------------------------------------------------------------
@@ -193,6 +264,16 @@ async def cmd_admin(message: Message, state: FSMContext, lang: str = "en"):
     await message.answer(
         get("admin.menu_title", lang),
         reply_markup=_main_keyboard(lang),
+    )
+
+
+@admin_router.message(Command("stats"), _is_admin)
+async def cmd_stats(message: Message, state: FSMContext, lang: str = "en"):
+    record_command("stats")
+    await state.clear()
+    await message.answer(
+        await _render_stats(lang),
+        reply_markup=_stats_keyboard(lang),
     )
 
 
@@ -420,6 +501,21 @@ async def admin_confirm_reset_svc_yes(callback: CallbackQuery, lang: str = "en")
         reply_markup=_service_keyboard(service, lang),
     )
     await callback.answer(get("admin.reset_done_toast", lang))
+
+
+# ---------------------------------------------------------------------------
+# User stats
+# ---------------------------------------------------------------------------
+
+
+@admin_router.callback_query(F.data.in_({"admin|stats", "admin|stats|refresh"}), _is_admin)
+async def admin_stats(callback: CallbackQuery, state: FSMContext, lang: str = "en"):
+    await state.clear()
+    await callback.message.edit_text(
+        await _render_stats(lang),
+        reply_markup=_stats_keyboard(lang),
+    )
+    await callback.answer()
 
 
 # ---------------------------------------------------------------------------

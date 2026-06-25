@@ -5,6 +5,9 @@ from unittest.mock import AsyncMock, patch
 
 from db.models import (
     User,
+    Chat,
+    Download,
+    Platform,
     BroadcastDelivery,
     BroadcastDeliveryStatus,
     BroadcastStatus,
@@ -140,6 +143,46 @@ class TestGetRecipientIds:
     async def test_ru_only(self, sample_users):
         ids = await get_recipient_ids(BroadcastAudience.RU)
         assert sorted(ids) == [200, 400]
+
+
+class TestActiveAudience:
+    async def test_count_active_users_with_recent_downloads(self, db_session, sample_users):
+        chat = Chat(id=1, title="c", type="private")
+        db_session.add(chat)
+        db_session.add(
+            Download(
+                user_id=100,
+                chat_id=1,
+                url="https://youtube.com/watch?v=1",
+                platform=Platform.YOUTUBE,
+                created_at=utc_now_naive(),
+            )
+        )
+        await db_session.commit()
+
+        count = await count_recipients(BroadcastAudience.ACTIVE)
+        assert count == 1
+
+    async def test_active_excludes_users_without_recent_downloads(self, sample_users):
+        count = await count_recipients(BroadcastAudience.ACTIVE)
+        assert count == 0
+
+    async def test_active_recipient_ids(self, db_session, sample_users):
+        chat = Chat(id=1, title="c", type="private")
+        db_session.add(chat)
+        db_session.add(
+            Download(
+                user_id=300,
+                chat_id=1,
+                url="https://tiktok.com/@x/video/1",
+                platform=Platform.TIKTOK,
+                created_at=utc_now_naive(),
+            )
+        )
+        await db_session.commit()
+
+        ids = await get_recipient_ids(BroadcastAudience.ACTIVE)
+        assert ids == [300]
 
 
 # ---------------------------------------------------------------------------

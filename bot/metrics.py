@@ -63,6 +63,11 @@ ACTIVE_CHATS = Gauge(
     "Recently active unique chat IDs",
 )
 
+ACTIVE_USERS = Gauge(
+    "saveinator_active_users",
+    "Recently active unique Telegram user IDs",
+)
+
 USERS_CREATED_TOTAL = Counter(
     "saveinator_users_created_total",
     "Users created in the Saveinator database",
@@ -200,6 +205,7 @@ RPC_FAILURES_TOTAL = Counter(
 )
 
 _active_chat_ids: dict[int, float] = {}  # chat_id -> last_seen timestamp
+_active_user_ids: dict[int, float] = {}  # user_id -> last_seen timestamp
 
 
 def init_platform_metrics() -> None:
@@ -211,24 +217,34 @@ def refresh_uptime() -> None:
     UPTIME_SECONDS.set(time.monotonic() - _START_TIME)
 
 
-def record_message(chat_id: int | None) -> None:
+def record_message(chat_id: int | None, user_id: int | None = None) -> None:
     MESSAGES_RECEIVED_TOTAL.inc()
+    now = time.monotonic()
     if chat_id is not None:
-        _active_chat_ids[chat_id] = time.monotonic()
+        _active_chat_ids[chat_id] = now
+    if user_id is not None:
+        _active_user_ids[user_id] = now
+
+
+def _prune_active_ids(active_ids: dict[int, float]) -> None:
+    cutoff = time.monotonic() - _ACTIVE_CHAT_WINDOW
+    stale = [item_id for item_id, last_seen in active_ids.items() if last_seen < cutoff]
+    for item_id in stale:
+        del active_ids[item_id]
 
 
 def refresh_active_chats() -> None:
-    """Prune chat IDs older than _ACTIVE_CHAT_WINDOW and update the gauge.
-
-    Called from the ``/metrics`` handler so the value is always fresh on
-    scrape — no background loop needed.
-    """
-    now = time.monotonic()
-    cutoff = now - _ACTIVE_CHAT_WINDOW
-    stale = [cid for cid, last_seen in _active_chat_ids.items() if last_seen < cutoff]
-    for cid in stale:
-        del _active_chat_ids[cid]
+    """Prune stale chat/user IDs and update gauges on scrape."""
+    _prune_active_ids(_active_chat_ids)
+    _prune_active_ids(_active_user_ids)
     ACTIVE_CHATS.set(len(_active_chat_ids))
+    ACTIVE_USERS.set(len(_active_user_ids))
+
+
+def get_active_user_count() -> int:
+    """Return unique users seen in the last 30 minutes (in-process, volatile)."""
+    refresh_active_chats()
+    return len(_active_user_ids)
 
 
 def record_command(command: str) -> None:

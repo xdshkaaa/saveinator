@@ -1,6 +1,7 @@
 from prometheus_client import REGISTRY, generate_latest
 
 from bot.metrics import (
+    ACTIVE_USERS,
     DOWNLOADS_ENQUEUED_TOTAL,
     ERRORS_TOTAL,
     HTTP_REQUESTS_TOTAL,
@@ -11,6 +12,7 @@ from bot.metrics import (
     record_error,
     record_message,
     record_user_created,
+    refresh_active_chats,
     refresh_uptime,
 )
 from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES
@@ -19,9 +21,21 @@ from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES
 class TestBotMetrics:
     def test_record_message_increments_counter(self):
         before = MESSAGES_RECEIVED_TOTAL._value.get()  # type: ignore[attr-defined]
-        record_message(12345)
+        record_message(12345, user_id=67890)
         after = MESSAGES_RECEIVED_TOTAL._value.get()  # type: ignore[attr-defined]
         assert after == before + 1
+
+    def test_record_message_tracks_unique_active_users(self):
+        import bot.metrics as metrics_module
+
+        metrics_module._active_user_ids.clear()
+        metrics_module._active_chat_ids.clear()
+        record_message(111, user_id=42)
+        record_message(222, user_id=42)
+        refresh_active_chats()
+        output = generate_latest(REGISTRY).decode()
+        assert "saveinator_active_users" in output
+        assert ACTIVE_USERS._value.get() == 1  # type: ignore[attr-defined]
 
     def test_record_command_increments_labeled_counter(self):
         record_command("start")

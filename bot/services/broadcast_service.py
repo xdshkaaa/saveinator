@@ -1,6 +1,6 @@
 """Database operations for the broadcast system."""
 
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 from typing import Any
 
 import structlog
@@ -12,6 +12,7 @@ from db.models import (
     BroadcastDelivery,
     BroadcastDeliveryStatus,
     BroadcastStatus,
+    Download,
     User,
     utc_now_naive,
 )
@@ -23,6 +24,18 @@ logger = structlog.get_logger()
 
 def _now() -> datetime:
     return utc_now_naive()
+
+
+ACTIVE_AUDIENCE_DAYS = 30
+
+
+def _active_user_ids_subquery():
+    cutoff = _now() - timedelta(days=ACTIVE_AUDIENCE_DAYS)
+    return (
+        select(Download.user_id)
+        .where(Download.created_at >= cutoff)
+        .distinct()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +130,7 @@ async def count_recipients(audience: BroadcastAudience) -> int:
         elif audience == BroadcastAudience.EN:
             query = query.where(User.language == "en")
         elif audience == BroadcastAudience.ACTIVE:
-            query = query.where(User.created_at.isnot(None))  # all users are active by default
+            query = query.where(User.id.in_(_active_user_ids_subquery()))
         result = await session.execute(query)
         return result.scalar_one()
 
@@ -131,7 +144,7 @@ async def get_recipient_ids(audience: BroadcastAudience) -> list[int]:
         elif audience == BroadcastAudience.EN:
             query = query.where(User.language == "en")
         elif audience == BroadcastAudience.ACTIVE:
-            query = query.where(User.created_at.isnot(None))
+            query = query.where(User.id.in_(_active_user_ids_subquery()))
         result = await session.execute(query)
         return [row[0] for row in result.all()]
 

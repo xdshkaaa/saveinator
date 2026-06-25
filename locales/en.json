@@ -103,6 +103,16 @@
     "unban_done": "User {user_id} unbanned.",
     "unban_not_found": "User {user_id} was not in the ban list.",
     "btn_broadcasts": "📨 Broadcasts",
+    "btn_users": "📊 Users",
+    "stats_title": "📊 User statistics",
+    "stats_body": "👥 Registered: {total}\n\n📈 Growth\n• Today: {new_today} ({growth_delta})\n• 7 days: {new_7d}\n• 30 days: {new_30d}\n\n⚡ Active\n• Now (30m): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n\n🎯 Engagement\n• With downloads: {with_downloads}\n• Returning (2+): {returning}\n\n🌐 Languages: EN {lang_en} · RU {lang_ru}\n\n📱 Top platforms (7d)\n{platform_lines}\n\n🚫 Shadow-banned: {banned}\n\n{active_note}\n{download_note}",
+    "stats_growth_delta": "{diff} ({pct})",
+    "stats_growth_delta_flat": "0",
+    "stats_platform_line": "• {platform}: {count}",
+    "stats_platforms_empty": "• no data",
+    "stats_active_note": "ℹ️ “Now” resets on bot restart.",
+    "stats_download_note": "ℹ️ DAU/WAU/MAU use download events (Spotify/SoundCloud excluded).",
+    "btn_stats_refresh": "🔄 Refresh",
     "confirm_reset_all": "⚠️ Reset ALL runtime overrides to defaults?\n\nThis will clear all per-platform settings. They will revert to .env defaults.\n\nAre you sure?",
     "confirm_reset_service": "⚠️ Reset all {service} settings to defaults?\n\nAre you sure?",
     "confirm_platform_disable": "⚠️ Disable {service}?\n\nUsers will not be able to download from this platform until it's re-enabled.",
@@ -202,7 +212,8 @@
     "audio_unavailable": "🎵 Audio track is not available for this post.",
     "btn_carousel_images": "📷 Download carousel photos",
     "carousel_images_downloading": "📸 Downloading carousel photos...",
-    "carousel_images_unavailable": "❌ Link expired. Send the TikTok link again."
+    "carousel_images_unavailable": "❌ Link expired. Send the TikTok link again.",
+    "invalid_link": "❌ This is not a TikTok video link. Use Share → Copy link in the TikTok app."
   },
   "pinterest": {
     "disabled": "Pinterest support is disabled on this bot.",

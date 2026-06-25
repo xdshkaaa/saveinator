@@ -14,7 +14,13 @@ class MetricsMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         if isinstance(event, Message):
-            record_message(event.chat.id if event.chat else None)
+            record_message(
+                event.chat.id if event.chat else None,
+                event.from_user.id if event.from_user else None,
+            )
         elif isinstance(event, CallbackQuery) and event.message and event.message.chat:
-            record_message(event.message.chat.id)
+            record_message(
+                event.message.chat.id,
+                event.from_user.id if event.from_user else None,
+            )
         return await handler(event, data)
