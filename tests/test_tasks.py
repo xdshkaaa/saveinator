@@ -426,7 +426,7 @@ def test_x_single_image_sent_as_photo(monkeypatch):
 
 def test_x_multiple_images_all_sent(monkeypatch):
     fake_bot = FakeBot()
-    sent_files: list[tuple] = []
+    album_calls: list[tuple] = []
     recorded: list[tuple] = []
 
     def fake_download(url: str, output_dir: Path, format_id: str):
@@ -435,16 +435,16 @@ def test_x_multiple_images_all_sent(monkeypatch):
         (output_dir / "photo_3.jpg").write_bytes(b"image-3")
         return {"title": "x-album"}
 
-    async def fake_send_file(bot, path, chat_id, lang, title, **_kwargs):
-        sent_files.append((path.name, _kwargs.get("media_type")))
-        return "photo"
+    async def fake_send_photo_album(bot, chat_id, image_paths, *, caption=None):
+        album_calls.append((chat_id, [path.name for path in image_paths], caption))
+        return True
 
     async def fake_record_download_safe(*args, **_kwargs):
         recorded.append(args)
 
     monkeypatch.setattr("workers.tasks.get_bot", lambda: fake_bot)
     monkeypatch.setattr("workers.tasks.download", fake_download)
-    monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tasks.send_photo_album", fake_send_photo_album)
     monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
     monkeypatch.setattr("workers.tasks._platform_download_timeout_seconds", lambda _platform: 0)
     monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
@@ -460,9 +460,10 @@ def test_x_multiple_images_all_sent(monkeypatch):
     )
 
     assert fake_bot.deleted == [(1, 3)]
-    assert len(sent_files) == 3
-    for name, media_type in sent_files:
-        assert media_type == "image"
+    assert len(album_calls) == 1
+    assert album_calls[0][0] == 1
+    assert album_calls[0][1] == ["photo_1.jpg", "photo_2.jpg", "photo_3.jpg"]
+    assert "x-album" in (album_calls[0][2] or "")
     assert recorded
 
 

@@ -288,6 +288,78 @@ async def test_send_file_animation_fallback_does_not_try_video(monkeypatch, tmp_
 
 
 @pytest.mark.asyncio
+async def test_send_photo_album_single_image(tmp_path: Path):
+    from bot.services import file_sender
+
+    photo = tmp_path / "photo_1.jpg"
+    photo.write_bytes(b"image")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_photo(self, **_kwargs):
+            sent.append("photo")
+
+    result = await file_sender.send_photo_album(
+        StubBot(), 1, [photo], caption="hello",
+    )
+
+    assert result is True
+    assert sent == ["photo"]
+
+
+@pytest.mark.asyncio
+async def test_send_photo_album_uses_media_group(tmp_path: Path):
+    from bot.services import file_sender
+
+    paths = [tmp_path / f"photo_{index}.jpg" for index in range(1, 4)]
+    for path in paths:
+        path.write_bytes(b"image")
+
+    captured: dict = {}
+
+    class StubBot:
+        async def send_media_group(self, **_kwargs):
+            captured["media"] = _kwargs["media"]
+            return None
+
+    result = await file_sender.send_photo_album(
+        StubBot(), 1, paths, caption="album caption",
+    )
+
+    assert result is True
+    assert len(captured["media"]) == 3
+    assert captured["media"][0].caption == "album caption"
+    assert captured["media"][1].caption is None
+
+
+@pytest.mark.asyncio
+async def test_send_photo_album_falls_back_when_media_group_fails(tmp_path: Path):
+    from aiogram.exceptions import TelegramBadRequest
+    from bot.services import file_sender
+
+    paths = [tmp_path / f"photo_{index}.jpg" for index in range(1, 3)]
+    for path in paths:
+        path.write_bytes(b"image")
+
+    sent: list[str] = []
+
+    class StubBot:
+        async def send_media_group(self, **_kwargs):
+            raise TelegramBadRequest(method="sendMediaGroup", message="bad album")
+
+        async def send_photo(self, **_kwargs):
+            sent.append("photo")
+
+    result = await file_sender.send_photo_album(
+        StubBot(), 1, paths, caption="fallback",
+    )
+
+    assert result is True
+    assert len(sent) == 2
+
+
+@pytest.mark.asyncio
 async def test_telegram_upload_limit_uses_platform_max(monkeypatch, tmp_path: Path):
     from bot.services import file_sender
 

@@ -3,7 +3,8 @@ from pathlib import Path
 
 import structlog
 from aiogram import Bot
-from aiogram.types import FSInputFile, InlineKeyboardMarkup
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import FSInputFile, InlineKeyboardMarkup, InputMediaPhoto
 
 from bot.config import settings
 from bot.locale import get
@@ -17,6 +18,87 @@ logger = structlog.get_logger()
 
 _IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".bmp"})
 _GIF_EXTENSION = ".gif"
+_ALBUM_CHUNK_SIZE = 10
+
+
+async def _send_single_photo(
+    bot: Bot,
+    chat_id: int,
+    image_path: Path,
+    caption: str | None = None,
+) -> bool:
+    try:
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=FSInputFile(image_path),
+            caption=caption or None,
+        )
+        return True
+    except Exception as exc:
+        logger.warning("send_photo failed", chat_id=chat_id, error=str(exc))
+        return False
+
+
+async def _send_media_group(
+    bot: Bot,
+    chat_id: int,
+    image_paths: list[Path],
+    caption: str | None = None,
+) -> bool:
+    try:
+        media = [
+            InputMediaPhoto(
+                media=FSInputFile(path),
+                caption=caption if index == 0 else None,
+            )
+            for index, path in enumerate(image_paths)
+        ]
+        await bot.send_media_group(chat_id=chat_id, media=media)
+        return True
+    except TelegramBadRequest as exc:
+        logger.warning(
+            "send_media_group failed, falling back",
+            chat_id=chat_id,
+            count=len(image_paths),
+            error=str(exc),
+        )
+        return False
+    except Exception as exc:
+        logger.warning(
+            "send_media_group unexpected error",
+            chat_id=chat_id,
+            error=str(exc),
+        )
+        return False
+
+
+async def send_photo_album(
+    bot: Bot,
+    chat_id: int,
+    image_paths: list[Path],
+    *,
+    caption: str | None = None,
+) -> bool:
+    """Send one or more photos as a Telegram album when possible."""
+    if not image_paths:
+        return False
+
+    paths = sorted(image_paths, key=lambda path: path.name)
+    if len(paths) == 1:
+        return await _send_single_photo(bot, chat_id, paths[0], caption)
+
+    all_chunks_sent = True
+    for chunk_index, chunk_start in enumerate(range(0, len(paths), _ALBUM_CHUNK_SIZE)):
+        chunk = paths[chunk_start:chunk_start + _ALBUM_CHUNK_SIZE]
+        is_first_chunk = chunk_index == 0
+        chunk_caption = caption if is_first_chunk else None
+        sent = await _send_media_group(bot, chat_id, chunk, chunk_caption)
+        if not sent:
+            for index, path in enumerate(chunk):
+                path_caption = caption if (is_first_chunk and index == 0) else None
+                await _send_single_photo(bot, chat_id, path, path_caption)
+            all_chunks_sent = False
+    return all_chunks_sent or len(paths) > 0
 
 
 def telegram_upload_limit_mb(platform: str | None = None) -> int:

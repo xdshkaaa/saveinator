@@ -12,7 +12,7 @@ from bot.locale import get
 from bot.metrics import record_user_created
 from bot.services.runtime_settings import platform_max_file_mb, platform_download_timeout_seconds, send_document_limit_mb
 from bot.services.tempfiles import tempfile_manager, sweep_stale
-from bot.services.file_sender import send_file, telegram_upload_limit_mb
+from bot.services.file_sender import send_file, telegram_upload_limit_mb, build_media_caption, send_photo_album
 from db.models import Download, DownloadStatus, Platform, Chat, User, utc_now_naive
 from db.session import async_session_factory
 from bot.services.user_queue import UserScenario, release_user_lock_sync
@@ -287,10 +287,16 @@ async def _run_download_and_send(
                 # --- Image-only path (generic platforms only) ---
                 if not video_files and image_files:
                     total_bytes = sum(os.path.getsize(p) for p in image_files)
-                    for img_path in image_files:
+                    image_files = sorted(image_files, key=lambda path: path.name)
+                    caption = build_media_caption(title, lang, platform=platform)
+                    if len(image_files) == 1:
                         await send_file(
-                            bot, img_path, chat_id, lang, title,
+                            bot, image_files[0], chat_id, lang, title,
                             platform=platform, media_type="image",
+                        )
+                    else:
+                        await send_photo_album(
+                            bot, chat_id, image_files, caption=caption,
                         )
                     await _delete_message(bot, chat_id, message_id)
                     await _record_download_safe(
