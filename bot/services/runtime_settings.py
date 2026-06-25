@@ -504,6 +504,14 @@ RUNTIME_SETTINGS: tuple[RuntimeSettingDef, ...] = (
         label_en="Max file", label_ru="Лимит файла", unit="MB",
     ),
     RuntimeSettingDef(
+        "soundcloud.download_concurrency",
+        "soundcloud_download_concurrency",
+        "soundcloud",
+        "download_concurrency",
+        value_type="int", min_value=1, max_value=3,
+        label_en="Download concurrency", label_ru="Одновременных загрузок",
+    ),
+    RuntimeSettingDef(
         "soundcloud.track_timeout_sec",
         "soundcloud_track_timeout_seconds",
         "soundcloud",

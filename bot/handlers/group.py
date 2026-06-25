@@ -141,7 +141,7 @@ async def handle_group_message(message: Message, lang: str = "en"):
         lock_token = await _acquire_scenario_lock(message, lang, UserScenario.TIKTOK)
         if lock_token is None:
             return
-        status_msg = await message.reply(get("tiktok.carousel_downloading", lang))
+        status_msg = await message.reply(get("download.downloading", lang))
         DOWNLOADS_ENQUEUED_TOTAL.labels(platform="tiktok").inc()
         tiktok_download_task.delay(
             url=url,
@@ -154,6 +154,11 @@ async def handle_group_message(message: Message, lang: str = "en"):
         return
 
     if platform.value == "unknown":
+        from bot.services.tiktok_parser import is_tiktok_non_content_url
+
+        if is_tiktok_non_content_url(url):
+            await message.reply(get("tiktok.invalid_link", lang))
+            return
         await message.reply(get("errors.unsupported", lang))
         return
 

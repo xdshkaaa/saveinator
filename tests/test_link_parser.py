@@ -60,6 +60,21 @@ class TestLinkParser:
         assert urls[0].platform == Platform.TIKTOK
         assert urls[0].url.endswith("sender_device=pc")
 
+    def test_tiktok_t_short(self):
+        urls = extract_urls("https://www.tiktok.com/t/ZT6abc123/")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.TIKTOK
+
+    def test_tiktok_mobile_html(self):
+        urls = extract_urls("https://m.tiktok.com/v/7644167500669717781.html")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.TIKTOK
+
+    def test_tiktok_video_no_username(self):
+        urls = extract_urls("https://www.tiktok.com/@/video/7644167500669717781")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.TIKTOK
+
     def test_instagram_reel(self):
         urls = extract_urls("https://www.instagram.com/reel/abc123/")
         assert len(urls) == 1

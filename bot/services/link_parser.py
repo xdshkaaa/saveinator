@@ -19,9 +19,11 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     (
         Platform.TIKTOK,
         re.compile(
-            r"(?:https?://)?(?:www\.)?(?:"
-            r"tiktok\.com/@[\w.-]+/(?:video|photo)/\d+(?:[/?#&]\S*)?"
+            r"(?:https?://)?(?:"
+            r"(?:www\.)?tiktok\.com/@[\w.-]*/(?:video|photo)/\d+(?:[/?#&]\S*)?"
+            r"|(?:www\.)?tiktok\.com/t/[\w-]+/?(?:[?&]\S*)?"
             r"|(?:vm|vt)\.tiktok\.com/[\w-]+/?(?:[?&]\S*)?"
+            r"|m\.tiktok\.com/v/\d+\.html(?:[?&]\S*)?"
             r")",
             re.IGNORECASE,
         ),

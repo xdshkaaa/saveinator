@@ -93,11 +93,17 @@ services:
       SEND_DOCUMENT_LIMIT_MB: ${SEND_DOCUMENT_LIMIT_MB:-1999}
       YOUTUBE_MAX_FILE_SIZE_MB: ${YOUTUBE_MAX_FILE_SIZE_MB:-1999}
       YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS: ${YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS:-600}
+      TIKTOK_COOKIES_PATH: ${TIKTOK_COOKIES_PATH:-/secrets/tiktok_cookies.txt}
+      TIKTOK_COOKIES_FROM_BROWSER: ${TIKTOK_COOKIES_FROM_BROWSER:-}
+      TIKTOK_COOKIES_REFRESH_ENABLED: ${TIKTOK_COOKIES_REFRESH_ENABLED:-true}
+      TIKTOK_COOKIES_REFRESH_URL: ${TIKTOK_COOKIES_REFRESH_URL:-https://vt.tiktok.com/ZSCFGyN3g/}
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       WORKER_METRICS_PORT: "9102"
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
     ports:
       - "127.0.0.1:9102:9102"
+    volumes:
+      - ./secrets:/secrets:rw
     depends_on:
       db:
         condition: service_healthy

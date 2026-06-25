@@ -157,7 +157,7 @@ async def test_soundcloud_downloads_tracks_when_enabled(monkeypatch, tmp_path: P
         AsyncMock(return_value=release),
     )
 
-    async def _download_one_track(index, track, task_dir, settings):
+    async def _download_one_track(index, track, task_dir, settings, semaphore):
         return _TrackDownloadResult(
             index=index,
             track=track,

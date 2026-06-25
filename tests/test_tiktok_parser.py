@@ -65,3 +65,29 @@ class TestTikTokParser:
         )
         assert result is not None
         assert result.post_type == TikTokPostType.PHOTO
+
+
+class TestTikTokNonContentUrl:
+    def test_homepage_with_tracking(self):
+        from bot.services.tiktok_parser import is_tiktok_non_content_url
+
+        assert is_tiktok_non_content_url(
+            "https://www.tiktok.com/?ysclid=mqszqw8tpa149730435"
+        )
+
+    def test_homepage_plain(self):
+        from bot.services.tiktok_parser import is_tiktok_non_content_url
+
+        assert is_tiktok_non_content_url("https://www.tiktok.com/")
+
+    def test_foryou_feed(self):
+        from bot.services.tiktok_parser import is_tiktok_non_content_url
+
+        assert is_tiktok_non_content_url("https://www.tiktok.com/foryou")
+
+    def test_video_link_not_non_content(self):
+        from bot.services.tiktok_parser import is_tiktok_non_content_url
+
+        assert not is_tiktok_non_content_url(
+            "https://www.tiktok.com/@user/video/1234567890123456789"
+        )

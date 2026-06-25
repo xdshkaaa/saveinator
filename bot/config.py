@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     tiktok_fallback_to_document: bool = True
     tiktok_carousel_max_items: int = 20
     tiktok_carousel_audio_enabled: bool = True
+    tiktok_cookies_path: str = ""
+    tiktok_cookies_from_browser: str = "chrome"
+    tiktok_cookies_refresh_enabled: bool = True
+    tiktok_cookies_refresh_url: str = "https://vt.tiktok.com/ZSCFGyN3g/"
 
     instagram_max_items_per_post: int = 10
     instagram_allow_reels: bool = True
@@ -66,12 +70,13 @@ class Settings(BaseSettings):
     spotify_track_timeout_seconds: int = 60
     spotify_dl_output_format: str = "mp3"
     spotify_lock_max_tracks: int = 50
-    spotify_download_concurrency: int = 2
+    spotify_download_concurrency: int = 1
     spotify_meta_cache_ttl_seconds: int = 3600
     youtube_search_cache_ttl_seconds: int = 604800
 
     soundcloud_enabled: bool = True
     soundcloud_download_enabled: bool = False
+    soundcloud_download_concurrency: int = 1
     soundcloud_track_timeout_seconds: int = 30
     soundcloud_max_tracks: int = 100
     soundcloud_dl_output_format: str = "mp3"

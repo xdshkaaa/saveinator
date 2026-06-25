@@ -41,6 +41,10 @@ app.conf.update(
             "task": "workers.tasks.cleanup_stale_task",
             "schedule": 3600.0,
         },
+        "tiktok-refresh-cookies": {
+            "task": "workers.tiktok_task.tiktok_refresh_cookies_task",
+            "schedule": 300.0,
+        },
     },
 )
 

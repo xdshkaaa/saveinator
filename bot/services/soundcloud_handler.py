@@ -124,12 +124,14 @@ async def _download_one_track(
     track: NormalizedSoundCloudTrack,
     task_dir,
     settings: Settings,
+    semaphore: asyncio.Semaphore,
 ) -> _TrackDownloadResult:
     track_dir = task_dir / f"track-{index}"
     track_dir.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     try:
-        audio_path = await asyncio.to_thread(download_track, track, track_dir, settings)
+        async with semaphore:
+            audio_path = await asyncio.to_thread(download_track, track, track_dir, settings)
         SOUNDCLOUD_DOWNLOAD_DURATION_SECONDS.observe(time.monotonic() - start)
         return _TrackDownloadResult(index=index, track=track, audio_path=str(audio_path), error=None)
     except SoundCloudAudioTimeoutError as exc:
@@ -174,6 +176,7 @@ async def _send_downloaded_tracks(
     )
     task_id = f"soundcloud-{message.chat.id}-{uuid.uuid4().hex[:8]}"
     bot: Bot = message.bot
+    semaphore = asyncio.Semaphore(max(settings.soundcloud_download_concurrency, 1))
     current_task = asyncio.current_task()
     if current_task is not None:
         register_download_task(UserScenario.SOUNDCLOUD, user_id, lock_token, current_task)
@@ -182,7 +185,7 @@ async def _send_downloaded_tracks(
         with tempfile_manager(task_id) as task_dir:
             thumbnail = await fetch_audio_thumbnail(release.artwork_url, task_dir, "soundcloud-cover")
             download_tasks = [
-                _download_one_track(index, track, task_dir, settings)
+                _download_one_track(index, track, task_dir, settings, semaphore)
                 for index, track in enumerate(tracks, start=1)
             ]
             results = await asyncio.gather(*download_tasks, return_exceptions=True)

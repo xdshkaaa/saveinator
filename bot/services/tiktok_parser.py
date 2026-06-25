@@ -23,9 +23,42 @@ _TIKTOK_SHORT_RE = re.compile(
 )
 
 _TIKTOK_FULL_RE = re.compile(
-    r"https?://(?:www\.)?tiktok\.com/@[\w.-]+/(video|photo)/(\d+)",
+    r"https?://(?:www\.)?tiktok\.com/@[\w.-]*/(video|photo)/(\d+)",
     re.IGNORECASE,
 )
+
+_TIKTOK_T_SHORT_RE = re.compile(
+    r"https?://(?:www\.)?tiktok\.com/t/([\w-]+)",
+    re.IGNORECASE,
+)
+
+_TIKTOK_MOBILE_RE = re.compile(
+    r"https?://m\.tiktok\.com/v/(\d+)\.html",
+    re.IGNORECASE,
+)
+
+_TIKTOK_NON_CONTENT_PATHS = frozenset({
+    "foryou", "following", "explore", "live", "discover", "search",
+})
+
+
+def is_tiktok_non_content_url(url: str) -> bool:
+    """True for TikTok homepage/feed links that do not point at a specific post."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url.strip())
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if host not in ("tiktok.com", "m.tiktok.com"):
+        return False
+
+    path = parsed.path.strip("/")
+    if not path:
+        return True
+
+    first_segment = path.split("/", 1)[0].lower()
+    return first_segment in _TIKTOK_NON_CONTENT_PATHS
 
 
 def parse_tiktok_url(url: str) -> TikTokLink | None:

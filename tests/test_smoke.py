@@ -56,6 +56,12 @@ class TestCeleryWorker:
         task = celery_app.conf.beat_schedule["sweep-tempfiles"]
         assert task["task"] == "workers.tasks.cleanup_stale_task"
 
+    def test_celery_beat_schedule_has_tiktok_cookie_refresh(self):
+        assert "tiktok-refresh-cookies" in celery_app.conf.beat_schedule
+        task = celery_app.conf.beat_schedule["tiktok-refresh-cookies"]
+        assert task["task"] == "workers.tiktok_task.tiktok_refresh_cookies_task"
+        assert task["schedule"] == 300.0
+
 
 # ── 3. _run_download_and_send (async core) ─────────────────────────────
 

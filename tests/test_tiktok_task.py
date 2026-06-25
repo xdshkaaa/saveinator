@@ -1,8 +1,9 @@
 import time
 from pathlib import Path
 
+from bot.config import settings
 from db.models import DownloadStatus
-from workers.tiktok_task import tiktok_download_task
+from workers.tiktok_task import tiktok_download_task, _build_carousel_caption
 from workers.tiktok_downloader import TikTokPostType, TikTokDownloadResult
 
 
@@ -51,6 +52,17 @@ def _patch_tiktok_runtime_settings(
         return values.get(key, default if default is not None else 0)
 
     monkeypatch.setattr("workers.tiktok_task.get_runtime_int", fake_get_runtime_int)
+
+
+def test_build_carousel_caption_includes_via_bot_with_title():
+    caption = _build_carousel_caption("my caption", "author", "en")
+    assert caption.startswith("my caption\n@author\n\n")
+    assert caption.endswith("via @saveinator_bot")
+
+
+def test_build_carousel_caption_includes_via_bot_when_empty():
+    caption = _build_carousel_caption("", "", "en")
+    assert caption == "via @saveinator_bot"
 
 
 def test_tiktok_task_handles_video(monkeypatch):
@@ -203,7 +215,7 @@ def test_tiktok_carousel_images_task_sends_photos(monkeypatch, tmp_path):
     )
 
     assert sent
-    assert sent[0]["caption"]
+    assert "via @saveinator_bot" in sent[0]["caption"]
     assert deleted_tokens == ["sess-token"]
 
 
@@ -261,6 +273,42 @@ def test_tiktok_task_handles_carousel(monkeypatch, tmp_path):
     assert recorded[0][1] == "tiktok"
     assert recorded[0][2] == "carousel"
     assert download_kwargs == [{"max_images": 2, "audio_enabled": False}]
+
+
+def test_tiktok_refresh_cookies_task_skips_without_cookie_path(monkeypatch):
+    monkeypatch.setattr(settings, "tiktok_cookies_path", "")
+    called = []
+
+    monkeypatch.setattr(
+        "workers.tiktok_task.refresh_tiktok_session",
+        lambda url: called.append(url) or True,
+    )
+
+    from workers.tiktok_task import tiktok_refresh_cookies_task
+
+    tiktok_refresh_cookies_task.run()
+    assert called == []
+
+
+def test_tiktok_refresh_cookies_task_runs_probe_download(monkeypatch):
+    monkeypatch.setattr(settings, "tiktok_cookies_path", "/secrets/tiktok_cookies.txt")
+    monkeypatch.setattr(settings, "tiktok_cookies_refresh_enabled", True)
+    monkeypatch.setattr(
+        settings,
+        "tiktok_cookies_refresh_url",
+        "https://vt.tiktok.com/ZSCFGyN3g/",
+    )
+    called: list[str] = []
+
+    monkeypatch.setattr(
+        "workers.tiktok_task.refresh_tiktok_session",
+        lambda url: called.append(url) or True,
+    )
+
+    from workers.tiktok_task import tiktok_refresh_cookies_task
+
+    tiktok_refresh_cookies_task.run()
+    assert called == ["https://vt.tiktok.com/ZSCFGyN3g/"]
 
 
 def test_tiktok_task_handles_timeout(monkeypatch):

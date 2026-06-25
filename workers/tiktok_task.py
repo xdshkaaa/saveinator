@@ -37,6 +37,7 @@ from workers.tiktok_downloader import (
     TikTokPostType,
     download_tiktok,
     download_tiktok_carousel_images,
+    refresh_tiktok_session,
 )
 from workers.metrics import YTDLP_ERRORS_TOTAL, DOWNLOAD_FILE_SIZE_BYTES
 
@@ -418,6 +419,18 @@ async def _run_tiktok_carousel_images(
             release_user_lock_sync(user_id, lock_token, UserScenario.TIKTOK)
 
 
+@app.task
+def tiktok_refresh_cookies_task():
+    if not settings.tiktok_cookies_refresh_enabled:
+        return
+    if not settings.tiktok_cookies_path.strip():
+        return
+    probe_url = settings.tiktok_cookies_refresh_url.strip()
+    if not probe_url:
+        return
+    refresh_tiktok_session(probe_url)
+
+
 def _build_carousel_caption(title: str, author: str, lang: str) -> str:
     caption_parts = []
     if title:
@@ -425,9 +438,7 @@ def _build_carousel_caption(title: str, author: str, lang: str) -> str:
     if author:
         caption_parts.append(f"@{author}")
     content = "\n".join(caption_parts)
-    if content:
-        return content
-    return build_media_caption("", lang, platform="tiktok") or ""
+    return build_media_caption(content, lang, platform="tiktok") or ""
 
 
 def _total_image_size_mb(image_paths: list[str]) -> float:
