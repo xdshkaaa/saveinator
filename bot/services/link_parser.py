@@ -11,7 +11,7 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
     (
         Platform.YOUTUBE,
         re.compile(
-            r"(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)"
+            r"(?:https?://)?(?:(?:www\.|m\.)?youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)"
             r"[\w-]{11}(?:[?&]\S*)?",
             re.IGNORECASE,
         ),
@@ -111,6 +111,11 @@ _PATTERNS: list[tuple[Platform, re.Pattern[str]]] = [
 
 _X_STATUS_ID_REGEX = re.compile(r"/status/(\d+)")
 _URL_EXTRACTOR = re.compile(r"https?://\S+", re.IGNORECASE)
+_YOUTUBE_SHORTS_RE = re.compile(r"youtube\.com/shorts/", re.IGNORECASE)
+
+
+def is_youtube_shorts(url: str) -> bool:
+    return bool(_YOUTUBE_SHORTS_RE.search(url))
 _SPOTIFY_URI_EXTRACTOR = re.compile(
     rf"spotify:(?:album|track):({_SPOTIFY_ID_IN_URL})",
     re.IGNORECASE,

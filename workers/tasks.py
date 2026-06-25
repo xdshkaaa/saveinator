@@ -376,7 +376,7 @@ def download_and_send_task(
     task_id = str(uuid.uuid4())
     resolved_format_id = _resolve_format_id(platform, format_id, quality, aspect_ratio)
     ytdlp_format = (
-        build_youtube_format(quality)
+        build_youtube_format(quality, aspect_ratio)
         if platform == "youtube" and quality is not None
         else format_id
     )

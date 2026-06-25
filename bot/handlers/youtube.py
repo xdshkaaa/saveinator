@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery
 
 from bot.locale import get
 from bot.metrics import DOWNLOADS_ENQUEUED_TOTAL
+from bot.services.link_parser import is_youtube_shorts
 from bot.services.youtube_keyboards import format_ratio_label, get_ratio_keyboard
 from bot.services.youtube_session import (
     YoutubePendingSession,
@@ -62,6 +63,21 @@ async def handle_quality_choice(callback: CallbackQuery, lang: str = "en"):
     session = await update_youtube_quality(user_id, quality)
     if session is None:
         await callback.answer(get("youtube.session_expired", lang), show_alert=True)
+        return
+
+    if is_youtube_shorts(session.url):
+        await callback.message.edit_text(
+            get(
+                "youtube.processing",
+                session.lang,
+                quality=quality,
+                ratio=format_ratio_label("9_16"),
+            ),
+            reply_markup=None,
+        )
+        await callback.answer()
+        bot: Bot = callback.bot
+        await start_youtube_download(session, "9_16", user_id, bot)
         return
 
     await callback.message.edit_text(

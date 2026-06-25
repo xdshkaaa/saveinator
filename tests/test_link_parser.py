@@ -1,5 +1,10 @@
 from db.models import Platform
-from bot.services.link_parser import extract_urls, extract_spotify_link, extract_x_status_id
+from bot.services.link_parser import (
+    extract_urls,
+    extract_spotify_link,
+    extract_x_status_id,
+    is_youtube_shorts,
+)
 
 
 class TestLinkParser:
@@ -18,6 +23,19 @@ class TestLinkParser:
         urls = extract_urls("https://www.youtube.com/shorts/abc123def45")
         assert len(urls) == 1
         assert urls[0].platform == Platform.YOUTUBE
+
+    def test_youtube_mobile_shorts(self):
+        urls = extract_urls("https://m.youtube.com/shorts/abc123def45")
+        assert len(urls) == 1
+        assert urls[0].platform == Platform.YOUTUBE
+
+    def test_is_youtube_shorts(self):
+        assert is_youtube_shorts(
+            "https://www.youtube.com/shorts/PuZXo75tdK8?feature=share"
+        )
+        assert is_youtube_shorts("https://m.youtube.com/shorts/abc123def45")
+        assert not is_youtube_shorts("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        assert not is_youtube_shorts("https://youtu.be/dQw4w9WgXcQ")
 
     def test_tiktok(self):
         urls = extract_urls("https://www.tiktok.com/@user/video/1234567890123456789")

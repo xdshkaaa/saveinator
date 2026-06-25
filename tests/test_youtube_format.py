@@ -16,3 +16,9 @@ def test_build_youtube_format_720():
 def test_build_youtube_format_480():
     fmt = build_youtube_format(480)
     assert "height<=480" in fmt
+
+
+def test_build_youtube_format_1080_vertical():
+    fmt = build_youtube_format(1080, "9_16")
+    assert "width<=1080" in fmt
+    assert "height<=1080" not in fmt

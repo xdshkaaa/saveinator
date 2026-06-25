@@ -1,4 +1,5 @@
 import logging
+import re
 import shutil
 import urllib.request
 from dataclasses import dataclass, field
@@ -99,11 +100,25 @@ def _resolve_url(url: str) -> tuple[str, dict | None]:
         return url, None
 
 
+_TIKTOK_FALLBACK_TITLE_RE = re.compile(r"^TikTok\s+video\s+#\d+\s*$", re.IGNORECASE)
+
+
+def _normalize_tiktok_title(title: str, description: str) -> str:
+    desc = description.strip()
+    if desc:
+        return desc
+    tit = title.strip()
+    if not tit or _TIKTOK_FALLBACK_TITLE_RE.match(tit):
+        return ""
+    return tit
+
+
 def _extract_metadata(info: dict) -> tuple[str, str, str]:
     """Extract title, author, description from yt-dlp info dict."""
-    title = info.get("title") or ""
+    raw_title = info.get("title") or ""
     author = info.get("uploader") or info.get("creator") or ""
     description = info.get("description") or ""
+    title = _normalize_tiktok_title(raw_title, description)
     return title, author, description
 
 

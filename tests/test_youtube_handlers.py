@@ -28,6 +28,7 @@ class FakeMessage:
 
     def __init__(self, text: str):
         self.text = text
+        self.bot = FakeBot()
         self.replies: list[str] = []
         self.reply_markups: list[object] = []
 
@@ -160,3 +161,57 @@ async def test_ratio_callback_starts_youtube_download(monkeypatch, fake_redis):
     assert FakeBot.sent_messages == [(10, "⏳ Скачиваю...")]
     assert "720p" in callback.message.text
     assert "16:9" in callback.message.text
+
+
+async def test_shorts_quality_callback_skips_ratio_menu(monkeypatch, fake_redis):
+    from bot.services.youtube_session import YoutubePendingSession, save_youtube_session
+
+    await save_youtube_session(
+        YoutubePendingSession(
+            user_id=20,
+            url="https://www.youtube.com/shorts/PuZXo75tdK8?feature=share",
+            chat_id=10,
+            message_id=30,
+            lang="ru",
+        )
+    )
+
+    delayed: list[dict] = []
+    FakeBot.sent_messages = []
+    monkeypatch.setattr(
+        "bot.handlers.youtube.download_and_send_task.delay",
+        lambda **kwargs: delayed.append(kwargs),
+    )
+
+    callback = FakeCallbackQuery("quality:1080")
+    await handle_quality_choice(callback, lang="ru")
+
+    assert delayed
+    assert delayed[0]["aspect_ratio"] == "9_16"
+    assert delayed[0]["quality"] == 1080
+    assert "9:16" in callback.message.text
+    assert callback.message.reply_markup is None
+
+
+async def test_shorts_link_forces_9_16_over_saved_ratio(monkeypatch, fake_redis, db_session):
+    from bot.services.user_settings import set_youtube_quality, set_youtube_ratio
+
+    await set_youtube_quality(20, "1080")
+    await set_youtube_ratio(20, "16_9")
+
+    delayed: list[dict] = []
+    message = FakeMessage(
+        "https://www.youtube.com/shorts/PuZXo75tdK8?feature=share"
+    )
+
+    monkeypatch.setattr(
+        "bot.handlers.group.download_and_send_task.delay",
+        lambda **kwargs: delayed.append(kwargs),
+    )
+
+    await handle_group_message(message, lang="en")
+
+    assert delayed
+    assert delayed[0]["quality"] == 1080
+    assert delayed[0]["aspect_ratio"] == "9_16"
+    assert "9:16" in message.replies[0]

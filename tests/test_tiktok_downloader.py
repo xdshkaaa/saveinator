@@ -5,7 +5,9 @@ from workers.tiktok_downloader import (
     TikTokPostType,
     _detect_post_type,
     _download_image,
+    _extract_metadata,
     _guess_extension,
+    _normalize_tiktok_title,
     download_tiktok,
 )
 
@@ -49,6 +51,49 @@ class TestTikTokDownloaderUtils:
 
     def test_guess_extension_unknown_ext(self):
         assert _guess_extension("https://example.com/image.gif") == ".gif"
+
+
+class TestNormalizeTiktokTitle:
+    def test_fallback_title_without_description(self):
+        assert _normalize_tiktok_title(
+            "TikTok video #7650199641878842638", ""
+        ) == ""
+
+    def test_fallback_title_case_insensitive(self):
+        assert _normalize_tiktok_title("tiktok video #123", "") == ""
+
+    def test_description_overrides_fallback_title(self):
+        assert _normalize_tiktok_title("TikTok video #123", "мой текст") == "мой текст"
+
+    def test_real_title_without_description(self):
+        assert _normalize_tiktok_title("нормальный title", "") == "нормальный title"
+
+    def test_empty_title_and_description(self):
+        assert _normalize_tiktok_title("", "") == ""
+
+
+class TestExtractMetadata:
+    def test_strips_ytdlp_fallback_title(self):
+        title, author, description = _extract_metadata(
+            {
+                "title": "TikTok video #7650199641878842638",
+                "description": "",
+                "uploader": "user",
+            }
+        )
+        assert title == ""
+        assert description == ""
+        assert author == "user"
+
+    def test_prefers_description_for_title(self):
+        title, _, description = _extract_metadata(
+            {
+                "title": "TikTok video #123",
+                "description": "caption text",
+            }
+        )
+        assert title == "caption text"
+        assert description == "caption text"
 
 
 def test_download_tiktok_carousel_max_images(monkeypatch, tmp_path):

@@ -342,6 +342,49 @@ def test_download_task_processes_youtube_with_quality_and_ratio(monkeypatch):
     assert sent_files[0][0].name == "video_16_9.mp4"
 
 
+def test_download_task_youtube_shorts_uses_vertical_format(monkeypatch):
+    fake_bot = FakeBot()
+    processed: list[tuple[str, int]] = []
+
+    def fake_download(url: str, output_dir: Path, format_id: str):
+        assert "width<=1080" in format_id
+        (output_dir / "video.mp4").write_bytes(b"video")
+        return {"title": "shorts-test"}
+
+    def fake_apply_aspect_ratio(path: Path, aspect_ratio: str, quality: int):
+        processed.append((aspect_ratio, quality))
+        output = path.with_name("video_9_16.mp4")
+        output.write_bytes(b"processed")
+        return output
+
+    async def fake_send_file(bot, path: Path, chat_id: int, lang: str, title: str, **_kwargs):
+        return "video"
+
+    async def fake_record_download_safe(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("workers.tasks.get_bot", lambda: fake_bot)
+    monkeypatch.setattr("workers.tasks.download", fake_download)
+    monkeypatch.setattr("workers.tasks.apply_aspect_ratio", fake_apply_aspect_ratio)
+    monkeypatch.setattr("workers.tasks.send_file", fake_send_file)
+    monkeypatch.setattr("workers.tasks._record_download_safe", fake_record_download_safe)
+    monkeypatch.setattr("workers.tasks._platform_download_timeout_seconds", lambda _platform: 0)
+    monkeypatch.setattr("workers.tasks.release_user_lock_sync", lambda *_args, **_kwargs: None)
+
+    download_and_send_task.run(
+        url="https://www.youtube.com/shorts/PuZXo75tdK8?feature=share",
+        platform="youtube",
+        chat_id=1,
+        user_id=2,
+        message_id=3,
+        lang="ru",
+        quality=1080,
+        aspect_ratio="9_16",
+    )
+
+    assert processed == [("9_16", 1080)]
+
+
 def test_x_single_image_sent_as_photo(monkeypatch):
     fake_bot = FakeBot()
     sent_files: list[tuple] = []

@@ -207,6 +207,30 @@ async def test_youtube_flow_respects_saved_quality_ratio(monkeypatch, fake_redis
     assert "16:9" in message.replies[0]
 
 
+async def test_shorts_flow_forces_9_16_despite_saved_ratio(monkeypatch, fake_redis, db_session):
+    """Shorts URLs always use 9:16, ignoring saved ratio preference."""
+    await set_youtube_quality(20, "1080")
+    await set_youtube_ratio(20, "16_9")
+
+    delayed: list[dict] = []
+    FakeBot.sent_messages = []
+    message = FakeMessage(
+        "https://www.youtube.com/shorts/PuZXo75tdK8?feature=share"
+    )
+
+    monkeypatch.setattr(
+        "bot.handlers.group.download_and_send_task.delay",
+        lambda **kwargs: delayed.append(kwargs),
+    )
+
+    await handle_group_message(message, lang="en")
+
+    assert delayed
+    assert delayed[0]["quality"] == 1080
+    assert delayed[0]["aspect_ratio"] == "9_16"
+    assert "9:16" in message.replies[0]
+
+
 async def test_youtube_flow_show_ratio_menu_when_quality_saved(monkeypatch, fake_redis, db_session):
     """When only quality is saved, skip quality menu and show ratio menu."""
     from bot.services.youtube_session import get_youtube_session

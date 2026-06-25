@@ -10,7 +10,7 @@ from bot.metrics import (
     SPOTIFY_REQUESTS_TOTAL,
     USER_QUEUE_REJECTED_TOTAL,
 )
-from bot.services.link_parser import extract_urls
+from bot.services.link_parser import extract_urls, is_youtube_shorts
 from bot.services.runtime_settings import soundcloud_max_tracks
 from bot.services.soundcloud_handler import handle_soundcloud_link
 from bot.services.spotify_handler import reply_spotify_link
@@ -165,6 +165,8 @@ async def handle_group_message(message: Message, lang: str = "en"):
             auto_quality = int(user_settings.youtube_quality)
         if user_settings.youtube_ratio != "ask":
             auto_ratio = user_settings.youtube_ratio
+        if is_youtube_shorts(url):
+            auto_ratio = "9_16"
 
         if auto_quality is not None and auto_ratio is not None:
             status_msg = await message.reply(

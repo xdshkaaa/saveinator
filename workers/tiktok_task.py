@@ -131,7 +131,7 @@ async def _run_tiktok_download(
 
                 video_path = Path(result.video_path)
                 size_mb = video_path.stat().st_size / (1024 * 1024)
-                title = result.title or "video"
+                title = result.title
 
                 if size_mb <= max_file_mb:
                     send_result = await send_file(
