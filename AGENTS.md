@@ -41,9 +41,37 @@ and `pyproject.toml`; this section only adds non-obvious cloud caveats.
   `users`. On PostgreSQL the upgrade fails (`relation "users" does not exist`); on the default
   SQLite it silently skips the missing FK and then fails at migration `0003` because that
   revision uses Postgres-only `JSONB`/`platform` enum. Treat this as an app-level migration gap.
+- For a working dev DB, bypass the incomplete migrations and build the full schema directly
+  from the models (handlers/middleware query `users`, so the DB must exist before the bot can
+  process messages). The models use `JSON().with_variant(JSONB, "postgresql")`, so this works
+  on SQLite too. Run a tiny async script:
+  ```python
+  import asyncio
+  from db.session import engine
+  from db.models import Base
+  async def main():
+      async with engine.begin() as conn:
+          await conn.run_sync(Base.metadata.create_all)
+      await engine.dispose()
+  asyncio.run(main())
+  ```
+  This creates all 8 tables (`users`, `chats`, `downloads`, `banned_links`, `user_settings`,
+  `broadcasts`, `broadcast_deliveries`, `music_release_metadata`) on `dev.db`.
 - PostgreSQL 16 is installed; start it with `sudo pg_ctlcluster 16 main start`. A `saveinator`
   role/db (password `saveinator`) exists, matching `docker-compose.dev.yml`. Use
   `DATABASE_URL=postgresql+asyncpg://saveinator:saveinator@localhost:5432/saveinator`.
+
+### Live bot / shared token caveat
+- The `BOT_TOKEN` secret points at a real bot (`@saveinator_bot`) that already has another
+  long-running instance consuming its updates. Running `bot.main` in polling mode therefore
+  hits `TelegramConflictError: terminated by other getUpdates request`. Only one poller may
+  own a token's update stream at a time, so do NOT leave a dev poller running against a shared
+  token. The bot process itself still starts correctly and registers commands with Telegram on
+  startup (verify with the Telegram `getMyCommands` API).
+- To exercise handler/DB logic without fighting the other poller (or needing a human to DM the
+  bot), feed synthetic `Update` objects straight into the dispatcher:
+  `dp.feed_update(bot, Update.model_validate({...}, context={"bot": bot}))`. Sends to a
+  non-existent chat return `Bad Request: chat not found` (expected); DB writes still commit.
 
 ### Tests
 - `uv run pytest -q` runs the suite. 12 tests fail on a clean checkout due to stale test
