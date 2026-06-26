@@ -78,6 +78,50 @@ func (c *Client) AllowRateLimit(ctx context.Context, scope string, id int64, lim
 	return countCmd.Val() < int64(limit), nil
 }
 
+type ActiveDownload struct {
+	UserID   int64
+	Scenario string
+	Token    string
+}
+
+func (c *Client) GetActiveDownload(ctx context.Context, userID int64) (*ActiveDownload, error) {
+	key := fmt.Sprintf("%s:%d", lockPrefix, userID)
+	val, err := c.rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	parts := strings.SplitN(val, ":", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return nil, nil
+	}
+	return &ActiveDownload{UserID: userID, Scenario: parts[0], Token: parts[1]}, nil
+}
+
+const cancelPrefix = "download:cancel"
+
+func (c *Client) SetDownloadCancelled(ctx context.Context, scenario string, userID int64, token string, ttl time.Duration) error {
+	key := fmt.Sprintf("%s:%s:%d:%s", cancelPrefix, scenario, userID, token)
+	return c.rdb.Set(ctx, key, "1", ttl).Err()
+}
+
+func (c *Client) IsDownloadCancelled(ctx context.Context, scenario string, userID int64, token string) (bool, error) {
+	key := fmt.Sprintf("%s:%s:%d:%s", cancelPrefix, scenario, userID, token)
+	n, err := c.rdb.Exists(ctx, key).Result()
+	return n > 0, err
+}
+
+func (c *Client) TryAcquireReleaseLock(ctx context.Context, key string, ttl time.Duration) (bool, error) {
+	ok, err := c.rdb.SetNX(ctx, key, "1", ttl).Result()
+	return ok, err
+}
+
+func (c *Client) ReleaseReleaseLock(ctx context.Context, key string) error {
+	return c.rdb.Del(ctx, key).Err()
+}
+
 func ParseRedisAddr(redisURL string) (string, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {

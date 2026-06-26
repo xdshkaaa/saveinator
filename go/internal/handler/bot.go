@@ -11,12 +11,15 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 
+	"saveinator/internal/cancel"
 	"saveinator/internal/config"
 	"saveinator/internal/db"
 	"saveinator/internal/linkparser"
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
+	"saveinator/internal/soundcloud"
+	"saveinator/internal/spotify"
 	"saveinator/internal/youtube"
 )
 
@@ -26,6 +29,8 @@ type Bot struct {
 	redis      *redisx.Client
 	q          *queue.Client
 	ytSessions *youtube.SessionStore
+	spotify    *spotify.Client
+	soundcloud *soundcloud.Client
 }
 
 func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.Client) *Bot {
@@ -35,6 +40,8 @@ func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.C
 		redis:      redis,
 		q:          q,
 		ytSessions: youtube.NewSessionStore(redis.Raw()),
+		spotify:    spotify.NewClient(cfg.SpotifyClientID, cfg.SpotifyClientSecret, cfg.SpotifyAPITimeoutSeconds),
+		soundcloud: soundcloud.NewClient(cfg.SoundCloudTrackTimeoutSeconds, cfg.SoundCloudMaxTracks),
 	}
 }
 
@@ -45,6 +52,8 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onQualityChoice(bot), th.CallbackDataPrefix("quality:"))
 	h.HandleCallbackQueryCtx(b.onRatioChoice(bot), th.CallbackDataPrefix("ratio:"))
 	h.HandleCallbackQueryCtx(b.onSettingsCallback(bot), th.CallbackDataPrefix("settings|"))
+	h.HandleCallbackQueryCtx(b.onCancelDownload(bot), th.CallbackDataPrefix("dlc:"))
+	h.HandleCallbackQueryCtx(b.onDownloadQueue(bot), th.CallbackDataPrefix("dlq:"))
 	h.HandleMessageCtx(b.onText(bot), th.AnyMessage())
 }
 
@@ -127,8 +136,10 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 		link := links[0]
 
 		switch link.Platform {
-		case linkparser.PlatformSpotify, linkparser.PlatformSoundCloud:
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+		case linkparser.PlatformSpotify:
+			b.handleSpotifyLink(ctx, bot, msg, lang, link)
+		case linkparser.PlatformSoundCloud:
+			b.handleSoundCloudLink(ctx, bot, msg, lang, link.URL)
 		case linkparser.PlatformPinterest:
 			if !b.cfg.PinterestEnabled {
 				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
@@ -153,11 +164,13 @@ func (b *Bot) enqueue(ctx context.Context, bot *telego.Bot, msg telego.Message, 
 		return err
 	}
 	if !ok {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.busy", lang, nil)))
+		b.replyBusy(ctx, bot, msg, lang)
 		return nil
 	}
 
-	status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)))
+	status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)).WithReplyMarkup(
+		cancel.Keyboard(lang, scene, msg.From.ID, token),
+	))
 	if err != nil {
 		_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, scene, token)
 		return err
@@ -238,4 +251,21 @@ func lockTTL(cfg *config.Settings, scene string) time.Duration {
 	}
 	_ = scene
 	return base + 30*time.Second
+}
+
+func musicLockTTL(cfg *config.Settings, scene string, trackCount int) time.Duration {
+	if trackCount < 1 {
+		trackCount = 1
+	}
+	buffer := 90 * time.Second
+	switch scene {
+	case "spotify":
+		perTrack := time.Duration(cfg.SpotifyTrackTimeoutSeconds) * time.Second
+		return perTrack*time.Duration(trackCount) + buffer
+	case "soundcloud":
+		perTrack := time.Duration(cfg.SoundCloudTrackTimeoutSeconds) * time.Second
+		return perTrack*time.Duration(trackCount) + buffer
+	default:
+		return lockTTL(cfg, scene)
+	}
 }

@@ -29,6 +29,16 @@ func (t *Telegram) EditMessage(chatID int64, messageID int, text string) error {
 	return err
 }
 
+func (t *Telegram) EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
+	_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{
+		ChatID:      tu.ID(chatID),
+		MessageID:   messageID,
+		Text:        text,
+		ReplyMarkup: markup,
+	})
+	return err
+}
+
 func (t *Telegram) DeleteMessage(chatID int64, messageID int) error {
 	return t.bot.DeleteMessage(&telego.DeleteMessageParams{
 		ChatID:    tu.ID(chatID),
@@ -146,18 +156,25 @@ func openInputFile(path string) (*inputFileHandle, error) {
 	}, nil
 }
 
-func (t *Telegram) SendAudio(chatID int64, path, caption string) error {
+func (t *Telegram) SendAudio(chatID int64, path, title, performer string, duration int) error {
 	file, err := openInputFile(path)
 	if err != nil {
 		return err
 	}
 	defer file.close()
 
-	_, err = t.bot.SendAudio(&telego.SendAudioParams{
-		ChatID:  tu.ID(chatID),
-		Audio:   file.input,
-		Caption: caption,
-	})
+	params := &telego.SendAudioParams{
+		ChatID: tu.ID(chatID),
+		Audio:  file.input,
+		Title:  title,
+	}
+	if performer != "" {
+		params.Performer = performer
+	}
+	if duration > 0 {
+		params.Duration = duration
+	}
+	_, err = t.bot.SendAudio(params)
 	return err
 }
 

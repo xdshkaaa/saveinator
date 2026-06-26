@@ -133,7 +133,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		}
 		_ = h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption)
 		if result.AudioPath != "" {
-			_ = h.sender.SendAudio(p.ChatID, result.AudioPath, caption)
+			_ = h.sender.SendAudio(p.ChatID, result.AudioPath, result.Title, result.Author, 0)
 		}
 	case tiktok.PostTypeVideo:
 		if result.VideoPath == "" {
