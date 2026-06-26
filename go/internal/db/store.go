@@ -75,3 +75,76 @@ func nullable(s string) any {
 	}
 	return s
 }
+
+type UserSettings struct {
+	YouTubeQuality string
+	YouTubeRatio   string
+}
+
+func (s *Store) GetOrCreateUserSettings(ctx context.Context, userID int64) (UserSettings, error) {
+	var settings UserSettings
+	err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE(youtube_quality, 'ask'), COALESCE(youtube_ratio, 'ask')
+		FROM user_settings WHERE user_id = $1
+	`, userID).Scan(&settings.YouTubeQuality, &settings.YouTubeRatio)
+	if err == nil {
+		return settings, nil
+	}
+
+	_, err = s.pool.Exec(ctx, `INSERT INTO users (id, created_at) VALUES ($1, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
+	if err != nil {
+		return settings, err
+	}
+	_, err = s.pool.Exec(ctx, `
+		INSERT INTO user_settings (user_id, youtube_quality, youtube_ratio)
+		VALUES ($1, 'ask', 'ask')
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
+	if err != nil {
+		return settings, err
+	}
+	return UserSettings{YouTubeQuality: "ask", YouTubeRatio: "ask"}, nil
+}
+
+func (s *Store) SetUserLanguage(ctx context.Context, userID int64, lang string) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO users (id, language, created_at)
+		VALUES ($1, $2::language, $3)
+		ON CONFLICT (id) DO UPDATE SET language = EXCLUDED.language
+	`, userID, lang, time.Now().UTC())
+	return err
+}
+
+func (s *Store) SetYouTubeQuality(ctx context.Context, userID int64, quality string) error {
+	return s.upsertSetting(ctx, userID, "youtube_quality", quality)
+}
+
+func (s *Store) SetYouTubeRatio(ctx context.Context, userID int64, ratio string) error {
+	return s.upsertSetting(ctx, userID, "youtube_ratio", ratio)
+}
+
+func (s *Store) ResetUserSettings(ctx context.Context, userID int64) error {
+	if _, err := s.pool.Exec(ctx, `UPDATE users SET language = 'en'::language WHERE id = $1`, userID); err != nil {
+		return err
+	}
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO user_settings (user_id, youtube_quality, youtube_ratio)
+		VALUES ($1, 'ask', 'ask')
+		ON CONFLICT (user_id) DO UPDATE SET youtube_quality = 'ask', youtube_ratio = 'ask'
+	`, userID)
+	return err
+}
+
+func (s *Store) upsertSetting(ctx context.Context, userID int64, column, value string) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO users (id, created_at) VALUES ($1, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	query := fmt.Sprintf(`
+		INSERT INTO user_settings (user_id, %s) VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE SET %s = EXCLUDED.%s
+	`, column, column, column)
+	_, err = s.pool.Exec(ctx, query, userID, value)
+	return err
+}
+

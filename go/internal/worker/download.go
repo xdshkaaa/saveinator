@@ -18,7 +18,9 @@ import (
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
 	"saveinator/internal/sender"
+	"saveinator/internal/video"
 	"saveinator/internal/ytdlp"
+	"saveinator/internal/youtube"
 )
 
 type Handler struct {
@@ -50,6 +52,9 @@ func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	defer h.releaseLock(ctx, p)
+	if p.Platform == "youtube" && p.Quality > 0 && p.AspectRatio != "" {
+		return h.runYouTubeDownload(ctx, p)
+	}
 	return h.runDownload(ctx, p)
 }
 
@@ -68,6 +73,61 @@ func (h *Handler) releaseLock(ctx context.Context, p queue.DownloadPayload) {
 		return
 	}
 	_ = h.redis.ReleaseUserLock(ctx, p.UserID, p.LockScene, p.LockToken)
+}
+
+func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayload) error {
+	lang := p.Lang
+	if lang == "" {
+		lang = "en"
+	}
+
+	taskDir, err := os.MkdirTemp("", "saveinator-yt-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(taskDir)
+
+	timeout := time.Duration(h.cfg.YouTubeDownloadTimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 10 * time.Minute
+	}
+	dlCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	format := p.FormatID
+	if format == "" {
+		format = youtube.BuildFormat(p.Quality, p.AspectRatio)
+	}
+
+	if err := ytdlp.Download(dlCtx, p.URL, taskDir, ytdlp.Options{
+		FormatID: format,
+		Platform: "youtube",
+		Timeout:  timeout,
+	}); err != nil {
+		slog.Warn("youtube download failed", "url", p.URL, "err", err)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.timeout", lang, nil))
+		return nil
+	}
+
+	files, err := ytdlp.FindMediaFiles(taskDir)
+	if err != nil {
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+		return nil
+	}
+	sourceVideo := ytdlp.LargestVideo(files)
+	if sourceVideo == "" {
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+		return nil
+	}
+
+	processed, err := video.ApplyAspectRatio(dlCtx, sourceVideo, p.AspectRatio, p.Quality)
+	if err != nil {
+		slog.Warn("youtube transcode failed", "err", err)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+		return nil
+	}
+
+	return h.sendVideoResult(ctx, p, processed, lang)
 }
 
 func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) error {
@@ -117,8 +177,8 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	}
 
 	images := ytdlp.ImageFiles(files)
-	video := ytdlp.LargestVideo(files)
-	if video == "" && len(images) > 0 {
+	sourceVideo := ytdlp.LargestVideo(files)
+	if sourceVideo == "" && len(images) > 0 {
 		caption := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
 		if err := h.sender.SendPhotoAlbum(p.ChatID, images, caption); err != nil {
 			slog.Warn("send album failed", "err", err)
@@ -128,12 +188,16 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		return nil
 	}
 
-	if video == "" {
+	if sourceVideo == "" {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 		return nil
 	}
 
-	sizeMB := float64(fileSize(video)) / (1024 * 1024)
+	return h.sendVideoResult(ctx, p, sourceVideo, lang)
+}
+
+func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, videoPath, lang string) error {
+	sizeMB := float64(fileSize(videoPath)) / (1024 * 1024)
 	limit := float64(h.maxFileMB(p.Platform))
 	if sizeMB > limit {
 		msg := locale.Get("download.too_large", lang, map[string]string{
@@ -145,9 +209,9 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		return nil
 	}
 
-	title := filepath.Base(video)
-	animation := p.Platform == "x" && !ytdlp.HasAudioStream(video)
-	if err := h.sender.SendFile(p.ChatID, video, title, lang, p.Platform, animation); err != nil {
+	title := filepath.Base(videoPath)
+	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
+	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {
 		slog.Warn("send file failed", "err", err)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 		return nil

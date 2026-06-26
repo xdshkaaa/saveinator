@@ -22,8 +22,10 @@ type DownloadPayload struct {
 	Lang       string `json:"lang"`
 	LockToken  string `json:"lock_token"`
 	LockScene  string `json:"lock_scene"`
-	XStatusID  string `json:"x_status_id,omitempty"`
-	FormatID   string `json:"format_id,omitempty"`
+	XStatusID   string `json:"x_status_id,omitempty"`
+	FormatID    string `json:"format_id,omitempty"`
+	Quality     int    `json:"quality,omitempty"`
+	AspectRatio string `json:"aspect_ratio,omitempty"`
 }
 
 type Client struct {
