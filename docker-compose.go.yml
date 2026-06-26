@@ -1,0 +1,78 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: saveinator
+      POSTGRES_USER: saveinator
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - max_connections=50
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saveinator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  saveinator:
+    build:
+      context: .
+      dockerfile: docker/go/Dockerfile
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
+      REDIS_URL: redis://redis:6379/0
+      SAVEINATOR_MODE: all
+      USE_POLLING: "${USE_POLLING:-false}"
+      WEBHOOK_HOST: "${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}"
+      WEBHOOK_PATH: "${WEBHOOK_PATH:-/webhook}"
+      WEBHOOK_PORT: "${WEBHOOK_PORT:-8000}"
+      WEBHOOK_LISTEN: "${WEBHOOK_LISTEN:-0.0.0.0}"
+      WEBHOOK_SECRET_TOKEN: "${WEBHOOK_SECRET_TOKEN:-}"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DOWNLOAD_TIMEOUT_SECONDS: ${DOWNLOAD_TIMEOUT_SECONDS:-60}
+      SEND_VIDEO_LIMIT_MB: ${SEND_VIDEO_LIMIT_MB:-50}
+      SEND_DOCUMENT_LIMIT_MB: ${SEND_DOCUMENT_LIMIT_MB:-1999}
+      YOUTUBE_MAX_FILE_SIZE_MB: ${YOUTUBE_MAX_FILE_SIZE_MB:-1999}
+      TIKTOK_COOKIES_PATH: ${TIKTOK_COOKIES_PATH:-/secrets/tiktok_cookies.txt}
+      INSTAGRAM_COOKIES_PATH: ${INSTAGRAM_COOKIES_PATH:-/secrets/instagram_cookies.txt}
+      PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PORT: "9101"
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:9101:9101"
+    volumes:
+      - ./secrets:/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+volumes:
+  pgdata:
