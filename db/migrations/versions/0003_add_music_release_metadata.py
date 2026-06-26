@@ -7,7 +7,7 @@ Create Date: 2026-06-26
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 
 
 revision: str = "0003"
@@ -15,7 +15,7 @@ down_revision: Union[str, None] = "0002"
 branch_labels: Union[str, None] = None
 depends_on: Union[str, None] = None
 
-platform_enum = sa.Enum(
+platform_enum = ENUM(
     "youtube",
     "tiktok",
     "instagram",

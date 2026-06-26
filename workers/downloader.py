@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 
 import yt_dlp
 
+from bot.config import settings
+
 logger = logging.getLogger(__name__)
 
 _YTDLP_COMMON_OPTS: dict = {
@@ -31,7 +33,7 @@ class XTargetReplyNoMediaError(Exception):
     """Target X/Twitter reply tweet contains no downloadable media."""
 
 
-def build_ydl_opts(output_dir: Path, format_id: str | None = None) -> dict:
+def build_ydl_opts(output_dir: Path, format_id: str | None = None, *, platform: str | None = None) -> dict:
     opts: dict = {
         **_YTDLP_COMMON_OPTS,
         "outtmpl": str(output_dir / "%(title).100s_%(id)s.%(ext)s"),
@@ -39,11 +41,27 @@ def build_ydl_opts(output_dir: Path, format_id: str | None = None) -> dict:
     if format_id:
         opts["format"] = format_id
         opts["merge_output_format"] = "mp4"
+
+    _add_platform_cookies(opts, platform)
     return opts
 
 
-def download(url: str, output_dir: Path, format_id: str) -> dict:
-    opts = build_ydl_opts(output_dir, format_id=format_id)
+def _add_platform_cookies(opts: dict, platform: str | None) -> None:
+    """Add cookie file or browser cookies to yt-dlp opts for a platform."""
+    if platform == "instagram":
+        cookie_path = settings.instagram_cookies_path.strip()
+        browser = settings.instagram_cookies_from_browser.strip()
+    else:
+        return
+
+    if cookie_path:
+        opts["cookiefile"] = cookie_path
+    elif browser:
+        opts["cookiesfrombrowser"] = (browser,)
+
+
+def download(url: str, output_dir: Path, format_id: str, *, platform: str | None = None) -> dict:
+    opts = build_ydl_opts(output_dir, format_id=format_id, platform=platform)
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=True)

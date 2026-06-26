@@ -61,7 +61,7 @@ def _download_platform_media(
     try:
         if x_status_id:
             return download_with_reply_filter(url, output_dir, format_id, x_status_id)
-        return download(url, output_dir, format_id)
+        return download(url, output_dir, format_id, platform=platform)
     except XTargetReplyNoMediaError:
         if platform != "x":
             raise

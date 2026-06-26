@@ -157,7 +157,8 @@ async def test_soundcloud_downloads_tracks_when_enabled(monkeypatch, tmp_path: P
         AsyncMock(return_value=release),
     )
 
-    async def _download_one_track(index, track, task_dir, settings, semaphore):
+    async def _download_one_track(index, track, task_dir, settings, semaphore, on_download_start):
+        await on_download_start(index, track)
         return _TrackDownloadResult(
             index=index,
             track=track,
@@ -201,7 +202,9 @@ async def test_soundcloud_downloads_tracks_when_enabled(monkeypatch, tmp_path: P
     assert message.bot.sent_audio
     assert message.bot.sent_audio[0]["thumbnail"] == "cover-thumbnail"
     assert "Finished: 1/1 tracks sent." in message.replies[1].edited_texts[-1]
-    assert message.replies[1].texts[0] == "Downloading 1 track(s)..."
+    assert message.replies[1].texts[0] == "Starting download: 1 track(s)"
+    assert "Downloading 1/1: Track One" in message.replies[1].edited_texts
+    assert "Sending 1/1: Track One" in message.replies[1].edited_texts
     assert message.replies[1].reply_markups[0] is not None
     button = message.replies[1].reply_markups[0].inline_keyboard[0][0]
     assert button.text == "Cancel"

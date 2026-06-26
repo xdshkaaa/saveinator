@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     instagram_allow_posts: bool = True
     instagram_allow_stories: bool = True
     instagram_fallback_to_document: bool = True
+    instagram_cookies_path: str = ""
+    instagram_cookies_from_browser: str = "chrome"
+    instagram_cookies_refresh_enabled: bool = True
+    instagram_cookies_refresh_url: str = "https://www.instagram.com/reel/DaAl-AKqLRF/"
 
     x_max_items_per_post: int = 4
     x_allow_gif: bool = True
@@ -70,7 +74,7 @@ class Settings(BaseSettings):
     spotify_track_timeout_seconds: int = 60
     spotify_dl_output_format: str = "mp3"
     spotify_lock_max_tracks: int = 50
-    spotify_download_concurrency: int = 1
+    spotify_download_concurrency: int = 2
     spotify_meta_cache_ttl_seconds: int = 3600
     youtube_search_cache_ttl_seconds: int = 604800
 
