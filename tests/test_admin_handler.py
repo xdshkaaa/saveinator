@@ -7,6 +7,7 @@ from aiogram.types import InlineKeyboardMarkup
 
 from bot.handlers.admin import AdminEdit, _main_keyboard, admin_stats, cmd_admin, cmd_stats
 from bot.config import Settings
+from bot.services.runtime_settings import SERVICE_ORDER
 
 
 @pytest.fixture
@@ -102,6 +103,26 @@ async def test_main_keyboard_includes_users_button(admin_settings):
     keyboard = _main_keyboard("en")
     labels = [button.text for row in keyboard.inline_keyboard for button in row]
     assert any("Users" in label for label in labels)
+
+
+async def test_main_keyboard_two_column_layout(admin_settings):
+    keyboard = _main_keyboard("en")
+    rows = keyboard.inline_keyboard
+
+    assert len(rows) == 6
+    assert all(1 <= len(row) <= 2 for row in rows)
+    assert all(len(row) == 2 for row in rows[:-1])
+
+    callbacks = [button.callback_data for row in rows for button in row]
+    expected = [
+        *[f"admin|svc|{service}" for service in SERVICE_ORDER],
+        "admin|svc|global",
+        "admin|broadcasts",
+        "admin|stats",
+        "admin|bans",
+        "admin|confirm|reset_all",
+    ]
+    assert callbacks == expected
 
 
 class FakeCallbackMessage:
