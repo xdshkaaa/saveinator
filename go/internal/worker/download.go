@@ -45,6 +45,8 @@ func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypeDownload, h.handleDownload)
 	mux.HandleFunc(queue.TypeTikTok, h.handleTikTok)
 	mux.HandleFunc(queue.TypePinterest, h.handlePinterest)
+	mux.HandleFunc(queue.TypeSpotify, h.handleSpotify)
+	mux.HandleFunc(queue.TypeSoundCloud, h.handleSoundCloud)
 }
 
 func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
@@ -53,6 +55,9 @@ func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	defer h.releaseLock(ctx, p)
+	if h.checkCancelled(ctx, p) {
+		return nil
+	}
 	if p.Platform == "youtube" && p.Quality > 0 && p.AspectRatio != "" {
 		return h.runYouTubeDownload(ctx, p)
 	}
@@ -66,7 +71,26 @@ func (h *Handler) handleTikTok(ctx context.Context, t *asynq.Task) error {
 	}
 	p.Platform = "tiktok"
 	defer h.releaseLock(ctx, p)
+	if h.checkCancelled(ctx, p) {
+		return nil
+	}
 	return h.runTikTok(ctx, p)
+}
+
+func (h *Handler) checkCancelled(ctx context.Context, p queue.DownloadPayload) bool {
+	if p.LockToken == "" || p.LockScene == "" {
+		return false
+	}
+	cancelled, err := h.redis.IsDownloadCancelled(ctx, p.LockScene, p.UserID, p.LockToken)
+	if err != nil || !cancelled {
+		return false
+	}
+	lang := p.Lang
+	if lang == "" {
+		lang = "en"
+	}
+	_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, locale.Get("download.cancelled", lang, nil), nil)
+	return true
 }
 
 func (h *Handler) releaseLock(ctx context.Context, p queue.DownloadPayload) {

@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	TypeDownload   = "download:send"
-	TypeTikTok     = "download:tiktok"
-	TypePinterest  = "download:pinterest"
+	TypeDownload    = "download:send"
+	TypeTikTok      = "download:tiktok"
+	TypePinterest   = "download:pinterest"
+	TypeSpotify     = "download:spotify"
+	TypeSoundCloud  = "download:soundcloud"
 )
 
 type DownloadPayload struct {
@@ -27,6 +29,20 @@ type DownloadPayload struct {
 	FormatID    string `json:"format_id,omitempty"`
 	Quality     int    `json:"quality,omitempty"`
 	AspectRatio string `json:"aspect_ratio,omitempty"`
+}
+
+type MusicPayload struct {
+	Platform   string `json:"platform"`
+	ChatID     int64  `json:"chat_id"`
+	UserID     int64  `json:"user_id"`
+	MessageID  int    `json:"message_id"`
+	Lang       string `json:"lang"`
+	LockToken  string `json:"lock_token"`
+	LockScene  string `json:"lock_scene"`
+	LinkType   string `json:"link_type,omitempty"`
+	ResourceID string `json:"resource_id,omitempty"`
+	SourceURL  string `json:"source_url,omitempty"`
+	ReleaseJSON string `json:"release_json"`
 }
 
 type Client struct {
@@ -72,6 +88,26 @@ func (c *Client) EnqueueTikTok(p DownloadPayload) error {
 	}
 	task := asynq.NewTask(TypeTikTok, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	return err
+}
+
+func (c *Client) EnqueueSpotify(p MusicPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeSpotify, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	return err
+}
+
+func (c *Client) EnqueueSoundCloud(p MusicPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeSoundCloud, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
 	return err
 }
 

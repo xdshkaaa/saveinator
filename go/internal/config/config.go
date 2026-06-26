@@ -43,6 +43,23 @@ type Settings struct {
 	TikTokCarouselMaxItems    int
 	TikTokCarouselAudioEnabled bool
 
+	SpotifyEnabled              bool
+	SpotifyClientID             string
+	SpotifyClientSecret         string
+	SpotifyAPITimeoutSeconds    int
+	SpotifyDownloadEnabled      bool
+	SpotifyTrackTimeoutSeconds  int
+	SpotifyDLOutputFormat       string
+	SpotifyLockMaxTracks        int
+	SpotifyDownloadConcurrency  int
+
+	SoundCloudEnabled             bool
+	SoundCloudDownloadEnabled     bool
+	SoundCloudTrackTimeoutSeconds int
+	SoundCloudMaxTracks           int
+	SoundCloudDLOutputFormat      string
+	SoundCloudDownloadConcurrency int
+
 	MetricsEnabled bool
 	MetricsHost    string
 	MetricsPort    int
@@ -83,6 +100,21 @@ func Load() (*Settings, error) {
 		PinterestCookiesPath:     env("PINTEREST_COOKIES_PATH", ""),
 		TikTokCarouselMaxItems:    envInt("TIKTOK_CAROUSEL_MAX_ITEMS", 20),
 		TikTokCarouselAudioEnabled: envBool("TIKTOK_CAROUSEL_AUDIO_ENABLED", true),
+		SpotifyEnabled:              envBool("SPOTIFY_ENABLED", false),
+		SpotifyClientID:             os.Getenv("SPOTIFY_CLIENT_ID"),
+		SpotifyClientSecret:         os.Getenv("SPOTIFY_CLIENT_SECRET"),
+		SpotifyAPITimeoutSeconds:    envInt("SPOTIFY_API_TIMEOUT_SECONDS", 15),
+		SpotifyDownloadEnabled:      envBool("SPOTIFY_DOWNLOAD_ENABLED", true),
+		SpotifyTrackTimeoutSeconds:  envInt("SPOTIFY_TRACK_TIMEOUT_SECONDS", 60),
+		SpotifyDLOutputFormat:       env("SPOTIFY_DL_OUTPUT_FORMAT", "mp3"),
+		SpotifyLockMaxTracks:        envInt("SPOTIFY_LOCK_MAX_TRACKS", 50),
+		SpotifyDownloadConcurrency:  envInt("SPOTIFY_DOWNLOAD_CONCURRENCY", 2),
+		SoundCloudEnabled:             envBool("SOUNDCLOUD_ENABLED", true),
+		SoundCloudDownloadEnabled:     envBool("SOUNDCLOUD_DOWNLOAD_ENABLED", false),
+		SoundCloudTrackTimeoutSeconds: envInt("SOUNDCLOUD_TRACK_TIMEOUT_SECONDS", 30),
+		SoundCloudMaxTracks:           envInt("SOUNDCLOUD_MAX_TRACKS", 100),
+		SoundCloudDLOutputFormat:      env("SOUNDCLOUD_DL_OUTPUT_FORMAT", "mp3"),
+		SoundCloudDownloadConcurrency: envInt("SOUNDCLOUD_DOWNLOAD_CONCURRENCY", 1),
 		MetricsEnabled:         envBool("METRICS_ENABLED", true),
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),
