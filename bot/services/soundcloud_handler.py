@@ -48,6 +48,7 @@ from bot.services.download_cancel import (
     register_download_task,
     unregister_download_task,
 )
+from bot.services.music_download_progress import edit_download_status, run_ordered_release_download
 
 logger = structlog.get_logger()
 
@@ -58,13 +59,6 @@ async def _reply_status(message: Message, text: str, reply_markup=None):
     if reply_markup is None:
         return await message.reply(text)
     return await message.reply(text, reply_markup=reply_markup)
-
-
-async def _edit_status(status_msg, text: str, reply_markup=None, *, clear_markup: bool = False) -> None:
-    if reply_markup is not None or clear_markup:
-        await status_msg.edit_text(text, reply_markup=reply_markup)
-    else:
-        await status_msg.edit_text(text)
 
 
 def _release_download_lock_key(url: str) -> str:
@@ -125,12 +119,14 @@ async def _download_one_track(
     task_dir,
     settings: Settings,
     semaphore: asyncio.Semaphore,
+    on_download_start,
 ) -> _TrackDownloadResult:
     track_dir = task_dir / f"track-{index}"
     track_dir.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     try:
         async with semaphore:
+            await on_download_start(index, track)
             audio_path = await asyncio.to_thread(download_track, track, track_dir, settings)
         SOUNDCLOUD_DOWNLOAD_DURATION_SECONDS.observe(time.monotonic() - start)
         return _TrackDownloadResult(index=index, track=track, audio_path=str(audio_path), error=None)
@@ -184,65 +180,52 @@ async def _send_downloaded_tracks(
     try:
         with tempfile_manager(task_id) as task_dir:
             thumbnail = await fetch_audio_thumbnail(release.artwork_url, task_dir, "soundcloud-cover")
-            download_tasks = [
-                _download_one_track(index, track, task_dir, settings, semaphore)
-                for index, track in enumerate(tracks, start=1)
-            ]
-            results = await asyncio.gather(*download_tasks, return_exceptions=True)
 
-            sent = 0
-            for raw_result in sorted(
-                (result for result in results if isinstance(result, _TrackDownloadResult)),
-                key=lambda item: item.index,
-            ):
-                if raw_result.error is not None or raw_result.audio_path is None:
-                    continue
-
+            async def send_track(result: _TrackDownloadResult) -> bool:
                 send_kwargs: dict = {
                     "chat_id": message.chat.id,
-                    "audio": FSInputFile(raw_result.audio_path),
-                    "title": raw_result.track.title,
-                    "performer": raw_result.track.artist,
+                    "audio": FSInputFile(result.audio_path),
+                    "title": result.track.title,
+                    "performer": result.track.artist,
                 }
                 if thumbnail is not None:
                     send_kwargs["thumbnail"] = thumbnail
-                if raw_result.track.duration_ms:
-                    send_kwargs["duration"] = raw_result.track.duration_ms // 1000
+                if result.track.duration_ms:
+                    send_kwargs["duration"] = result.track.duration_ms // 1000
 
                 try:
                     await send_audio_with_thumbnail_fallback(bot, **send_kwargs)
                     SOUNDCLOUD_DOWNLOADS_SUCCESS_TOTAL.inc()
+                    return True
                 except Exception:
                     logger.exception(
                         "soundcloud send_audio failed",
-                        title=raw_result.track.title,
-                        path=raw_result.audio_path,
+                        title=result.track.title,
+                        path=result.audio_path,
                     )
-                    continue
+                    return False
 
-                sent += 1
-                try:
-                    await _edit_status(
-                        status_msg,
-                        get("soundcloud.download_progress", lang, current=sent, total=len(tracks)),
-                        reply_markup=cancel_keyboard,
-                    )
-                except Exception:
-                    logger.warning("soundcloud progress message edit failed", exc_info=True)
-
-            for raw_result in results:
-                if isinstance(raw_result, Exception):
-                    logger.exception("unexpected soundcloud track download task failure", error=raw_result)
+            sent, _results = await run_ordered_release_download(
+                tracks=tracks,
+                status_msg=status_msg,
+                lang=lang,
+                locale_prefix="soundcloud",
+                cancel_keyboard=cancel_keyboard,
+                download_fn=lambda index, track, on_download_start: _download_one_track(
+                    index, track, task_dir, settings, semaphore, on_download_start
+                ),
+                send_fn=send_track,
+            )
 
             try:
                 if sent == 0:
-                    await _edit_status(
+                    await edit_download_status(
                         status_msg,
                         get("soundcloud.download_failed", lang),
                         clear_markup=cancel_keyboard is not None,
                     )
                 else:
-                    await _edit_status(
+                    await edit_download_status(
                         status_msg,
                         get("soundcloud.download_done", lang, count=sent, total=len(tracks)),
                         clear_markup=cancel_keyboard is not None,
@@ -255,7 +238,7 @@ async def _send_downloaded_tracks(
     except Exception:
         logger.exception("soundcloud download flow failed", url=soundcloud_link.url)
         try:
-            await _edit_status(
+            await edit_download_status(
                 status_msg,
                 get("soundcloud.download_failed", lang),
                 clear_markup=cancel_keyboard is not None,

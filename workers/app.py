@@ -24,7 +24,7 @@ app = Celery(
     "saveinator",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["workers.tasks", "workers.tiktok_task", "workers.pinterest_task", "workers.broadcast_task"],
+    include=["workers.tasks", "workers.tiktok_task", "workers.instagram_task", "workers.pinterest_task", "workers.broadcast_task"],
 )
 
 app.conf.update(
@@ -43,6 +43,10 @@ app.conf.update(
         },
         "tiktok-refresh-cookies": {
             "task": "workers.tiktok_task.tiktok_refresh_cookies_task",
+            "schedule": 300.0,
+        },
+        "instagram-refresh-cookies": {
+            "task": "workers.instagram_task.instagram_refresh_cookies_task",
             "schedule": 300.0,
         },
     },

@@ -191,8 +191,9 @@ async def test_spotify_downloads_tracks_via_youtube(monkeypatch, tmp_path: Path)
         return release
 
     monkeypatch.setattr("bot.services.spotify_handler.fetch_release", _fetch_release)
-    async def _download_track_audio(track, track_dir, settings_obj, semaphore):
+    async def _download_track_audio(index, track, track_dir, settings_obj, semaphore, on_download_start):
         async with semaphore:
+            await on_download_start(index, track)
             return str(audio_path)
 
     monkeypatch.setattr(
@@ -235,8 +236,9 @@ async def test_spotify_downloads_tracks_via_youtube(monkeypatch, tmp_path: Path)
     assert message.bot.sent_audio
     assert message.bot.sent_audio[0]["thumbnail"] == "cover-thumbnail"
     assert "Finished: 1/1 tracks sent." in message.replies[1].edited_texts[-1]
-    assert "spotify-dl" not in message.replies[1].texts[0].lower()
-    assert message.replies[1].texts[0] == "Downloading 1 track(s)..."
+    assert message.replies[1].texts[0] == "Starting download: 1 track(s)"
+    assert "Downloading 1/1: Track One" in message.replies[1].edited_texts
+    assert "Sending 1/1: Track One" in message.replies[1].edited_texts
     assert message.replies[1].reply_markups[0] is not None
     button = message.replies[1].reply_markups[0].inline_keyboard[0][0]
     assert button.text == "Cancel"

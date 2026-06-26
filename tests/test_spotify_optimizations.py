@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -14,10 +14,9 @@ from bot.services.spotify_cache import (
     set_cached_youtube_video_id,
 )
 from bot.services.spotify_handler import _download_one_track, _send_downloaded_tracks
-from bot.services.youtube_audio import YoutubeAudioError
 from bot.services.spotify_models import NormalizedSpotifyRelease, NormalizedSpotifyTrack, release_to_dict
 from bot.services.spotify_parser import SpotifyLink
-from bot.services.youtube_audio import build_track_search_query
+from bot.services.youtube_audio import YoutubeAudioError, build_track_search_query, youtube_watch_url
 
 
 class FakeReplyMessage:
@@ -106,9 +105,10 @@ async def test_parallel_download_respects_concurrency_limit(monkeypatch, tmp_pat
     lock = asyncio.Lock()
     settings = _settings(spotify_download_concurrency=2)
 
-    async def fake_download_audio(track, track_dir, settings_obj, semaphore):
+    async def fake_download_audio(index, track, track_dir, settings_obj, semaphore, on_download_start):
         nonlocal active, max_active
         async with semaphore:
+            await on_download_start(index, track)
             async with lock:
                 active += 1
                 max_active = max(max_active, active)
@@ -160,8 +160,9 @@ async def test_parallel_download_respects_concurrency_limit(monkeypatch, tmp_pat
 async def test_one_failed_track_does_not_cancel_others(monkeypatch, tmp_path: Path):
     settings = _settings(spotify_download_concurrency=3)
 
-    async def fake_download_audio(track, track_dir, settings_obj, semaphore):
+    async def fake_download_audio(index, track, track_dir, settings_obj, semaphore, on_download_start):
         async with semaphore:
+            await on_download_start(index, track)
             if track.track_number == 2:
                 raise YoutubeAudioError("simulated failure")
             audio_path = track_dir / f"{track.title}.mp3"
@@ -286,7 +287,89 @@ async def test_download_one_track_returns_error_without_raising(monkeypatch, tmp
         tmp_path,
         settings,
         asyncio.Semaphore(1),
+        AsyncMock(),
     )
 
     assert result.error is not None
     assert result.audio_path is None
+
+
+async def test_resolve_before_download_uses_cache_and_skips_search(
+    monkeypatch, tmp_path: Path, fake_redis
+):
+    settings = _settings()
+    track = _release(track_count=1).tracks[0]
+    query = build_track_search_query(track)
+    await set_cached_youtube_video_id(query, "cached-id", 604800)
+
+    resolve_mock = MagicMock(return_value="should-not-be-called")
+    monkeypatch.setattr("bot.services.spotify_handler.resolve_youtube_video_id", resolve_mock)
+
+    downloaded_urls: list[str] = []
+
+    def fake_download(track_obj, track_dir, settings_obj, *, youtube_url):
+        downloaded_urls.append(youtube_url)
+        audio_path = track_dir / "track.mp3"
+        audio_path.write_bytes(b"audio")
+        return audio_path
+
+    monkeypatch.setattr(
+        "bot.services.spotify_handler.download_track_from_youtube",
+        fake_download,
+    )
+
+    from bot.services.spotify_handler import _download_track_audio
+
+    track_dir = tmp_path / "track-1"
+    track_dir.mkdir(parents=True, exist_ok=True)
+    on_start = AsyncMock()
+    result = await _download_track_audio(
+        1,
+        track,
+        track_dir,
+        settings,
+        asyncio.Semaphore(1),
+        on_start,
+    )
+
+    assert result == str(track_dir / "track.mp3")
+    assert downloaded_urls == [youtube_watch_url("cached-id")]
+    resolve_mock.assert_not_called()
+    on_start.assert_awaited_once_with(1, track)
+
+
+async def test_resolve_before_download_resolves_and_caches_on_miss(
+    monkeypatch, tmp_path: Path, fake_redis
+):
+    settings = _settings()
+    track = _release(track_count=1).tracks[0]
+    query = build_track_search_query(track)
+
+    resolve_mock = MagicMock(return_value="resolved-id")
+    monkeypatch.setattr("bot.services.spotify_handler.resolve_youtube_video_id", resolve_mock)
+
+    def fake_download(track_obj, track_dir, settings_obj, *, youtube_url):
+        audio_path = track_dir / "track.mp3"
+        audio_path.write_bytes(b"audio")
+        return audio_path
+
+    monkeypatch.setattr(
+        "bot.services.spotify_handler.download_track_from_youtube",
+        fake_download,
+    )
+
+    from bot.services.spotify_handler import _download_track_audio
+
+    track_dir = tmp_path / "track-1"
+    track_dir.mkdir(parents=True, exist_ok=True)
+    await _download_track_audio(
+        1,
+        track,
+        track_dir,
+        settings,
+        asyncio.Semaphore(1),
+        AsyncMock(),
+    )
+
+    resolve_mock.assert_called_once()
+    assert await get_cached_youtube_video_id(query) == "resolved-id"
