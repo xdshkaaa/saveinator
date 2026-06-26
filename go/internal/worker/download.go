@@ -17,6 +17,7 @@ import (
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
+	"saveinator/internal/runtime"
 	"saveinator/internal/sender"
 	"saveinator/internal/video"
 	"saveinator/internal/ytdlp"
@@ -24,20 +25,22 @@ import (
 )
 
 type Handler struct {
-	cfg    *config.Settings
-	bot    *telego.Bot
-	sender *sender.Telegram
-	db     *db.Store
-	redis  *redisx.Client
+	cfg     *config.Settings
+	bot     *telego.Bot
+	sender  *sender.Telegram
+	db      *db.Store
+	redis   *redisx.Client
+	runtime *runtime.Store
 }
 
 func NewHandler(cfg *config.Settings, bot *telego.Bot, store *db.Store, redis *redisx.Client) *Handler {
 	return &Handler{
-		cfg:    cfg,
-		bot:    bot,
-		sender: sender.New(bot),
-		db:     store,
-		redis:  redis,
+		cfg:     cfg,
+		bot:     bot,
+		sender:  sender.New(bot),
+		db:      store,
+		redis:   redis,
+		runtime: runtime.NewStore(redis, cfg),
 	}
 }
 
@@ -47,6 +50,7 @@ func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypePinterest, h.handlePinterest)
 	mux.HandleFunc(queue.TypeSpotify, h.handleSpotify)
 	mux.HandleFunc(queue.TypeSoundCloud, h.handleSoundCloud)
+	mux.HandleFunc(queue.TypeBroadcast, h.handleBroadcast)
 }
 
 func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {

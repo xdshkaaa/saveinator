@@ -14,6 +14,7 @@ const (
 	TypePinterest   = "download:pinterest"
 	TypeSpotify     = "download:spotify"
 	TypeSoundCloud  = "download:soundcloud"
+	TypeBroadcast   = "broadcast:execute"
 )
 
 type DownloadPayload struct {
@@ -43,6 +44,12 @@ type MusicPayload struct {
 	ResourceID string `json:"resource_id,omitempty"`
 	SourceURL  string `json:"source_url,omitempty"`
 	ReleaseJSON string `json:"release_json"`
+}
+
+type BroadcastPayload struct {
+	BroadcastID int     `json:"broadcast_id"`
+	Audience    string  `json:"audience"`
+	UserIDs     []int64 `json:"user_ids"`
 }
 
 type Client struct {
@@ -108,6 +115,16 @@ func (c *Client) EnqueueSoundCloud(p MusicPayload) error {
 	}
 	task := asynq.NewTask(TypeSoundCloud, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	return err
+}
+
+func (c *Client) EnqueueBroadcast(p BroadcastPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeBroadcast, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(24*time.Hour))
 	return err
 }
 

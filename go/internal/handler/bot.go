@@ -18,6 +18,7 @@ import (
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
+	"saveinator/internal/runtime"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
 	"saveinator/internal/youtube"
@@ -31,6 +32,8 @@ type Bot struct {
 	ytSessions *youtube.SessionStore
 	spotify    *spotify.Client
 	soundcloud *soundcloud.Client
+	fsm        *fsmStore
+	runtime    *runtime.Store
 }
 
 func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.Client) *Bot {
@@ -42,18 +45,26 @@ func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.C
 		ytSessions: youtube.NewSessionStore(redis.Raw()),
 		spotify:    spotify.NewClient(cfg.SpotifyClientID, cfg.SpotifyClientSecret, cfg.SpotifyAPITimeoutSeconds),
 		soundcloud: soundcloud.NewClient(cfg.SoundCloudTrackTimeoutSeconds, cfg.SoundCloudMaxTracks),
+		fsm:        newFSM(),
+		runtime:    runtime.NewStore(redis, cfg),
 	}
 }
 
 func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleMessageCtx(b.onStart(bot), th.CommandEqual("start"))
 	h.HandleMessageCtx(b.onSettings(bot), th.CommandEqual("settings"))
+	h.HandleMessageCtx(b.onAdmin(bot), th.CommandEqual("admin"))
+	h.HandleMessageCtx(b.onStats(bot), th.CommandEqual("stats"))
+	h.HandleMessageCtx(b.onBroadcast(bot), th.CommandEqual("broadcast"))
 	h.HandleCallbackQueryCtx(b.onLanguageChosen(bot), th.CallbackDataPrefix("lang|"))
 	h.HandleCallbackQueryCtx(b.onQualityChoice(bot), th.CallbackDataPrefix("quality:"))
 	h.HandleCallbackQueryCtx(b.onRatioChoice(bot), th.CallbackDataPrefix("ratio:"))
 	h.HandleCallbackQueryCtx(b.onSettingsCallback(bot), th.CallbackDataPrefix("settings|"))
 	h.HandleCallbackQueryCtx(b.onCancelDownload(bot), th.CallbackDataPrefix("dlc:"))
 	h.HandleCallbackQueryCtx(b.onDownloadQueue(bot), th.CallbackDataPrefix("dlq:"))
+	h.HandleCallbackQueryCtx(b.onAdminCallback(bot), th.CallbackDataPrefix("admin|"))
+	h.HandleCallbackQueryCtx(b.onAdminBroadcasts(bot), th.CallbackDataEqual("admin|broadcasts"))
+	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
 	h.HandleMessageCtx(b.onText(bot), th.AnyMessage())
 }
 
@@ -125,6 +136,13 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 		}
 
 		lang := b.userLang(ctx, msg.From.ID)
+		if b.checkBanned(ctx, bot, msg, lang) {
+			return
+		}
+		if b.handleAdminFSM(ctx, bot, msg, lang) {
+			return
+		}
+
 		if !b.allowRateLimit(ctx, bot, msg, lang) {
 			return
 		}
