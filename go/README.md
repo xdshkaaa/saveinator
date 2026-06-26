@@ -41,7 +41,7 @@ Single container instead of separate `bot` and `worker` services:
 docker compose -f docker-compose.go.yml up -d --build
 ```
 
-## Migrated (phase 1–4)
+## Migrated (phase 1–5)
 
 - Webhook + polling
 - `/start` onboarding (EN/RU)
@@ -52,6 +52,8 @@ docker compose -f docker-compose.go.yml up -d --build
 - **Spotify** — release cards via Spotify API; optional audio via YouTube search + yt-dlp
 - **SoundCloud** — metadata via yt-dlp; optional audio download
 - **Download cancel** — cancel button + active download queue (`dlc:` / `dlq:` callbacks)
+- **Admin panel** — `/admin` runtime settings (Redis hot-swap), shadow bans, user stats
+- **Broadcasts** — `/broadcast` create/send with asynq worker
 - Link parsing (YouTube, TikTok, Instagram, X, Pinterest, Spotify, SoundCloud)
 - Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
@@ -61,5 +63,5 @@ docker compose -f docker-compose.go.yml up -d --build
 ## Not yet migrated
 
 - TikTok carousel button (download images from video post)
-- Admin panel, broadcasts
+- Full runtime settings registry (all 56 Python settings; Go has core platform + global keys)
 - Pinterest HTTP API
