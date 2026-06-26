@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock
 
 from bot.services.spotify_models import (
     NormalizedSpotifyRelease,
@@ -11,6 +12,7 @@ from bot.services.spotify_client import (
     SpotifyNotFoundError,
     SpotifyRateLimitError,
     _request,
+    fetch_release,
 )
 
 
@@ -157,3 +159,45 @@ class TestSpotify429Retry:
 
         with pytest.raises(SpotifyRateLimitError):
             await _request("GET", "https://api.spotify.com/v1/test", timeout=1.0)
+
+
+class TestFetchReleasePersistence:
+    async def test_fetch_release_persists_cached_release(self, monkeypatch):
+        release = normalize_album(ALBUM_FIXTURE, TRACKS_FIXTURE)
+        persist_mock = AsyncMock()
+        monkeypatch.setattr(
+            "bot.services.spotify_client.get_cached_release",
+            AsyncMock(return_value=release),
+        )
+        monkeypatch.setattr("bot.services.spotify_client.persist_spotify_release", persist_mock)
+
+        from bot.config import Settings
+
+        result = await fetch_release("album", "4aawyAB9rmqOaP8fadcCl4", Settings(bot_token="t"))
+
+        assert result is release
+        persist_mock.assert_awaited_once_with(release)
+
+    async def test_fetch_release_persists_fresh_release(self, monkeypatch):
+        release = normalize_album(ALBUM_FIXTURE, TRACKS_FIXTURE)
+        persist_mock = AsyncMock()
+        monkeypatch.setattr(
+            "bot.services.spotify_client.get_cached_release",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            "bot.services.spotify_client.fetch_album",
+            AsyncMock(return_value=release),
+        )
+        monkeypatch.setattr(
+            "bot.services.spotify_client.set_cached_release",
+            AsyncMock(),
+        )
+        monkeypatch.setattr("bot.services.spotify_client.persist_spotify_release", persist_mock)
+
+        from bot.config import Settings
+
+        result = await fetch_release("album", "4aawyAB9rmqOaP8fadcCl4", Settings(bot_token="t"))
+
+        assert result is release
+        persist_mock.assert_awaited_once_with(release)

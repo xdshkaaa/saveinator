@@ -12,6 +12,7 @@ from bot.services.runtime_settings import (
     soundcloud_track_timeout_seconds,
 )
 from bot.services.soundcloud_cache import get_cached_release, set_cached_release
+from bot.services.release_metadata_store import persist_soundcloud_release
 from bot.services.soundcloud_models import (
     NormalizedSoundCloudRelease,
     NormalizedSoundCloudTrack,
@@ -159,6 +160,7 @@ def _extract_metadata(url: str, settings: Settings) -> dict[str, Any]:
 async def fetch_release(link: SoundCloudLink, settings: Settings) -> NormalizedSoundCloudRelease:
     cached = await get_cached_release(link.url)
     if cached is not None:
+        await persist_soundcloud_release(cached)
         return cached
 
     timeout = soundcloud_track_timeout_seconds()
@@ -190,4 +192,5 @@ async def fetch_release(link: SoundCloudLink, settings: Settings) -> NormalizedS
         SOUNDCLOUD_PLAYLIST_TRACKS.observe(len(release.tracks))
 
     await set_cached_release(link.url, release, soundcloud_meta_cache_ttl_seconds())
+    await persist_soundcloud_release(release)
     return release

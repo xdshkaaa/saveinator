@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock
 
 from bot.config import Settings
 from bot.services.runtime_settings import set_runtime_value
@@ -84,6 +85,8 @@ async def test_fetch_release_uses_runtime_soundcloud_playlist_limit(fake_redis, 
         return None
 
     monkeypatch.setattr("bot.services.soundcloud_client.set_cached_release", _set_cached_release)
+    persist_mock = AsyncMock()
+    monkeypatch.setattr("bot.services.soundcloud_client.persist_soundcloud_release", persist_mock)
     monkeypatch.setattr(
         "bot.services.soundcloud_client._extract_metadata",
         lambda _url, _settings: {
@@ -107,6 +110,34 @@ async def test_fetch_release_uses_runtime_soundcloud_playlist_limit(fake_redis, 
     )
 
     assert len(release.tracks) == 50
+    persist_mock.assert_awaited_once_with(release)
+
+
+async def test_fetch_release_persists_cached_release(fake_redis, monkeypatch):
+    settings = Settings(bot_token="test-token")
+    release = NormalizedSoundCloudRelease(
+        source_id="cached-1",
+        title="Cached Track",
+        artist="Cached Artist",
+        release_type="track",
+        artwork_url=None,
+        soundcloud_url="https://soundcloud.com/artist/cached",
+        tracks=[],
+    )
+    persist_mock = AsyncMock()
+    monkeypatch.setattr(
+        "bot.services.soundcloud_client.get_cached_release",
+        AsyncMock(return_value=release),
+    )
+    monkeypatch.setattr("bot.services.soundcloud_client.persist_soundcloud_release", persist_mock)
+
+    result = await fetch_release(
+        SoundCloudLink(type="track", url="https://soundcloud.com/artist/cached"),
+        settings,
+    )
+
+    assert result is release
+    persist_mock.assert_awaited_once_with(release)
 
 
 async def test_fetch_release_reports_runtime_soundcloud_playlist_limit(fake_redis, monkeypatch):
