@@ -146,6 +146,21 @@ func openInputFile(path string) (*inputFileHandle, error) {
 	}, nil
 }
 
+func (t *Telegram) SendAudio(chatID int64, path, caption string) error {
+	file, err := openInputFile(path)
+	if err != nil {
+		return err
+	}
+	defer file.close()
+
+	_, err = t.bot.SendAudio(&telego.SendAudioParams{
+		ChatID:  tu.ID(chatID),
+		Audio:   file.input,
+		Caption: caption,
+	})
+	return err
+}
+
 func buildCaption(title, lang, platform string) string {
 	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
 	title = strings.TrimSpace(title)

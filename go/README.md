@@ -41,22 +41,23 @@ Single container instead of separate `bot` and `worker` services:
 docker compose -f docker-compose.go.yml up -d --build
 ```
 
-## Migrated (phase 1–2)
+## Migrated (phase 1–3)
 
 - Webhook + polling
 - `/start` onboarding (EN/RU)
 - `/settings` — language, default YouTube quality/ratio
 - YouTube quality + aspect ratio picker with ffmpeg transcoding
+- **Pinterest** — pins, short links, boards via Pinterest API (no pinterest-dl)
+- **TikTok** — video + carousel slideshows via yt-dlp + image download
 - Link parsing (YouTube, TikTok, Instagram, X, Pinterest, Spotify*, SoundCloud*)
-- Video/image downloads via `yt-dlp` subprocess (Instagram, X, YouTube, TikTok basic)
+- Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
 - Prometheus metrics on `:9101`
 - Shared PostgreSQL schema (existing Alembic migrations)
 
 ## Not yet migrated
 
-- TikTok carousel / custom downloader
-- Pinterest `pinterest-dl` integration
+- TikTok carousel button (download images from video post)
 - Spotify / SoundCloud metadata + audio
 - Admin panel, broadcasts, download cancel
 - Pinterest HTTP API

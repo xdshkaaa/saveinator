@@ -33,7 +33,15 @@ type Settings struct {
 	TikTokCookiesPath    string
 	InstagramCookiesPath string
 
-	PinterestEnabled bool
+	PinterestEnabled         bool
+	PinterestTimeoutSeconds  int
+	PinterestMaxItems        int
+	PinterestDownloadImages  bool
+	PinterestDownloadVideos  bool
+	PinterestCookiesPath     string
+
+	TikTokCarouselMaxItems    int
+	TikTokCarouselAudioEnabled bool
 
 	MetricsEnabled bool
 	MetricsHost    string
@@ -67,7 +75,14 @@ func Load() (*Settings, error) {
 		YouTubeDownloadTimeoutSeconds: envInt("YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS", 600),
 		TikTokCookiesPath:      env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
 		InstagramCookiesPath:   env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
-		PinterestEnabled:       envBool("PINTEREST_ENABLED", true),
+		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
+		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
+		PinterestMaxItems:        envInt("PINTEREST_MAX_ITEMS", 10),
+		PinterestDownloadImages:  envBool("PINTEREST_DOWNLOAD_IMAGES", true),
+		PinterestDownloadVideos:  envBool("PINTEREST_DOWNLOAD_VIDEOS", true),
+		PinterestCookiesPath:     env("PINTEREST_COOKIES_PATH", ""),
+		TikTokCarouselMaxItems:    envInt("TIKTOK_CAROUSEL_MAX_ITEMS", 20),
+		TikTokCarouselAudioEnabled: envBool("TIKTOK_CAROUSEL_AUDIO_ENABLED", true),
 		MetricsEnabled:         envBool("METRICS_ENABLED", true),
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),

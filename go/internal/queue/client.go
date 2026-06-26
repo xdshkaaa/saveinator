@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	TypeDownload = "download:send"
-	TypeTikTok   = "download:tiktok"
+	TypeDownload   = "download:send"
+	TypeTikTok     = "download:tiktok"
+	TypePinterest  = "download:pinterest"
 )
 
 type DownloadPayload struct {
@@ -50,6 +51,16 @@ func (c *Client) EnqueueDownload(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeDownload, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	return err
+}
+
+func (c *Client) EnqueuePinterest(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypePinterest, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
 	return err
 }
