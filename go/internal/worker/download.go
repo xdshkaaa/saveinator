@@ -44,6 +44,7 @@ func NewHandler(cfg *config.Settings, bot *telego.Bot, store *db.Store, redis *r
 func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypeDownload, h.handleDownload)
 	mux.HandleFunc(queue.TypeTikTok, h.handleTikTok)
+	mux.HandleFunc(queue.TypePinterest, h.handlePinterest)
 }
 
 func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
@@ -65,7 +66,7 @@ func (h *Handler) handleTikTok(ctx context.Context, t *asynq.Task) error {
 	}
 	p.Platform = "tiktok"
 	defer h.releaseLock(ctx, p)
-	return h.runDownload(ctx, p)
+	return h.runTikTok(ctx, p)
 }
 
 func (h *Handler) releaseLock(ctx context.Context, p queue.DownloadPayload) {

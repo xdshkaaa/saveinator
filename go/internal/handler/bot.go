@@ -134,7 +134,7 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
 				return
 			}
-			_ = b.enqueue(ctx, bot, msg, lang, link, "pinterest", queue.TypeDownload)
+			_ = b.enqueue(ctx, bot, msg, lang, link, "pinterest", queue.TypePinterest)
 		case linkparser.PlatformTikTok:
 			_ = b.enqueue(ctx, bot, msg, lang, link, "tiktok", queue.TypeTikTok)
 		case linkparser.PlatformUnknown:
@@ -180,6 +180,8 @@ func (b *Bot) enqueue(ctx context.Context, bot *telego.Bot, msg telego.Message, 
 	switch taskType {
 	case queue.TypeTikTok:
 		enqueueErr = b.q.EnqueueTikTok(payload)
+	case queue.TypePinterest:
+		enqueueErr = b.q.EnqueuePinterest(payload)
 	default:
 		enqueueErr = b.q.EnqueueDownload(payload)
 	}
