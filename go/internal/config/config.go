@@ -27,7 +27,8 @@ type Settings struct {
 	DownloadTimeoutSeconds int
 	SendVideoLimitMB       int
 	SendDocumentLimitMB    int
-	YouTubeMaxFileSizeMB   int
+	YouTubeMaxFileSizeMB          int
+	YouTubeDownloadTimeoutSeconds int
 
 	TikTokCookiesPath    string
 	InstagramCookiesPath string
@@ -62,7 +63,8 @@ func Load() (*Settings, error) {
 		DownloadTimeoutSeconds: envInt("DOWNLOAD_TIMEOUT_SECONDS", 60),
 		SendVideoLimitMB:       envInt("SEND_VIDEO_LIMIT_MB", 50),
 		SendDocumentLimitMB:    envInt("SEND_DOCUMENT_LIMIT_MB", 1999),
-		YouTubeMaxFileSizeMB:   envInt("YOUTUBE_MAX_FILE_SIZE_MB", 1999),
+		YouTubeMaxFileSizeMB:          envInt("YOUTUBE_MAX_FILE_SIZE_MB", 1999),
+		YouTubeDownloadTimeoutSeconds: envInt("YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS", 600),
 		TikTokCookiesPath:      env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
 		InstagramCookiesPath:   env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
 		PinterestEnabled:       envBool("PINTEREST_ENABLED", true),

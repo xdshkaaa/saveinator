@@ -17,22 +17,34 @@ import (
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
+	"saveinator/internal/youtube"
 )
 
 type Bot struct {
-	cfg   *config.Settings
-	db    *db.Store
-	redis *redisx.Client
-	q     *queue.Client
+	cfg        *config.Settings
+	db         *db.Store
+	redis      *redisx.Client
+	q          *queue.Client
+	ytSessions *youtube.SessionStore
 }
 
 func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.Client) *Bot {
-	return &Bot{cfg: cfg, db: store, redis: redis, q: q}
+	return &Bot{
+		cfg:        cfg,
+		db:         store,
+		redis:      redis,
+		q:          q,
+		ytSessions: youtube.NewSessionStore(redis.Raw()),
+	}
 }
 
 func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleMessageCtx(b.onStart(bot), th.CommandEqual("start"))
+	h.HandleMessageCtx(b.onSettings(bot), th.CommandEqual("settings"))
 	h.HandleCallbackQueryCtx(b.onLanguageChosen(bot), th.CallbackDataPrefix("lang|"))
+	h.HandleCallbackQueryCtx(b.onQualityChoice(bot), th.CallbackDataPrefix("quality:"))
+	h.HandleCallbackQueryCtx(b.onRatioChoice(bot), th.CallbackDataPrefix("ratio:"))
+	h.HandleCallbackQueryCtx(b.onSettingsCallback(bot), th.CallbackDataPrefix("settings|"))
 	h.HandleMessageCtx(b.onText(bot), th.AnyMessage())
 }
 
@@ -128,7 +140,7 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 		case linkparser.PlatformUnknown:
 			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		case linkparser.PlatformYouTube:
-			_ = b.enqueue(ctx, bot, msg, lang, link, "youtube", queue.TypeDownload)
+			b.handleYouTubeLink(ctx, bot, msg, lang, link)
 		default:
 			_ = b.enqueue(ctx, bot, msg, lang, link, string(link.Platform), queue.TypeDownload)
 		}
