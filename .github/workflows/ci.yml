@@ -29,3 +29,18 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -q
+
+  go:
+    name: Go build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: go/go.sum
+      - run: go build ./...
+      - run: go test ./...
