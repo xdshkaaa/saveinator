@@ -41,7 +41,7 @@ Single container instead of separate `bot` and `worker` services:
 docker compose -f docker-compose.go.yml up -d --build
 ```
 
-## Migrated (phase 1–3)
+## Migrated (phase 1–4)
 
 - Webhook + polling
 - `/start` onboarding (EN/RU)
@@ -49,7 +49,10 @@ docker compose -f docker-compose.go.yml up -d --build
 - YouTube quality + aspect ratio picker with ffmpeg transcoding
 - **Pinterest** — pins, short links, boards via Pinterest API (no pinterest-dl)
 - **TikTok** — video + carousel slideshows via yt-dlp + image download
-- Link parsing (YouTube, TikTok, Instagram, X, Pinterest, Spotify*, SoundCloud*)
+- **Spotify** — release cards via Spotify API; optional audio via YouTube search + yt-dlp
+- **SoundCloud** — metadata via yt-dlp; optional audio download
+- **Download cancel** — cancel button + active download queue (`dlc:` / `dlq:` callbacks)
+- Link parsing (YouTube, TikTok, Instagram, X, Pinterest, Spotify, SoundCloud)
 - Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
 - Prometheus metrics on `:9101`
@@ -58,8 +61,5 @@ docker compose -f docker-compose.go.yml up -d --build
 ## Not yet migrated
 
 - TikTok carousel button (download images from video post)
-- Spotify / SoundCloud metadata + audio
-- Admin panel, broadcasts, download cancel
+- Admin panel, broadcasts
 - Pinterest HTTP API
-
-\* Spotify/SoundCloud links are recognized but return a placeholder response until phase 3.
