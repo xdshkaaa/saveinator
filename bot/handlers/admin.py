@@ -27,6 +27,8 @@ Actions
 - ``broadcasts`` — broadcasts menu
 """
 
+from itertools import batched
+
 import structlog
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -82,33 +84,36 @@ class AdminBan(StatesGroup):
 
 
 def _main_keyboard(lang: str) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(
+    buttons = [
+        InlineKeyboardButton(
             text=service_label(service, lang),
             callback_data=f"admin|svc|{service}",
-        )]
+        )
         for service in SERVICE_ORDER
     ]
-    rows.append([InlineKeyboardButton(
-        text=get("admin.btn_global", lang),
-        callback_data="admin|svc|global",
-    )])
-    rows.append([InlineKeyboardButton(
-        text=get("admin.btn_broadcasts", lang),
-        callback_data="admin|broadcasts",
-    )])
-    rows.append([InlineKeyboardButton(
-        text=get("admin.btn_users", lang),
-        callback_data="admin|stats",
-    )])
-    rows.append([InlineKeyboardButton(
-        text=get("admin.btn_bans", lang),
-        callback_data="admin|bans",
-    )])
-    rows.append([InlineKeyboardButton(
-        text=get("admin.btn_reset_all", lang),
-        callback_data="admin|confirm|reset_all",
-    )])
+    buttons.extend([
+        InlineKeyboardButton(
+            text=get("admin.btn_global", lang),
+            callback_data="admin|svc|global",
+        ),
+        InlineKeyboardButton(
+            text=get("admin.btn_broadcasts", lang),
+            callback_data="admin|broadcasts",
+        ),
+        InlineKeyboardButton(
+            text=get("admin.btn_users", lang),
+            callback_data="admin|stats",
+        ),
+        InlineKeyboardButton(
+            text=get("admin.btn_bans", lang),
+            callback_data="admin|bans",
+        ),
+        InlineKeyboardButton(
+            text=get("admin.btn_reset_all", lang),
+            callback_data="admin|confirm|reset_all",
+        ),
+    ])
+    rows = [list(pair) for pair in batched(buttons, 2)]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
