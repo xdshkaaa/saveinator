@@ -10,7 +10,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault, MenuButtonCommands
 from bot.api import register_download_routes
 from bot.config import settings
 from bot.dispatcher import create_dispatcher
-from bot.metrics_server import start_metrics_server
+from bot.metrics_server import metrics_middleware, start_metrics_server
 from bot.telegram_instrumentation import instrument_bot
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ async def run_webhook(dp, bot: Bot):
     if settings.metrics_enabled:
         await start_metrics_server()
 
-    app = web.Application()
+    app = web.Application(middlewares=[metrics_middleware])
     app.router.add_get("/", health)
     app.router.add_get("/health", health)
     if settings.download_api_enabled:

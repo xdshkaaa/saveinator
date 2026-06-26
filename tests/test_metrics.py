@@ -1,5 +1,8 @@
 from prometheus_client import REGISTRY, generate_latest
 
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
+
 from bot.metrics import (
     ACTIVE_USERS,
     DOWNLOADS_ENQUEUED_TOTAL,
@@ -16,6 +19,7 @@ from bot.metrics import (
     refresh_uptime,
 )
 from workers.metrics import DOWNLOAD_FILE_SIZE_BYTES
+from bot.metrics_server import metrics_middleware
 
 
 class TestBotMetrics:
@@ -96,3 +100,22 @@ class TestBotMetrics:
         output = generate_latest(REGISTRY).decode()
         assert "saveinator_download_file_size_bytes_bucket" in output
         assert 'platform="youtube"' in output
+
+
+class TestHttpMetricsMiddleware:
+    async def test_records_request_count_and_latency(self):
+        async def ok(_request: web.Request) -> web.Response:
+            return web.Response(text="ok")
+
+        app = web.Application(middlewares=[metrics_middleware])
+        app.router.add_get("/health", ok)
+
+        async with TestClient(TestServer(app)) as client:
+            response = await client.get("/health")
+            assert response.status == 200
+
+        output = generate_latest(REGISTRY).decode()
+        assert "saveinator_http_requests_total" in output
+        assert 'route="/health"' in output
+        assert 'status="200"' in output
+        assert "saveinator_http_request_latency_seconds_bucket" in output
