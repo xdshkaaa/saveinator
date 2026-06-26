@@ -10,6 +10,7 @@ import structlog
 
 from bot.config import Settings
 from bot.services.spotify_cache import get_cached_release, set_cached_release
+from bot.services.release_metadata_store import persist_spotify_release
 from bot.services.spotify_models import (
     NormalizedSpotifyRelease,
     normalize_album,
@@ -234,6 +235,7 @@ async def fetch_release(
 ) -> NormalizedSpotifyRelease:
     cached = await get_cached_release(link_type, resource_id)
     if cached is not None:
+        await persist_spotify_release(cached)
         return cached
 
     if link_type == "track":
@@ -247,4 +249,5 @@ async def fetch_release(
         release,
         settings.spotify_meta_cache_ttl_seconds,
     )
+    await persist_spotify_release(release)
     return release

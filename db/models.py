@@ -1,4 +1,5 @@
-from sqlalchemy import BigInteger, String, DateTime, Enum, ForeignKey, Text, Index, Integer
+from sqlalchemy import BigInteger, String, DateTime, Enum, ForeignKey, Text, Index, Integer, UniqueConstraint, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime, UTC
 import enum
@@ -84,6 +85,27 @@ class Download(Base):
         Index("ix_downloads_user_created", "user_id", "created_at"),
         Index("ix_downloads_chat_created", "chat_id", "created_at"),
         Index("ix_downloads_status", "status"),
+    )
+
+
+class MusicReleaseMetadata(Base):
+    __tablename__ = "music_release_metadata"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    platform: Mapped[Platform] = mapped_column(Enum(Platform))
+    source_id: Mapped[str] = mapped_column(String(128))
+    release_type: Mapped[str] = mapped_column(String(32))
+    canonical_url: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(String(512))
+    artist: Mapped[str] = mapped_column(String(512))
+    track_count: Mapped[int] = mapped_column(Integer, default=0)
+    payload: Mapped[dict] = mapped_column(JSON().with_variant(JSONB, "postgresql"))
+    first_fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    last_fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+
+    __table_args__ = (
+        UniqueConstraint("platform", "source_id", name="uq_music_release_platform_source"),
+        Index("ix_music_release_platform_source", "platform", "source_id"),
     )
 
 

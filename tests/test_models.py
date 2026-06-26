@@ -6,6 +6,7 @@ from db.models import (
     Download,
     DownloadStatus,
     Language,
+    MusicReleaseMetadata,
     Platform,
     User,
     utc_now_naive,
@@ -34,3 +35,23 @@ async def test_timestamp_defaults_are_offset_naive(db_session):
     values = [utc_now_naive(), user.created_at, chat.created_at, download.created_at, download.completed_at, banned_link.created_at]
 
     assert all(value.tzinfo is None for value in values)
+
+
+@pytest.mark.asyncio
+async def test_music_release_metadata_model(db_session):
+    row = MusicReleaseMetadata(
+        platform=Platform.SPOTIFY,
+        source_id="album-smoke",
+        release_type="album",
+        canonical_url="https://open.spotify.com/album/album-smoke",
+        title="Smoke Album",
+        artist="Smoke Artist",
+        track_count=1,
+        payload={"title": "Smoke Album", "tracks": []},
+    )
+    db_session.add(row)
+    await db_session.flush()
+
+    assert row.id is not None
+    assert row.first_fetched_at.tzinfo is None
+    assert row.last_fetched_at.tzinfo is None
