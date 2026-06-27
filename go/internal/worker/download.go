@@ -15,6 +15,7 @@ import (
 
 	"saveinator/internal/config"
 	"saveinator/internal/db"
+	"saveinator/internal/instagram"
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
@@ -306,6 +307,12 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 	}
 
 	title := filepath.Base(videoPath)
+	switch p.Platform {
+	case "youtube":
+		title = youtube.DisplayTitle(videoPath)
+	case "instagram":
+		title = instagram.DisplayTitle(videoPath)
+	}
 	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
 	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {
 		slog.Warn("send file failed", "err", err)

@@ -50,11 +50,10 @@ func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego
 	}
 
 	if autoQuality != nil && autoRatio != "" {
-		_, _ = bot.SendMessage(tu.Message(
+		status, err := bot.SendMessage(tu.Message(
 			tu.ID(msg.Chat.ID),
 			youtube.ProcessingMessage(lang, *autoQuality, autoRatio),
 		))
-		status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)))
 		if err != nil {
 			return
 		}
@@ -131,14 +130,15 @@ func (b *Bot) onQualityChoice(bot *telego.Bot) func(context.Context, *telego.Bot
 		}
 
 		chat := query.Message.GetChat()
+		statusMessageID := query.Message.GetMessageID()
 		if linkparser.IsYouTubeShorts(session.URL) {
 			_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 				ChatID:    tu.ID(chat.ID),
-				MessageID: query.Message.GetMessageID(),
+				MessageID: statusMessageID,
 				Text:      youtube.ProcessingMessage(session.Lang, quality, "9_16"),
 			})
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
-			b.startYouTubeDownload(ctx, bot, *session, "9_16")
+			b.startYouTubeDownload(ctx, bot, *session, "9_16", statusMessageID)
 			return
 		}
 
@@ -173,26 +173,30 @@ func (b *Bot) onRatioChoice(bot *telego.Bot) func(context.Context, *telego.Bot, 
 		}
 
 		chat := query.Message.GetChat()
+		statusMessageID := query.Message.GetMessageID()
 		_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(chat.ID),
-			MessageID: query.Message.GetMessageID(),
+			MessageID: statusMessageID,
 			Text:      youtube.ProcessingMessage(session.Lang, *session.Quality, ratio),
 		})
 		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
-		b.startYouTubeDownload(ctx, bot, *session, ratio)
+		b.startYouTubeDownload(ctx, bot, *session, ratio, statusMessageID)
 	}
 }
 
-func (b *Bot) startYouTubeDownload(ctx context.Context, bot *telego.Bot, session youtube.PendingSession, aspectRatio string) {
+func (b *Bot) startYouTubeDownload(ctx context.Context, bot *telego.Bot, session youtube.PendingSession, aspectRatio string, statusMessageID int) {
 	_ = b.ytSessions.Clear(ctx, session.UserID)
-	status, err := bot.SendMessage(tu.Message(
-		tu.ID(session.ChatID),
-		locale.Get("download.downloading", session.Lang, nil),
-	))
-	if err != nil {
-		return
+	if statusMessageID == 0 {
+		status, err := bot.SendMessage(tu.Message(
+			tu.ID(session.ChatID),
+			youtube.ProcessingMessage(session.Lang, *session.Quality, aspectRatio),
+		))
+		if err != nil {
+			return
+		}
+		statusMessageID = status.MessageID
 	}
-	b.enqueueYouTube(ctx, bot, session.UserID, session.ChatID, status.MessageID, session.Lang, session.URL, *session.Quality, aspectRatio)
+	b.enqueueYouTube(ctx, bot, session.UserID, session.ChatID, statusMessageID, session.Lang, session.URL, *session.Quality, aspectRatio)
 }
 
 func (b *Bot) enqueueYouTube(ctx context.Context, bot *telego.Bot, userID, chatID int64, messageID int, lang, url string, quality int, aspectRatio string) {
