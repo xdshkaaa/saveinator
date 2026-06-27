@@ -49,7 +49,7 @@ func run(ctx context.Context, url string, outputDir string, opts Options, skipDo
 		args = append(args, "--skip-download")
 	}
 
-	args = appendPlatformCookies(args, opts)
+	args = appendPlatformCookies(args, prepareCookieOptions(outputDir, opts))
 
 	args = append(args, url)
 
@@ -62,6 +62,34 @@ func run(ctx context.Context, url string, outputDir string, opts Options, skipDo
 		return fmt.Errorf("yt-dlp failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+
+func writableCookiesPath(src, workDir string) (string, error) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(workDir, "yt-dlp-cookies.txt")
+	if err := os.WriteFile(dest, data, 0o600); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+func prepareCookieOptions(outputDir string, opts Options) Options {
+	prepared := opts
+	if fileExists(prepared.InstagramCookies) {
+		if dest, err := writableCookiesPath(prepared.InstagramCookies, outputDir); err == nil {
+			prepared.InstagramCookies = dest
+		}
+	}
+	if fileExists(prepared.TikTokCookies) {
+		if dest, err := writableCookiesPath(prepared.TikTokCookies, outputDir); err == nil {
+			prepared.TikTokCookies = dest
+		}
+	}
+	return prepared
 }
 
 func fileExists(path string) bool {
