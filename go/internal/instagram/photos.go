@@ -101,7 +101,7 @@ func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, referer, outp
 		return "", err
 	}
 	setMediaHeaders(req, referer)
-	c.loadCookies(req)
+	c.loadCookies(req, req.URL.Hostname())
 
 	client := *c.http
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -109,7 +109,7 @@ func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, referer, outp
 			return errors.New("too many redirects")
 		}
 		setMediaHeaders(req, referer)
-		c.loadCookies(req)
+		c.loadCookies(req, req.URL.Hostname())
 		return nil
 	}
 
@@ -172,8 +172,8 @@ func isImageBody(body []byte) bool {
 	}
 }
 
-func (c *PhotoClient) loadCookies(req *http.Request) {
-	if c.cookiesPath == "" {
+func (c *PhotoClient) loadCookies(req *http.Request, host string) {
+	if c.cookiesPath == "" || host == "" {
 		return
 	}
 	raw, err := os.ReadFile(c.cookiesPath)
@@ -189,8 +189,20 @@ func (c *PhotoClient) loadCookies(req *http.Request) {
 		if len(parts) < 7 {
 			continue
 		}
+		if !cookieDomainMatches(parts[0], host) {
+			continue
+		}
 		req.AddCookie(&http.Cookie{Name: parts[5], Value: parts[6]})
 	}
+}
+
+func cookieDomainMatches(domain, host string) bool {
+	domain = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(domain)), ".")
+	host = strings.ToLower(strings.TrimSpace(host))
+	if domain == "" || host == "" {
+		return false
+	}
+	return host == domain || strings.HasSuffix(host, "."+domain)
 }
 
 func UserFacingErrorKey(err error) string {

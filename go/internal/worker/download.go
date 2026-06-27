@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
@@ -24,6 +25,7 @@ import (
 	"saveinator/internal/sender"
 	"saveinator/internal/tiktok"
 	"saveinator/internal/video"
+	"saveinator/internal/x"
 	"saveinator/internal/xphotos"
 	"saveinator/internal/ytdlp"
 	"saveinator/internal/youtube"
@@ -352,7 +354,20 @@ func buildInstagramPhotoCaption(paths []string, lang string) string {
 	if len(paths) > 0 {
 		title = instagram.DisplayTitle(paths[0])
 	}
+	return buildMediaCaption(title, lang)
+}
+
+func buildXPhotoCaption(_ context.Context, _ string, result *xphotos.Result, lang string) string {
+	title := ""
+	if result != nil {
+		title = x.CleanRawTitle(result.Title)
+	}
+	return buildMediaCaption(title, lang)
+}
+
+func buildMediaCaption(title, lang string) string {
 	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
+	title = strings.TrimSpace(title)
 	if title == "" {
 		return via
 	}
@@ -378,6 +393,8 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 		title = youtube.DisplayTitle(videoPath)
 	case "instagram":
 		title = instagram.DisplayTitle(videoPath)
+	case "x":
+		title = x.DisplayTitle(videoPath)
 	}
 	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
 	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {
