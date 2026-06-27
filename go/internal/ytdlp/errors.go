@@ -2,6 +2,18 @@ package ytdlp
 
 import "strings"
 
+func IsNoVideoFormatsError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "no video formats found")
+}
+
+func IsEmptyMediaResponseError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "empty media response")
+}
+
+func IsInstagramPhotoFallbackError(err error) bool {
+	return IsNoVideoFormatsError(err) || IsEmptyMediaResponseError(err)
+}
+
 func UserFacingErrorKey(platform string, err error) string {
 	if err == nil {
 		return ""

@@ -29,6 +29,21 @@ func TestIsYouTubeShorts(t *testing.T) {
 	}
 }
 
+func TestExtractURLsInstagramPost(t *testing.T) {
+	t.Parallel()
+	url := "https://www.instagram.com/p/DaBjYIIMEKF/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ=="
+	links := ExtractURLs(url)
+	if len(links) != 1 {
+		t.Fatalf("expected 1 link, got %d", len(links))
+	}
+	if links[0].Platform != PlatformInstagram {
+		t.Fatalf("platform = %q, want instagram", links[0].Platform)
+	}
+	if links[0].URL != url {
+		t.Fatalf("url = %q", links[0].URL)
+	}
+}
+
 func TestExtractURLsMultilineBatch(t *testing.T) {
 	text := `https://www.instagram.com/reel/DY_nCCclIFx/?igsh=bmdvNzAxbHlnNXd2
 https://vt.tiktok.com/ZSxv29fme/
