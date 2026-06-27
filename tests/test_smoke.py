@@ -71,7 +71,7 @@ async def test_run_download_and_send_success(monkeypatch):
 
     bot = AsyncMock()
 
-    def fake_download(url, output_dir, format_id):
+    def fake_download(url, output_dir, format_id, *, platform=None, **kwargs):
         (output_dir / "clip.mp4").write_bytes(b"x" * 1024)
         return {"title": "ok"}
 
@@ -141,7 +141,7 @@ async def test_run_download_and_send_file_too_large(monkeypatch):
 
     bot = AsyncMock()
 
-    def fake_download(url, output_dir, format_id):
+    def fake_download(url, output_dir, format_id, *, platform=None, **kwargs):
         (output_dir / "big.mp4").write_bytes(b"x" * (60 * 1024 * 1024))
         return {"title": "big"}
 

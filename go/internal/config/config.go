@@ -1,0 +1,226 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/joho/godotenv"
+)
+
+type Settings struct {
+	BotToken           string
+	DatabaseURL        string
+	RedisURL           string
+	UsePolling         bool
+	WebhookHost        string
+	WebhookPath        string
+	WebhookPort        int
+	WebhookListen      string
+	WebhookSecretToken string
+	LogLevel           string
+
+	RateLimitUserPerMinute int
+	RateLimitChatPerMinute int
+	SpamDedupWindowSeconds int
+
+	DownloadTimeoutSeconds int
+	SendVideoLimitMB       int
+	SendDocumentLimitMB    int
+	TelegramUploadLimitMB  int
+	YouTubeMaxFileSizeMB          int
+	YouTubeDownloadTimeoutSeconds int
+	YouTubeEnabled                bool
+	YouTubeTranscodeEnabled       bool
+
+	BroadcastDelayMS   int
+	BroadcastBatchSize  int
+
+	TikTokCookiesPath              string
+	TikTokCookiesRefreshEnabled    bool
+	TikTokCookiesRefreshURL        string
+	InstagramCookiesPath           string
+	InstagramCookiesRefreshEnabled bool
+	InstagramCookiesRefreshURL     string
+
+	PinterestEnabled         bool
+	PinterestTimeoutSeconds  int
+	PinterestMaxItems        int
+	PinterestDownloadImages  bool
+	PinterestDownloadVideos  bool
+	PinterestCookiesPath     string
+
+	TikTokCarouselMaxItems    int
+	TikTokCarouselAudioEnabled bool
+
+	SpotifyEnabled              bool
+	SpotifyClientID             string
+	SpotifyClientSecret         string
+	SpotifyAPITimeoutSeconds    int
+	SpotifyDownloadEnabled      bool
+	SpotifyTrackTimeoutSeconds  int
+	SpotifyDLOutputFormat       string
+	SpotifyLockMaxTracks        int
+	SpotifyDownloadConcurrency  int
+
+	SoundCloudEnabled             bool
+	SoundCloudDownloadEnabled     bool
+	SoundCloudTrackTimeoutSeconds int
+	SoundCloudMaxTracks           int
+	SoundCloudDLOutputFormat      string
+	SoundCloudDownloadConcurrency int
+
+	MetricsEnabled bool
+	MetricsHost    string
+	MetricsPort    int
+
+	AdminTelegramID int64
+
+	DownloadAPIEnabled bool
+
+	Mode string // bot, worker, all
+}
+
+func Load() (*Settings, error) {
+	loadDotEnv()
+
+	s := &Settings{
+		BotToken:               os.Getenv("BOT_TOKEN"),
+		DatabaseURL:            env("DATABASE_URL", "postgres://saveinator:saveinator@localhost:5432/saveinator?sslmode=disable"),
+		RedisURL:               env("REDIS_URL", "redis://localhost:6379/0"),
+		UsePolling:             envBool("USE_POLLING", true),
+		WebhookHost:            env("WEBHOOK_HOST", "https://saveinator-hooks.xdshka.party"),
+		WebhookPath:            env("WEBHOOK_PATH", "/webhook"),
+		WebhookPort:            envInt("WEBHOOK_PORT", 8000),
+		WebhookListen:          env("WEBHOOK_LISTEN", "0.0.0.0"),
+		WebhookSecretToken:     os.Getenv("WEBHOOK_SECRET_TOKEN"),
+		LogLevel:               env("LOG_LEVEL", "INFO"),
+		RateLimitUserPerMinute: envInt("RATE_LIMIT_USER_PER_MINUTE", 5),
+		RateLimitChatPerMinute: envInt("RATE_LIMIT_CHAT_PER_MINUTE", 20),
+		SpamDedupWindowSeconds: envInt("SPAM_DEDUP_WINDOW_SECONDS", 300),
+		DownloadTimeoutSeconds: envInt("DOWNLOAD_TIMEOUT_SECONDS", 60),
+		SendVideoLimitMB:       envInt("SEND_VIDEO_LIMIT_MB", 50),
+		SendDocumentLimitMB:    envInt("SEND_DOCUMENT_LIMIT_MB", 1999),
+		TelegramUploadLimitMB:  envInt("TELEGRAM_BOT_UPLOAD_LIMIT_MB", 50),
+		YouTubeMaxFileSizeMB:          envInt("YOUTUBE_MAX_FILE_SIZE_MB", 1999),
+		YouTubeDownloadTimeoutSeconds: envInt("YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS", 600),
+		YouTubeEnabled:                envBool("YOUTUBE_ENABLED", true),
+		YouTubeTranscodeEnabled:       envBool("YOUTUBE_TRANSCODE_ENABLED", true),
+		BroadcastDelayMS:    envInt("BROADCAST_DELAY_MS", 50),
+		BroadcastBatchSize:  envInt("BROADCAST_BATCH_SIZE", 20),
+		TikTokCookiesPath:              env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
+		TikTokCookiesRefreshEnabled:    envBool("TIKTOK_COOKIES_REFRESH_ENABLED", true),
+		TikTokCookiesRefreshURL:        env("TIKTOK_COOKIES_REFRESH_URL", "https://vt.tiktok.com/ZSCFGyN3g/"),
+		InstagramCookiesPath:           env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
+		InstagramCookiesRefreshEnabled: envBool("INSTAGRAM_COOKIES_REFRESH_ENABLED", true),
+		InstagramCookiesRefreshURL:     env("INSTAGRAM_COOKIES_REFRESH_URL", "https://www.instagram.com/reel/DaAl-AKqLRF/"),
+		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
+		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
+		PinterestMaxItems:        envInt("PINTEREST_MAX_ITEMS", 10),
+		PinterestDownloadImages:  envBool("PINTEREST_DOWNLOAD_IMAGES", true),
+		PinterestDownloadVideos:  envBool("PINTEREST_DOWNLOAD_VIDEOS", true),
+		PinterestCookiesPath:     env("PINTEREST_COOKIES_PATH", ""),
+		TikTokCarouselMaxItems:    envInt("TIKTOK_CAROUSEL_MAX_ITEMS", 20),
+		TikTokCarouselAudioEnabled: envBool("TIKTOK_CAROUSEL_AUDIO_ENABLED", true),
+		SpotifyEnabled:              envBool("SPOTIFY_ENABLED", false),
+		SpotifyClientID:             os.Getenv("SPOTIFY_CLIENT_ID"),
+		SpotifyClientSecret:         os.Getenv("SPOTIFY_CLIENT_SECRET"),
+		SpotifyAPITimeoutSeconds:    envInt("SPOTIFY_API_TIMEOUT_SECONDS", 15),
+		SpotifyDownloadEnabled:      envBool("SPOTIFY_DOWNLOAD_ENABLED", true),
+		SpotifyTrackTimeoutSeconds:  envInt("SPOTIFY_TRACK_TIMEOUT_SECONDS", 60),
+		SpotifyDLOutputFormat:       env("SPOTIFY_DL_OUTPUT_FORMAT", "mp3"),
+		SpotifyLockMaxTracks:        envInt("SPOTIFY_LOCK_MAX_TRACKS", 50),
+		SpotifyDownloadConcurrency:  envInt("SPOTIFY_DOWNLOAD_CONCURRENCY", 2),
+		SoundCloudEnabled:             envBool("SOUNDCLOUD_ENABLED", true),
+		SoundCloudDownloadEnabled:     envBool("SOUNDCLOUD_DOWNLOAD_ENABLED", false),
+		SoundCloudTrackTimeoutSeconds: envInt("SOUNDCLOUD_TRACK_TIMEOUT_SECONDS", 30),
+		SoundCloudMaxTracks:           envInt("SOUNDCLOUD_MAX_TRACKS", 100),
+		SoundCloudDLOutputFormat:      env("SOUNDCLOUD_DL_OUTPUT_FORMAT", "mp3"),
+		SoundCloudDownloadConcurrency: envInt("SOUNDCLOUD_DOWNLOAD_CONCURRENCY", 1),
+		MetricsEnabled:         envBool("METRICS_ENABLED", true),
+		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
+		MetricsPort:            envInt("METRICS_PORT", 9101),
+		AdminTelegramID:        envInt64("ADMIN_TELEGRAM_ID", 0),
+		DownloadAPIEnabled:     envBool("DOWNLOAD_API_ENABLED", true),
+		Mode:                   strings.ToLower(env("SAVEINATOR_MODE", "all")),
+	}
+
+	if s.BotToken == "" {
+		return nil, fmt.Errorf("BOT_TOKEN is required")
+	}
+
+	s.DatabaseURL = normalizePostgresURL(s.DatabaseURL)
+	return s, nil
+}
+
+func loadDotEnv() {
+	for _, path := range []string{".env", "../.env"} {
+		if _, err := os.Stat(path); err == nil {
+			_ = godotenv.Load(path)
+			return
+		}
+	}
+}
+
+func normalizePostgresURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "postgresql+asyncpg://") {
+		return "postgres://" + strings.TrimPrefix(raw, "postgresql+asyncpg://")
+	}
+	if strings.HasPrefix(raw, "postgresql://") {
+		return "postgres://" + strings.TrimPrefix(raw, "postgresql://")
+	}
+	return raw
+}
+
+func (s *Settings) WebhookURL() string {
+	path := s.WebhookPath
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return strings.TrimRight(s.WebhookHost, "/") + path
+}
+
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func envBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return b
+}
+
+func envInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
+func envInt64(key string, fallback int64) int64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}

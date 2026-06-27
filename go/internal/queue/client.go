@@ -1,0 +1,157 @@
+package queue
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/hibiken/asynq"
+)
+
+const (
+	TypeDownload    = "download:send"
+	TypeTikTok      = "download:tiktok"
+	TypePinterest   = "download:pinterest"
+	TypeSpotify     = "download:spotify"
+	TypeSoundCloud  = "download:soundcloud"
+	TypeBroadcast       = "broadcast:execute"
+	TypeTikTokCarousel  = "download:tiktok_carousel"
+)
+
+type DownloadPayload struct {
+	URL        string `json:"url"`
+	Platform   string `json:"platform"`
+	ChatID     int64  `json:"chat_id"`
+	UserID     int64  `json:"user_id"`
+	MessageID  int    `json:"message_id"`
+	Lang       string `json:"lang"`
+	LockToken  string `json:"lock_token"`
+	LockScene  string `json:"lock_scene"`
+	XStatusID   string `json:"x_status_id,omitempty"`
+	FormatID    string `json:"format_id,omitempty"`
+	Quality     int    `json:"quality,omitempty"`
+	AspectRatio string `json:"aspect_ratio,omitempty"`
+	SessionToken string `json:"session_token,omitempty"`
+}
+
+type MusicPayload struct {
+	Platform   string `json:"platform"`
+	ChatID     int64  `json:"chat_id"`
+	UserID     int64  `json:"user_id"`
+	MessageID  int    `json:"message_id"`
+	Lang       string `json:"lang"`
+	LockToken  string `json:"lock_token"`
+	LockScene  string `json:"lock_scene"`
+	LinkType   string `json:"link_type,omitempty"`
+	ResourceID string `json:"resource_id,omitempty"`
+	SourceURL  string `json:"source_url,omitempty"`
+	ReleaseJSON string `json:"release_json"`
+}
+
+type BroadcastPayload struct {
+	BroadcastID int     `json:"broadcast_id"`
+	Audience    string  `json:"audience"`
+	UserIDs     []int64 `json:"user_ids"`
+}
+
+type Client struct {
+	client *asynq.Client
+}
+
+func NewClient(redisURL string) (*Client, error) {
+	opt, err := redisClientOpt(redisURL)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{client: asynq.NewClient(opt)}, nil
+}
+
+func (c *Client) Close() error {
+	return c.client.Close()
+}
+
+func (c *Client) EnqueueDownload(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeDownload, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	return err
+}
+
+func (c *Client) EnqueuePinterest(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypePinterest, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	return err
+}
+
+func (c *Client) EnqueueTikTok(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeTikTok, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	return err
+}
+
+func (c *Client) EnqueueSpotify(p MusicPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeSpotify, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	return err
+}
+
+func (c *Client) EnqueueSoundCloud(p MusicPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeSoundCloud, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	return err
+}
+
+func (c *Client) EnqueueTikTokCarousel(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeTikTokCarousel, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	return err
+}
+
+func (c *Client) EnqueueBroadcast(p BroadcastPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeBroadcast, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(24*time.Hour))
+	return err
+}
+
+func RedisOpt(redisURL string) (asynq.RedisClientOpt, error) {
+	return redisClientOpt(redisURL)
+}
+
+func redisClientOpt(redisURL string) (asynq.RedisClientOpt, error) {
+	rconn, err := asynq.ParseRedisURI(redisURL)
+	if err != nil {
+		return asynq.RedisClientOpt{}, fmt.Errorf("parse redis: %w", err)
+	}
+	opt, ok := rconn.(asynq.RedisClientOpt)
+	if !ok {
+		return asynq.RedisClientOpt{}, fmt.Errorf("unsupported redis URI scheme (cluster/sentinel)")
+	}
+	return opt, nil
+}
