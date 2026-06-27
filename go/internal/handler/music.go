@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -151,14 +152,15 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 		return
 	}
 
-	release, err := b.soundcloud.FetchRelease(ctx, scLink)
+	maxTracks := b.runtime.CurrentInt(ctx, "soundcloud.max_tracks_per_playlist", b.cfg.SoundCloudMaxTracks)
+	release, err := b.soundcloud.FetchRelease(ctx, scLink, maxTracks)
 	if err != nil {
 		switch {
-		case err == soundcloud.ErrNotFound:
+		case errors.Is(err, soundcloud.ErrNotFound):
 			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.not_found", lang, nil)))
-		case err == soundcloud.ErrTooLarge:
+		case errors.Is(err, soundcloud.ErrTooLarge):
 			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.playlist_too_large", lang, map[string]string{
-				"limit": fmt.Sprintf("%d", b.cfg.SoundCloudMaxTracks),
+				"limit": fmt.Sprintf("%d", maxTracks),
 			})))
 		default:
 			metrics.SoundCloudMetadataFailuresTotal.Inc()
