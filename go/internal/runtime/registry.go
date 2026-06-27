@@ -5,6 +5,8 @@ type ValueType string
 const (
 	TypeInt  ValueType = "int"
 	TypeBool ValueType = "bool"
+	TypeEnum ValueType = "enum"
+	TypeList ValueType = "list"
 )
 
 type Setting struct {
@@ -16,6 +18,8 @@ type Setting struct {
 	MaxValue     int
 	DefaultInt   int
 	DefaultBool  bool
+	DefaultStr   string
+	Allowed      []string
 	LabelEN      string
 	LabelRU      string
 	Unit         string
@@ -46,6 +50,9 @@ var settings = []Setting{
 	intSetting("youtube.timeout_sec", "YouTubeDownloadTimeoutSeconds", "youtube", "Timeout", "Таймаут", "sec", 30, 3600, 600),
 	boolSetting("youtube.transcode_enabled", "YouTubeTranscodeEnabled", "youtube", "Transcode enabled", "Транскодинг", true),
 	intSetting("youtube.max_duration_sec", "YouTubeMaxDurationSec", "youtube", "Max duration", "Макс. длительность", "sec", 0, 86400, 0),
+	{RedisKey: "youtube.allowed_qualities", Service: "youtube", ValueType: TypeList, DefaultStr: "1080,720,480", Allowed: []string{"1080", "720", "480"}, LabelEN: "Allowed qualities", LabelRU: "Доступные качества"},
+	{RedisKey: "youtube.default_quality", Service: "youtube", ValueType: TypeEnum, DefaultStr: "ask", Allowed: []string{"1080", "720", "480", "ask"}, LabelEN: "Default quality", LabelRU: "Качество по умолчанию"},
+	{RedisKey: "youtube.allowed_ratios", Service: "youtube", ValueType: TypeList, DefaultStr: "16_9,21_9,9_16", Allowed: []string{"16_9", "21_9", "9_16"}, LabelEN: "Allowed ratios", LabelRU: "Доступные соотношения"},
 
 	// tiktok
 	intSetting("tiktok.max_file_mb", "SendVideoLimitMB", "tiktok", "Max file", "Лимит файла", "MB", 1, 500, 50),
@@ -88,6 +95,7 @@ var settings = []Setting{
 	intSetting("soundcloud.max_file_mb", "SendVideoLimitMB", "soundcloud", "Max file", "Лимит файла", "MB", 1, 500, 50),
 	intSetting("soundcloud.track_timeout_sec", "SoundCloudTrackTimeoutSeconds", "soundcloud", "Track timeout", "Таймаут трека", "sec", 10, 300, 30),
 	intSetting("soundcloud.max_tracks_per_playlist", "SoundCloudMaxTracks", "soundcloud", "Max playlist tracks", "Макс. треков в плейлисте", "", 1, 500, 100),
+	{RedisKey: "soundcloud.audio_format", ConfigField: "SoundCloudDLOutputFormat", Service: "soundcloud", ValueType: TypeEnum, DefaultStr: "mp3", Allowed: []string{"mp3", "opus", "aac", "flac", "wav"}, LabelEN: "Audio format", LabelRU: "Формат аудио"},
 	intSetting("soundcloud.download_concurrency", "SoundCloudDownloadConcurrency", "soundcloud", "Download concurrency", "Одновременных загрузок", "", 1, 5, 1),
 
 	// pinterest

@@ -35,8 +35,12 @@ type Settings struct {
 	BroadcastDelayMS    int
 	BroadcastBatchSize  int
 
-	TikTokCookiesPath    string
-	InstagramCookiesPath string
+	TikTokCookiesPath              string
+	TikTokCookiesRefreshEnabled    bool
+	TikTokCookiesRefreshURL        string
+	InstagramCookiesPath           string
+	InstagramCookiesRefreshEnabled bool
+	InstagramCookiesRefreshURL     string
 
 	PinterestEnabled         bool
 	PinterestTimeoutSeconds  int
@@ -101,8 +105,12 @@ func Load() (*Settings, error) {
 		YouTubeEnabled:                envBool("YOUTUBE_ENABLED", true),
 		BroadcastDelayMS:    envInt("BROADCAST_DELAY_MS", 50),
 		BroadcastBatchSize:  envInt("BROADCAST_BATCH_SIZE", 20),
-		TikTokCookiesPath:      env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
-		InstagramCookiesPath:   env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
+		TikTokCookiesPath:              env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
+		TikTokCookiesRefreshEnabled:    envBool("TIKTOK_COOKIES_REFRESH_ENABLED", true),
+		TikTokCookiesRefreshURL:        env("TIKTOK_COOKIES_REFRESH_URL", "https://vt.tiktok.com/ZSCFGyN3g/"),
+		InstagramCookiesPath:           env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
+		InstagramCookiesRefreshEnabled: envBool("INSTAGRAM_COOKIES_REFRESH_ENABLED", true),
+		InstagramCookiesRefreshURL:     env("INSTAGRAM_COOKIES_REFRESH_URL", "https://www.instagram.com/reel/DaAl-AKqLRF/"),
 		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
 		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
 		PinterestMaxItems:        envInt("PINTEREST_MAX_ITEMS", 10),

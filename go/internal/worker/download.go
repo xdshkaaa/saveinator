@@ -129,7 +129,7 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 	}
 	defer os.RemoveAll(taskDir)
 
-	timeout := time.Duration(h.cfg.YouTubeDownloadTimeoutSeconds) * time.Second
+	timeout := time.Duration(h.runtime.PlatformTimeoutSec(ctx, "youtube")) * time.Second
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
@@ -186,7 +186,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	}
 	defer os.RemoveAll(taskDir)
 
-	timeout := time.Duration(h.cfg.DownloadTimeoutSeconds) * time.Second
+	timeout := time.Duration(h.runtime.PlatformTimeoutSec(ctx, p.Platform)) * time.Second
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
@@ -240,7 +240,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 
 func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, videoPath, lang string) error {
 	sizeMB := float64(fileSize(videoPath)) / (1024 * 1024)
-	limit := float64(h.maxFileMB(p.Platform))
+	limit := float64(h.maxFileMB(ctx, p.Platform))
 	if sizeMB > limit {
 		msg := locale.Get("download.too_large", lang, map[string]string{
 			"size":  fmt.Sprintf("%.1f", sizeMB),
@@ -264,13 +264,8 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 	return nil
 }
 
-func (h *Handler) maxFileMB(platform string) int {
-	switch platform {
-	case "youtube":
-		return h.cfg.YouTubeMaxFileSizeMB
-	default:
-		return h.cfg.SendVideoLimitMB
-	}
+func (h *Handler) maxFileMB(ctx context.Context, platform string) int {
+	return h.runtime.PlatformMaxFileMB(ctx, platform)
 }
 
 func fileSize(path string) int64 {

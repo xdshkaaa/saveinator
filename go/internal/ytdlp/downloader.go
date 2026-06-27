@@ -19,6 +19,14 @@ type Options struct {
 }
 
 func Download(ctx context.Context, url string, outputDir string, opts Options) error {
+	return run(ctx, url, outputDir, opts, false)
+}
+
+func Probe(ctx context.Context, url string, outputDir string, opts Options) error {
+	return run(ctx, url, outputDir, opts, true)
+}
+
+func run(ctx context.Context, url string, outputDir string, opts Options, skipDownload bool) error {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return err
 	}
@@ -30,10 +38,13 @@ func Download(ctx context.Context, url string, outputDir string, opts Options) e
 		"-o", filepath.Join(outputDir, "%(title).100s_%(id)s.%(ext)s"),
 	}
 
-	if opts.FormatID != "" {
+	if opts.FormatID != "" && !skipDownload {
 		args = append(args, "-f", opts.FormatID, "--merge-output-format", "mp4")
-	} else {
+	} else if !skipDownload {
 		args = append(args, "-f", "best")
+	}
+	if skipDownload {
+		args = append(args, "--skip-download")
 	}
 
 	if opts.Platform == "instagram" && fileExists(opts.InstagramCookies) {

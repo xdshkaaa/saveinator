@@ -41,10 +41,10 @@ Single container instead of separate `bot` and `worker` services:
 docker compose -f docker-compose.go.yml up -d --build
 ```
 
-## Migrated (phase 1–6)
+## Migrated features
 
 - Webhook + polling
-- `/start` onboarding (EN/RU)
+- `/start` onboarding (EN/RU), bot command menu
 - `/settings` — language, default YouTube quality/ratio
 - YouTube quality + aspect ratio picker with ffmpeg transcoding
 - **Pinterest** — pins, short links, boards via Pinterest API (no pinterest-dl)
@@ -56,14 +56,15 @@ docker compose -f docker-compose.go.yml up -d --build
 - **Download cancel** — cancel button + active download queue (`dlc:` / `dlq:` callbacks)
 - **Admin panel** — `/admin` runtime settings (Redis hot-swap), shadow bans, user stats
 - **Broadcasts** — `/broadcast` create/send with asynq worker
-- **Runtime settings** — global + all platform int/bool keys (YouTube enum/list deferred)
+- **Runtime settings** — global + platform int/bool/enum/list keys wired into workers and handlers
+- **Maintenance** — hourly temp dir sweep, TikTok/Instagram cookie refresh (5 min)
 - Link parsing (YouTube, TikTok, Instagram, X, Pinterest, Spotify, SoundCloud)
 - Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
-- Prometheus metrics on `:9101`
+- Prometheus metrics on `:9101` (`saveinator_downloads_enqueued_total`, rate limit counters)
 - Shared PostgreSQL schema (existing Alembic migrations)
 
-## Not yet migrated
+## Optional / same as Python
 
-- YouTube enum/list runtime settings (quality/ratio lists via admin)
-- Pinterest HTTP API auth (same as Python: no auth, disable via env)
+- Pinterest HTTP API auth (none — disable via `DOWNLOAD_API_ENABLED=false`)
+- Cookie refresh URLs: `TIKTOK_COOKIES_REFRESH_URL`, `INSTAGRAM_COOKIES_REFRESH_URL`

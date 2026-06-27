@@ -77,7 +77,9 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 
 	sent := 0
 	total := len(release.Tracks)
-	sem := make(chan struct{}, maxInt(1, h.cfg.SpotifyDownloadConcurrency))
+	concurrency := h.runtime.CurrentInt(ctx, "spotify.download_concurrency", h.cfg.SpotifyDownloadConcurrency)
+	trackTimeout := h.runtime.CurrentInt(ctx, "spotify.track_timeout_sec", h.cfg.SpotifyTrackTimeoutSeconds)
+	sem := make(chan struct{}, maxInt(1, concurrency))
 
 	for i, track := range release.Tracks {
 		if cancelled, _ := h.redis.IsDownloadCancelled(ctx, p.LockScene, p.UserID, p.LockToken); cancelled {
@@ -97,7 +99,7 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 		query := track.Artists + " - " + track.Title
 
 		sem <- struct{}{}
-		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, h.cfg.SpotifyDLOutputFormat, h.cfg.SpotifyTrackTimeoutSeconds)
+		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, h.cfg.SpotifyDLOutputFormat, trackTimeout)
 		<-sem
 		if dlErr != nil {
 			slog.Warn("spotify track download failed", "title", track.Title, "err", dlErr)
@@ -135,7 +137,10 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 
 	sent := 0
 	total := len(release.Tracks)
-	sem := make(chan struct{}, maxInt(1, h.cfg.SoundCloudDownloadConcurrency))
+	concurrency := h.runtime.CurrentInt(ctx, "soundcloud.download_concurrency", h.cfg.SoundCloudDownloadConcurrency)
+	trackTimeout := h.runtime.CurrentInt(ctx, "soundcloud.track_timeout_sec", h.cfg.SoundCloudTrackTimeoutSeconds)
+	outputFormat := h.runtime.CurrentString(ctx, "soundcloud.audio_format", h.cfg.SoundCloudDLOutputFormat)
+	sem := make(chan struct{}, maxInt(1, concurrency))
 
 	for i, track := range release.Tracks {
 		if cancelled, _ := h.redis.IsDownloadCancelled(ctx, p.LockScene, p.UserID, p.LockToken); cancelled {
@@ -158,7 +163,7 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		trackDir := filepath.Join(taskDir, fmt.Sprintf("track-%d", current))
 
 		sem <- struct{}{}
-		audioPath, dlErr := audio.DownloadSoundCloudTrack(ctx, trackURL, trackDir, h.cfg.SoundCloudDLOutputFormat, h.cfg.SoundCloudTrackTimeoutSeconds)
+		audioPath, dlErr := audio.DownloadSoundCloudTrack(ctx, trackURL, trackDir, outputFormat, trackTimeout)
 		<-sem
 		if dlErr != nil {
 			slog.Warn("soundcloud track download failed", "title", track.Title, "err", dlErr)

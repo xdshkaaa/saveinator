@@ -70,6 +70,23 @@ func (s *Store) Validate(def Setting, raw string) error {
 			return nil
 		}
 		return fmt.Errorf("expected true/false")
+	case TypeEnum:
+		for _, allowed := range def.Allowed {
+			if raw == allowed {
+				return nil
+			}
+		}
+		return fmt.Errorf("allowed: %s", strings.Join(def.Allowed, ", "))
+	case TypeList:
+		for _, part := range splitList(raw) {
+			if !allowedValue(def.Allowed, part) {
+				return fmt.Errorf("invalid value %q", part)
+			}
+		}
+		if raw == "" {
+			return fmt.Errorf("list cannot be empty")
+		}
+		return nil
 	case TypeInt:
 		n, err := strconv.Atoi(raw)
 		if err != nil {
@@ -93,6 +110,10 @@ func (s *Store) Parse(def Setting, raw string) any {
 	case TypeBool:
 		lower := strings.ToLower(raw)
 		return lower == "1" || lower == "true" || lower == "yes" || lower == "on"
+	case TypeEnum:
+		return raw
+	case TypeList:
+		return strings.Join(splitList(raw), ",")
 	default:
 		n, _ := strconv.Atoi(raw)
 		return n
@@ -112,6 +133,8 @@ func FormatValue(value any, def Setting, lang string) string {
 			return "нет"
 		}
 		return "no"
+	case TypeEnum, TypeList:
+		return fmt.Sprintf("%v", value)
 	default:
 		if def.Unit != "" {
 			return fmt.Sprintf("%v %s", value, def.Unit)
@@ -127,6 +150,8 @@ func serialise(value any, def Setting) string {
 			return "1"
 		}
 		return "0"
+	case TypeEnum, TypeList:
+		return fmt.Sprintf("%v", value)
 	default:
 		return fmt.Sprintf("%v", value)
 	}
@@ -136,10 +161,21 @@ func deserialise(raw string, def Setting) any {
 	switch def.ValueType {
 	case TypeBool:
 		return raw == "1" || strings.EqualFold(raw, "true")
+	case TypeEnum, TypeList:
+		return raw
 	default:
 		n, _ := strconv.Atoi(raw)
 		return n
 	}
+}
+
+func allowedValue(allowed []string, value string) bool {
+	for _, a := range allowed {
+		if a == value {
+			return true
+		}
+	}
+	return false
 }
 
 func defaultFromConfig(cfg *config.Settings, def Setting) any {
@@ -197,6 +233,13 @@ func defaultFromConfig(cfg *config.Settings, def Setting) any {
 			return cfg.TikTokCarouselMaxItems
 		case "TikTokCarouselAudioEnabled":
 			return cfg.TikTokCarouselAudioEnabled
+		case "SoundCloudDLOutputFormat":
+			return cfg.SoundCloudDLOutputFormat
+		}
+	}
+	if def.ValueType == TypeEnum || def.ValueType == TypeList {
+		if def.DefaultStr != "" {
+			return def.DefaultStr
 		}
 	}
 	if def.ValueType == TypeBool {
