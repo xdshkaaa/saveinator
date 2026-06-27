@@ -16,6 +16,6 @@ ssh "$VPS_USER@$VPS_HOST" "grep -q '^TIKTOK_COOKIES_PATH=' $APP_DIR/.env 2>/dev/
   sed -i 's|^TIKTOK_COOKIES_PATH=.*|TIKTOK_COOKIES_PATH=/secrets/tiktok_cookies.txt|' $APP_DIR/.env || \
   printf '\nTIKTOK_COOKIES_PATH=/secrets/tiktok_cookies.txt\nTIKTOK_COOKIES_FROM_BROWSER=\n' >> $APP_DIR/.env"
 
-ssh "$VPS_USER@$VPS_HOST" "cd $APP_DIR && docker compose build worker && docker compose up -d --force-recreate worker"
+ssh "$VPS_USER@$VPS_HOST" "cd $APP_DIR && docker compose up -d --force-recreate saveinator"
 
 echo "TikTok cookies deployed to $VPS_HOST"
