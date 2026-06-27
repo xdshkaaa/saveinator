@@ -78,6 +78,18 @@ func (c *Client) AllowRateLimit(ctx context.Context, scope string, id int64, lim
 	return countCmd.Val() < int64(limit), nil
 }
 
+func (c *Client) AllowURLDedup(ctx context.Context, urlHash string, window time.Duration) (bool, error) {
+	if len(urlHash) < 12 {
+		return true, nil
+	}
+	key := "dedup:" + urlHash[:12]
+	ok, err := c.rdb.SetNX(ctx, key, "1", window).Result()
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
 type ActiveDownload struct {
 	UserID   int64
 	Scenario string

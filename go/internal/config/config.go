@@ -23,6 +23,7 @@ type Settings struct {
 
 	RateLimitUserPerMinute int
 	RateLimitChatPerMinute int
+	SpamDedupWindowSeconds int
 
 	DownloadTimeoutSeconds int
 	SendVideoLimitMB       int
@@ -31,8 +32,9 @@ type Settings struct {
 	YouTubeMaxFileSizeMB          int
 	YouTubeDownloadTimeoutSeconds int
 	YouTubeEnabled                bool
+	YouTubeTranscodeEnabled       bool
 
-	BroadcastDelayMS    int
+	BroadcastDelayMS   int
 	BroadcastBatchSize  int
 
 	TikTokCookiesPath              string
@@ -96,6 +98,7 @@ func Load() (*Settings, error) {
 		LogLevel:               env("LOG_LEVEL", "INFO"),
 		RateLimitUserPerMinute: envInt("RATE_LIMIT_USER_PER_MINUTE", 5),
 		RateLimitChatPerMinute: envInt("RATE_LIMIT_CHAT_PER_MINUTE", 20),
+		SpamDedupWindowSeconds: envInt("SPAM_DEDUP_WINDOW_SECONDS", 300),
 		DownloadTimeoutSeconds: envInt("DOWNLOAD_TIMEOUT_SECONDS", 60),
 		SendVideoLimitMB:       envInt("SEND_VIDEO_LIMIT_MB", 50),
 		SendDocumentLimitMB:    envInt("SEND_DOCUMENT_LIMIT_MB", 1999),
@@ -103,6 +106,7 @@ func Load() (*Settings, error) {
 		YouTubeMaxFileSizeMB:          envInt("YOUTUBE_MAX_FILE_SIZE_MB", 1999),
 		YouTubeDownloadTimeoutSeconds: envInt("YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS", 600),
 		YouTubeEnabled:                envBool("YOUTUBE_ENABLED", true),
+		YouTubeTranscodeEnabled:       envBool("YOUTUBE_TRANSCODE_ENABLED", true),
 		BroadcastDelayMS:    envInt("BROADCAST_DELAY_MS", 50),
 		BroadcastBatchSize:  envInt("BROADCAST_BATCH_SIZE", 20),
 		TikTokCookiesPath:              env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),

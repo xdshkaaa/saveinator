@@ -16,10 +16,14 @@ var (
 		prometheus.CounterOpts{Name: "saveinator_rate_limit_dropped_total", Help: "Rate limited requests"},
 		[]string{"scope"},
 	)
+	SpamBlocked = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "saveinator_spam_blocked_total", Help: "Spam middleware blocks"},
+		[]string{"reason"},
+	)
 )
 
 func init() {
-	prometheus.MustRegister(DownloadsEnqueued, RateLimitDropped)
+	prometheus.MustRegister(DownloadsEnqueued, RateLimitDropped, SpamBlocked)
 }
 
 func Handler() http.Handler {

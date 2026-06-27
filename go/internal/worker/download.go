@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"saveinator/internal/sender"
 	"saveinator/internal/tiktok"
 	"saveinator/internal/video"
+	"saveinator/internal/xphotos"
 	"saveinator/internal/ytdlp"
 	"saveinator/internal/youtube"
 )
@@ -162,11 +164,15 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		return nil
 	}
 
-	processed, err := video.ApplyAspectRatio(dlCtx, sourceVideo, p.AspectRatio, p.Quality)
-	if err != nil {
-		slog.Warn("youtube transcode failed", "err", err)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
-		return nil
+	processed := sourceVideo
+	if h.runtime.CurrentBool(ctx, "youtube.transcode_enabled", h.cfg.YouTubeTranscodeEnabled) {
+		var transcodeErr error
+		processed, transcodeErr = video.ApplyAspectRatio(dlCtx, sourceVideo, p.AspectRatio, p.Quality)
+		if transcodeErr != nil {
+			slog.Warn("youtube transcode failed", "err", transcodeErr)
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+			return nil
+		}
 	}
 
 	return h.sendVideoResult(ctx, p, processed, lang)
@@ -206,6 +212,9 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		Timeout:          timeout,
 	})
 	if err != nil {
+		if p.Platform == "x" && (xphotos.IsNoVideoError(err) || p.XStatusID != "") {
+			return h.runXPhotos(ctx, p, lang, taskDir)
+		}
 		slog.Warn("download failed", "url", p.URL, "err", err)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.timeout", lang, nil))
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, err.Error())
@@ -214,6 +223,9 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 
 	files, err := ytdlp.FindMediaFiles(taskDir)
 	if err != nil || len(files) == 0 {
+		if p.Platform == "x" {
+			return h.runXPhotos(ctx, p, lang, taskDir)
+		}
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 		return nil
 	}
@@ -231,11 +243,42 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	}
 
 	if sourceVideo == "" {
+		if p.Platform == "x" {
+			return h.runXPhotos(ctx, p, lang, taskDir)
+		}
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 		return nil
 	}
 
 	return h.sendVideoResult(ctx, p, sourceVideo, lang)
+}
+
+func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang, taskDir string) error {
+	maxItems := h.runtime.CurrentInt(ctx, "x.max_items_per_post", 4)
+	statusID := p.XStatusID
+	if statusID == "" {
+		statusID = xphotos.ExtractStatusID(p.URL)
+	}
+
+	_, paths, err := xphotos.DownloadPhotos(ctx, p.URL, taskDir, statusID, maxItems)
+	if err != nil {
+		if errors.Is(err, xphotos.ErrNotFound) || errors.Is(err, xphotos.ErrDownload) {
+			slog.Warn("x photo download failed", "url", p.URL, "err", err)
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "x", "failed", 0, err.Error())
+		return nil
+	}
+
+	caption := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
+	if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
+		slog.Warn("x photo album send failed", "err", err)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		return nil
+	}
+	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
+	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "x", "completed", 0, "")
+	return nil
 }
 
 func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, videoPath, lang string) error {

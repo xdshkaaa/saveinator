@@ -195,6 +195,8 @@ func defaultFromConfig(cfg *config.Settings, def Setting) any {
 			return cfg.YouTubeMaxFileSizeMB
 		case "YouTubeDownloadTimeoutSeconds":
 			return cfg.YouTubeDownloadTimeoutSeconds
+		case "YouTubeTranscodeEnabled":
+			return cfg.YouTubeTranscodeEnabled
 		case "SendVideoLimitMB":
 			return cfg.SendVideoLimitMB
 		case "SpotifyEnabled":
