@@ -26,6 +26,10 @@ const userAgent = "Mozilla/5.0 (compatible; Saveinator/1.0)"
 
 var mediaURLTemplate = "https://www.instagram.com/p/%s/media/?size=l"
 
+func postReferer(shortcode string) string {
+	return fmt.Sprintf("https://www.instagram.com/p/%s/", shortcode)
+}
+
 func mediaURL(shortcode string, index int) string {
 	url := fmt.Sprintf(mediaURLTemplate, shortcode)
 	if index > 1 {
@@ -68,9 +72,10 @@ func (c *PhotoClient) DownloadPhotos(ctx context.Context, url, outputDir string,
 
 	var paths []string
 	seen := map[string]struct{}{}
+	referer := postReferer(shortcode)
 	for i := 1; i <= maxItems; i++ {
 		path := filepath.Join(outputDir, fmt.Sprintf("photo_%d.jpg", i))
-		hash, err := c.downloadMedia(ctx, c.mediaURL(shortcode, i), path)
+		hash, err := c.downloadMedia(ctx, c.mediaURL(shortcode, i), referer, path)
 		if err != nil {
 			if i == 1 {
 				return nil, nil, err
@@ -90,12 +95,12 @@ func (c *PhotoClient) DownloadPhotos(ctx context.Context, url, outputDir string,
 	return &PhotoResult{Shortcode: shortcode}, paths, nil
 }
 
-func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, outputPath string) (string, error) {
+func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, referer, outputPath string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", userAgent)
+	setMediaHeaders(req, referer)
 	c.loadCookies(req)
 
 	client := *c.http
@@ -103,8 +108,8 @@ func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, outputPath st
 		if len(via) >= 10 {
 			return errors.New("too many redirects")
 		}
+		setMediaHeaders(req, referer)
 		c.loadCookies(req)
-		req.Header.Set("User-Agent", userAgent)
 		return nil
 	}
 
@@ -128,9 +133,9 @@ func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, outputPath st
 	if len(body) == 0 {
 		return "", fmt.Errorf("%w: empty response", ErrDownload)
 	}
-	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
-	if strings.Contains(contentType, "text/html") {
-		if strings.Contains(strings.ToLower(string(body)), "login") {
+	if !isImageBody(body) {
+		lower := strings.ToLower(string(body))
+		if strings.Contains(lower, "login") {
 			return "", ErrAuthRequired
 		}
 		return "", fmt.Errorf("%w: unexpected HTML response", ErrDownload)
@@ -141,6 +146,30 @@ func (c *PhotoClient) downloadMedia(ctx context.Context, mediaURL, outputPath st
 	}
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func setMediaHeaders(req *http.Request, referer string) {
+	req.Header.Set("User-Agent", userAgent)
+	if referer != "" {
+		req.Header.Set("Referer", referer)
+	}
+}
+
+func isImageBody(body []byte) bool {
+	if len(body) < 12 {
+		return false
+	}
+	switch {
+	case body[0] == 0xFF && body[1] == 0xD8:
+		return true
+	case body[0] == 0x89 && body[1] == 0x50 && body[2] == 0x4E && body[3] == 0x47:
+		return true
+	case body[0] == 0x52 && body[1] == 0x49 && body[2] == 0x46 && body[3] == 0x46 &&
+		body[8] == 0x57 && body[9] == 0x45 && body[10] == 0x42 && body[11] == 0x50:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *PhotoClient) loadCookies(req *http.Request) {

@@ -13,7 +13,7 @@ import (
 
 func TestPhotoClientDownloadPhotos(t *testing.T) {
 	t.Parallel()
-	imageBody := []byte("fake-jpeg-bytes")
+	imageBody := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01, 0x01, 'f', 'a', 'k', 'e'}
 	var requestCount int
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,8 +76,8 @@ func TestPhotoClientDownloadPhotos_authRequired(t *testing.T) {
 
 func TestPhotoClientDownloadPhotos_carousel(t *testing.T) {
 	t.Parallel()
-	bodyA := []byte("carousel-image-a")
-	bodyB := []byte("carousel-image-b")
+	bodyA := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01, 0x01, 'a'}
+	bodyB := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01, 0x01, 'b'}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/jpeg")
@@ -113,6 +113,66 @@ func TestPhotoClientDownloadPhotos_carousel(t *testing.T) {
 	}
 	if filepath.Base(paths[0]) != "photo_1.jpg" || filepath.Base(paths[1]) != "photo_2.jpg" {
 		t.Fatalf("unexpected paths: %v", paths)
+	}
+}
+
+func TestPhotoClientDownloadPhotos_requiresReferer(t *testing.T) {
+	t.Parallel()
+	imageBody := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01}
+	shortcode := "DZcRZBQI1i6"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Referer") != postReferer(shortcode) {
+			http.Error(w, "connection reset simulation", http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(imageBody)
+	}))
+	defer srv.Close()
+
+	client := &PhotoClient{
+		http: srv.Client(),
+		mediaURL: func(shortcode string, index int) string {
+			return srv.URL + "/p/" + shortcode + "/media/?size=l"
+		},
+	}
+
+	result, paths, err := client.DownloadPhotos(context.Background(), "https://www.instagram.com/p/"+shortcode+"/", t.TempDir(), 1)
+	if err != nil {
+		t.Fatalf("DownloadPhotos() err = %v", err)
+	}
+	if result.Shortcode != shortcode {
+		t.Fatalf("shortcode = %q", result.Shortcode)
+	}
+	if len(paths) != 1 {
+		t.Fatalf("expected 1 photo, got %d", len(paths))
+	}
+}
+
+func TestPhotoClientDownloadPhotos_wrongContentType(t *testing.T) {
+	t.Parallel()
+	imageBody := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01, 0x01}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(imageBody)
+	}))
+	defer srv.Close()
+
+	client := &PhotoClient{
+		http: srv.Client(),
+		mediaURL: func(shortcode string, index int) string {
+			return srv.URL + "/p/" + shortcode + "/media/?size=l"
+		},
+	}
+
+	_, paths, err := client.DownloadPhotos(context.Background(), "https://www.instagram.com/p/DZcRZBQI1i6/", t.TempDir(), 1)
+	if err != nil {
+		t.Fatalf("DownloadPhotos() err = %v", err)
+	}
+	if len(paths) != 1 {
+		t.Fatalf("expected 1 photo despite text/html content-type, got %d", len(paths))
 	}
 }
 
