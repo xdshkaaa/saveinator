@@ -14,6 +14,8 @@ type Setting struct {
 	ValueType    ValueType
 	MinValue     int
 	MaxValue     int
+	DefaultInt   int
+	DefaultBool  bool
 	LabelEN      string
 	LabelRU      string
 	Unit         string
@@ -23,28 +25,78 @@ var ServiceOrder = []string{
 	"youtube", "tiktok", "instagram", "x", "spotify", "soundcloud", "pinterest",
 }
 
+func intSetting(key, field, service, en, ru, unit string, min, max, def int) Setting {
+	return Setting{RedisKey: key, ConfigField: field, Service: service, ValueType: TypeInt, MinValue: min, MaxValue: max, DefaultInt: def, LabelEN: en, LabelRU: ru, Unit: unit}
+}
+
+func boolSetting(key, field, service, en, ru string, def bool) Setting {
+	return Setting{RedisKey: key, ConfigField: field, Service: service, ValueType: TypeBool, DefaultBool: def, LabelEN: en, LabelRU: ru}
+}
+
 var settings = []Setting{
 	// global
-	{RedisKey: "global.document_limit_mb", ConfigField: "SendDocumentLimitMB", Service: "global", ValueType: TypeInt, MinValue: 1, MaxValue: 1999, LabelEN: "Document limit", LabelRU: "Лимит документов", Unit: "MB"},
-	{RedisKey: "global.telegram_upload_limit_mb", ConfigField: "TelegramUploadLimitMB", Service: "global", ValueType: TypeInt, MinValue: 1, MaxValue: 1999, LabelEN: "Telegram upload limit", LabelRU: "Лимит загрузки Telegram", Unit: "MB"},
-	{RedisKey: "global.default_timeout_sec", ConfigField: "DownloadTimeoutSeconds", Service: "global", ValueType: TypeInt, MinValue: 10, MaxValue: 3600, LabelEN: "Default timeout", LabelRU: "Таймаут по умолчанию", Unit: "sec"},
-	{RedisKey: "global.broadcast_delay_ms", ConfigField: "BroadcastDelayMS", Service: "global", ValueType: TypeInt, MinValue: 20, MaxValue: 5000, LabelEN: "Broadcast delay", LabelRU: "Задержка рассылки", Unit: "ms"},
-	{RedisKey: "global.broadcast_batch_size", ConfigField: "BroadcastBatchSize", Service: "global", ValueType: TypeInt, MinValue: 1, MaxValue: 100, LabelEN: "Broadcast batch size", LabelRU: "Размер пачки рассылки"},
+	intSetting("global.document_limit_mb", "SendDocumentLimitMB", "global", "Document limit", "Лимит документов", "MB", 1, 1999, 1999),
+	intSetting("global.telegram_upload_limit_mb", "TelegramUploadLimitMB", "global", "Telegram upload limit", "Лимит загрузки Telegram", "MB", 1, 1999, 50),
+	intSetting("global.default_timeout_sec", "DownloadTimeoutSeconds", "global", "Default timeout", "Таймаут по умолчанию", "sec", 10, 3600, 60),
+	intSetting("global.broadcast_delay_ms", "BroadcastDelayMS", "global", "Broadcast delay", "Задержка рассылки", "ms", 20, 5000, 50),
+	intSetting("global.broadcast_batch_size", "BroadcastBatchSize", "global", "Broadcast batch size", "Размер пачки рассылки", "", 1, 100, 20),
+
 	// youtube
-	{RedisKey: "youtube.max_file_mb", ConfigField: "YouTubeMaxFileSizeMB", Service: "youtube", ValueType: TypeInt, MinValue: 1, MaxValue: 1999, LabelEN: "Max file size", LabelRU: "Макс. размер файла", Unit: "MB"},
-	{RedisKey: "youtube.timeout_sec", ConfigField: "YouTubeDownloadTimeoutSeconds", Service: "youtube", ValueType: TypeInt, MinValue: 10, MaxValue: 3600, LabelEN: "Download timeout", LabelRU: "Таймаут скачивания", Unit: "sec"},
-	{RedisKey: "youtube.enabled", ConfigField: "YouTubeEnabled", Service: "youtube", ValueType: TypeBool, LabelEN: "Enabled", LabelRU: "Включено"},
+	intSetting("youtube.max_file_mb", "YouTubeMaxFileSizeMB", "youtube", "Max file", "Лимит файла", "MB", 1, 1999, 1999),
+	intSetting("youtube.timeout_sec", "YouTubeDownloadTimeoutSeconds", "youtube", "Timeout", "Таймаут", "sec", 30, 3600, 600),
+	boolSetting("youtube.transcode_enabled", "YouTubeTranscodeEnabled", "youtube", "Transcode enabled", "Транскодинг", true),
+	intSetting("youtube.max_duration_sec", "YouTubeMaxDurationSec", "youtube", "Max duration", "Макс. длительность", "sec", 0, 86400, 0),
+
+	// tiktok
+	intSetting("tiktok.max_file_mb", "SendVideoLimitMB", "tiktok", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("tiktok.timeout_sec", "DownloadTimeoutSeconds", "tiktok", "Timeout", "Таймаут", "sec", 10, 300, 60),
+	intSetting("tiktok.max_duration_sec", "TikTokMaxDurationSec", "tiktok", "Max duration", "Макс. длительность", "sec", 0, 600, 0),
+	boolSetting("tiktok.allow_photo_slideshows", "TikTokAllowPhotoSlideshows", "tiktok", "Allow photo slideshows", "Фото-слайдшоу", true),
+	boolSetting("tiktok.fallback_to_document", "TikTokFallbackToDocument", "tiktok", "Fallback to document", "Документ как fallback", true),
+	intSetting("tiktok.carousel_max_items", "TikTokCarouselMaxItems", "tiktok", "Max carousel images", "Макс. фото в карусели", "", 1, 50, 20),
+	boolSetting("tiktok.carousel_audio_enabled", "TikTokCarouselAudioEnabled", "tiktok", "Carousel audio", "Аудио карусели", true),
+
+	// instagram
+	intSetting("instagram.max_file_mb", "SendVideoLimitMB", "instagram", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("instagram.timeout_sec", "DownloadTimeoutSeconds", "instagram", "Timeout", "Таймаут", "sec", 10, 300, 60),
+	intSetting("instagram.max_items_per_post", "InstagramMaxItemsPerPost", "instagram", "Max items per post", "Элементов на пост", "", 1, 20, 10),
+	boolSetting("instagram.allow_reels", "InstagramAllowReels", "instagram", "Allow reels", "Reels", true),
+	boolSetting("instagram.allow_posts", "InstagramAllowPosts", "instagram", "Allow posts", "Посты", true),
+	boolSetting("instagram.allow_stories", "InstagramAllowStories", "instagram", "Allow stories", "Stories", true),
+	boolSetting("instagram.fallback_to_document", "InstagramFallbackToDocument", "instagram", "Fallback to document", "Документ как fallback", true),
+
+	// x
+	intSetting("x.max_file_mb", "SendVideoLimitMB", "x", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("x.timeout_sec", "DownloadTimeoutSeconds", "x", "Timeout", "Таймаут", "sec", 10, 300, 60),
+	intSetting("x.max_items_per_post", "XMaxItemsPerPost", "x", "Max items per post", "Элементов на пост", "", 1, 10, 4),
+	boolSetting("x.allow_gif", "XAllowGIF", "x", "Allow GIF", "GIF", true),
+	boolSetting("x.allow_video", "XAllowVideo", "x", "Allow video", "Видео", true),
+	boolSetting("x.fallback_to_document", "XFallbackToDocument", "x", "Fallback to document", "Документ как fallback", true),
+
 	// spotify
-	{RedisKey: "spotify.enabled", ConfigField: "SpotifyEnabled", Service: "spotify", ValueType: TypeBool, LabelEN: "Enabled", LabelRU: "Включено"},
-	{RedisKey: "spotify.download_enabled", ConfigField: "SpotifyDownloadEnabled", Service: "spotify", ValueType: TypeBool, LabelEN: "Download enabled", LabelRU: "Скачивание включено"},
-	{RedisKey: "spotify.track_timeout_sec", ConfigField: "SpotifyTrackTimeoutSeconds", Service: "spotify", ValueType: TypeInt, MinValue: 10, MaxValue: 600, LabelEN: "Track timeout", LabelRU: "Таймаут трека", Unit: "sec"},
+	boolSetting("spotify.enabled", "SpotifyEnabled", "spotify", "Enabled", "Включено", false),
+	boolSetting("spotify.download_enabled", "SpotifyDownloadEnabled", "spotify", "Download enabled", "Скачивание", true),
+	intSetting("spotify.max_file_mb", "SendDocumentLimitMB", "spotify", "Max file", "Лимит файла", "MB", 1, 1999, 1999),
+	intSetting("spotify.track_timeout_sec", "SpotifyTrackTimeoutSeconds", "spotify", "Track timeout", "Таймаут трека", "sec", 10, 300, 60),
+	intSetting("spotify.api_timeout_sec", "SpotifyAPITimeoutSeconds", "spotify", "API timeout", "Таймаут API", "sec", 5, 60, 15),
+	intSetting("spotify.max_tracks_per_album", "SpotifyLockMaxTracks", "spotify", "Max tracks per album", "Треков на альбом", "", 1, 100, 50),
+	intSetting("spotify.download_concurrency", "SpotifyDownloadConcurrency", "spotify", "Download concurrency", "Одновременных загрузок", "", 1, 5, 2),
+
 	// soundcloud
-	{RedisKey: "soundcloud.enabled", ConfigField: "SoundCloudEnabled", Service: "soundcloud", ValueType: TypeBool, LabelEN: "Enabled", LabelRU: "Включено"},
-	{RedisKey: "soundcloud.download_enabled", ConfigField: "SoundCloudDownloadEnabled", Service: "soundcloud", ValueType: TypeBool, LabelEN: "Download enabled", LabelRU: "Скачивание включено"},
-	{RedisKey: "soundcloud.max_tracks_per_playlist", ConfigField: "SoundCloudMaxTracks", Service: "soundcloud", ValueType: TypeInt, MinValue: 1, MaxValue: 500, LabelEN: "Max playlist tracks", LabelRU: "Макс. треков в плейлисте"},
+	boolSetting("soundcloud.enabled", "SoundCloudEnabled", "soundcloud", "Enabled", "Включено", true),
+	boolSetting("soundcloud.download_enabled", "SoundCloudDownloadEnabled", "soundcloud", "Download enabled", "Скачивание", false),
+	intSetting("soundcloud.max_file_mb", "SendVideoLimitMB", "soundcloud", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("soundcloud.track_timeout_sec", "SoundCloudTrackTimeoutSeconds", "soundcloud", "Track timeout", "Таймаут трека", "sec", 10, 300, 30),
+	intSetting("soundcloud.max_tracks_per_playlist", "SoundCloudMaxTracks", "soundcloud", "Max playlist tracks", "Макс. треков в плейлисте", "", 1, 500, 100),
+	intSetting("soundcloud.download_concurrency", "SoundCloudDownloadConcurrency", "soundcloud", "Download concurrency", "Одновременных загрузок", "", 1, 5, 1),
+
 	// pinterest
-	{RedisKey: "pinterest.enabled", ConfigField: "PinterestEnabled", Service: "pinterest", ValueType: TypeBool, LabelEN: "Enabled", LabelRU: "Включено"},
-	{RedisKey: "pinterest.timeout_sec", ConfigField: "PinterestTimeoutSeconds", Service: "pinterest", ValueType: TypeInt, MinValue: 5, MaxValue: 300, LabelEN: "Timeout", LabelRU: "Таймаут", Unit: "sec"},
+	boolSetting("pinterest.enabled", "PinterestEnabled", "pinterest", "Enabled", "Включено", true),
+	intSetting("pinterest.timeout_sec", "PinterestTimeoutSeconds", "pinterest", "Timeout", "Таймаут", "sec", 5, 300, 30),
+	intSetting("pinterest.max_file_mb", "SendVideoLimitMB", "pinterest", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("pinterest.max_items_per_board", "PinterestMaxItems", "pinterest", "Max items per board", "Элементов на доску", "", 1, 50, 10),
+	boolSetting("pinterest.download_images", "PinterestDownloadImages", "pinterest", "Download images", "Скачивать изображения", true),
+	boolSetting("pinterest.download_videos", "PinterestDownloadVideos", "pinterest", "Download videos", "Скачивать видео", true),
 }
 
 var byKey map[string]Setting

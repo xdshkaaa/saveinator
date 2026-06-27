@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/mymmrac/telego"
+	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
 	"saveinator/internal/pinterest"
@@ -140,7 +144,11 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 			return nil
 		}
-		if err := h.sender.SendFile(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false); err != nil {
+		var markup *telego.InlineKeyboardMarkup
+		if result.CarouselImagesAvailable {
+			markup = h.saveCarouselSession(ctx, p, result)
+		}
+		if err := h.sender.SendFileWithMarkup(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false, markup); err != nil {
 			slog.Warn("tiktok send failed", "err", err)
 		}
 	default:
@@ -177,4 +185,64 @@ func stringsJoin(parts []string, sep string) string {
 		out += sep + p
 	}
 	return out
+}
+
+func (h *Handler) saveCarouselSession(ctx context.Context, p queue.DownloadPayload, result *tiktok.Result) *telego.InlineKeyboardMarkup {
+	token := uuid.NewString()[:12]
+	session := &tiktok.CarouselSession{
+		UserID: p.UserID,
+		URL:    p.URL,
+		ChatID: p.ChatID,
+		Lang:   p.Lang,
+		Title:  result.Title,
+		Author: result.Author,
+		Token:  token,
+	}
+	if err := h.ttSessions.Save(ctx, session); err != nil {
+		slog.Warn("save carousel session failed", "err", err)
+		return nil
+	}
+	lang := p.Lang
+	if lang == "" {
+		lang = "en"
+	}
+	return tiktok.CarouselImagesKeyboard(lang, p.UserID, token)
+}
+
+func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadPayload) error {
+	lang := p.Lang
+	if lang == "" {
+		lang = "en"
+	}
+	defer func() {
+		if p.SessionToken != "" {
+			_ = h.ttSessions.Delete(ctx, p.SessionToken)
+		}
+	}()
+
+	taskDir, err := os.MkdirTemp("", "saveinator-tiktok-carousel-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(taskDir)
+
+	maxItems := h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems)
+	dl := tiktok.NewDownloader(h.cfg.TikTokCookiesPath, h.cfg.DownloadTimeoutSeconds, maxItems, false)
+	result, err := dl.DownloadCarouselImages(ctx, p.URL, taskDir)
+	if err != nil || len(result.Images) == 0 {
+		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_empty", lang, nil)))
+		return nil
+	}
+
+	if result.CarouselImageCount > 0 && len(result.Images) < result.CarouselImageCount {
+		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_partial", lang, map[string]string{
+			"count": fmt.Sprintf("%d", len(result.Images)),
+			"total": fmt.Sprintf("%d", result.CarouselImageCount),
+		})))
+	}
+
+	caption := buildTikTokCaption(result.Title, result.Author, lang)
+	_ = h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption)
+	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "completed", 0, "")
+	return nil
 }

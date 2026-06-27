@@ -21,6 +21,7 @@ import (
 	"saveinator/internal/runtime"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
+	"saveinator/internal/tiktok"
 	"saveinator/internal/youtube"
 )
 
@@ -30,6 +31,7 @@ type Bot struct {
 	redis      *redisx.Client
 	q          *queue.Client
 	ytSessions *youtube.SessionStore
+	ttSessions *tiktok.SessionStore
 	spotify    *spotify.Client
 	soundcloud *soundcloud.Client
 	fsm        *fsmStore
@@ -43,6 +45,7 @@ func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.C
 		redis:      redis,
 		q:          q,
 		ytSessions: youtube.NewSessionStore(redis.Raw()),
+		ttSessions: tiktok.NewSessionStore(redis.Raw()),
 		spotify:    spotify.NewClient(cfg.SpotifyClientID, cfg.SpotifyClientSecret, cfg.SpotifyAPITimeoutSeconds),
 		soundcloud: soundcloud.NewClient(cfg.SoundCloudTrackTimeoutSeconds, cfg.SoundCloudMaxTracks),
 		fsm:        newFSM(),
@@ -65,6 +68,7 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onAdminCallback(bot), th.CallbackDataPrefix("admin|"))
 	h.HandleCallbackQueryCtx(b.onAdminBroadcasts(bot), th.CallbackDataEqual("admin|broadcasts"))
 	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
+	h.HandleCallbackQueryCtx(b.onTikTokCarousel(bot), th.CallbackDataPrefix("ttk:img:"))
 	h.HandleMessageCtx(b.onText(bot), th.AnyMessage())
 }
 

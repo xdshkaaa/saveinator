@@ -93,6 +93,57 @@ func (t *Telegram) SendFile(chatID int64, path, title, lang, platform string, an
 	return err
 }
 
+func (t *Telegram) SendFileWithMarkup(chatID int64, path, title, lang, platform string, animation bool, markup *telego.InlineKeyboardMarkup) error {
+	file, err := openInputFile(path)
+	if err != nil {
+		return err
+	}
+	defer file.close()
+
+	sizeMB := float64(fileSize(path)) / (1024 * 1024)
+	caption := buildCaption(title, lang, platform)
+
+	if animation {
+		_, err := t.bot.SendAnimation(&telego.SendAnimationParams{
+			ChatID:      tu.ID(chatID),
+			Animation:   file.input,
+			Caption:     caption,
+			ReplyMarkup: markup,
+		})
+		return err
+	}
+
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".webp":
+		_, err := t.bot.SendPhoto(&telego.SendPhotoParams{
+			ChatID:      tu.ID(chatID),
+			Photo:       file.input,
+			Caption:     caption,
+			ReplyMarkup: markup,
+		})
+		return err
+	case ".mp4", ".webm", ".mov", ".mkv", ".m4v":
+		if sizeMB <= 50 {
+			_, err := t.bot.SendVideo(&telego.SendVideoParams{
+				ChatID:      tu.ID(chatID),
+				Video:       file.input,
+				Caption:     caption,
+				ReplyMarkup: markup,
+			})
+			return err
+		}
+	}
+
+	_, err = t.bot.SendDocument(&telego.SendDocumentParams{
+		ChatID:      tu.ID(chatID),
+		Document:    file.input,
+		Caption:     caption,
+		ReplyMarkup: markup,
+	})
+	return err
+}
+
 func (t *Telegram) SendPhotoAlbum(chatID int64, paths []string, caption string) error {
 	if len(paths) == 0 {
 		return nil
