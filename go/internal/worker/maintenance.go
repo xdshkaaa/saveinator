@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"saveinator/internal/config"
+	"saveinator/internal/cookies"
 	"saveinator/internal/ytdlp"
 )
 
@@ -89,10 +90,14 @@ func refreshTikTokCookies(ctx context.Context, cfg *config.Settings) {
 	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	tikTokCookies := cfg.TikTokCookiesPath
+	if strings.TrimSpace(cfg.TikTokCookiesFromBrowser) == "" {
+		tikTokCookies = cookies.SyncFromMount(cfg.TikTokCookiesPath, cookies.TikTokWritablePath)
+	}
 	err = ytdlp.Download(probeCtx, probeURL, taskDir, ytdlp.Options{
 		FormatID:                 "best",
 		Platform:                 "tiktok",
-		TikTokCookies:            cfg.TikTokCookiesPath,
+		TikTokCookies:            tikTokCookies,
 		TikTokCookiesFromBrowser: cfg.TikTokCookiesFromBrowser,
 		Timeout:                  timeout,
 	})
@@ -127,9 +132,13 @@ func refreshInstagramCookies(ctx context.Context, cfg *config.Settings) {
 	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	instagramCookies := cfg.InstagramCookiesPath
+	if strings.TrimSpace(cfg.InstagramCookiesFromBrowser) == "" {
+		instagramCookies = cookies.SyncFromMount(cfg.InstagramCookiesPath, cookies.InstagramWritablePath)
+	}
 	err = ytdlp.Probe(probeCtx, probeURL, taskDir, ytdlp.Options{
 		Platform:                    "instagram",
-		InstagramCookies:            cfg.InstagramCookiesPath,
+		InstagramCookies:            instagramCookies,
 		InstagramCookiesFromBrowser: cfg.InstagramCookiesFromBrowser,
 		Timeout:                     timeout,
 	})

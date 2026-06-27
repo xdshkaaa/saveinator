@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"saveinator/internal/cookies"
 )
 
 type PostType string
@@ -351,21 +353,7 @@ func findMediaFiles(dir string) (images []string, video, audio string) {
 }
 
 func writableCookies(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return ""
-	}
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() || info.Size() == 0 {
-		return ""
-	}
-	dst := "/tmp/tiktok_cookies.txt"
-	in, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	_ = os.WriteFile(dst, in, 0o600)
-	return dst
+	return cookies.SyncFromMount(path, cookies.TikTokWritablePath)
 }
 
 func downloadHTTP(ctx context.Context, client *http.Client, url, path string) error {
