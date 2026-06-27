@@ -97,6 +97,9 @@ func (b *Bot) onAdminCallback(bot *telego.Bot) func(context.Context, *telego.Bot
 		case "stats":
 			text, _ := b.renderStats(ctx, lang)
 			b.editAdminText(bot, chatID, msgID, text, b.statsKeyboard(lang))
+		case "broadcasts":
+			b.fsm.Clear(query.From.ID)
+			b.editAdminText(bot, chatID, msgID, locale.Get("broadcast.menu_title", lang, nil), b.broadcastMenuKeyboard(lang))
 		case "edit":
 			if len(parts) < 3 {
 				break

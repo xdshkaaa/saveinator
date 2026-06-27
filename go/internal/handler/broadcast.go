@@ -114,24 +114,6 @@ func (b *Bot) onBroadcastCallback(bot *telego.Bot) func(context.Context, *telego
 	}
 }
 
-func (b *Bot) onAdminBroadcasts(bot *telego.Bot) func(context.Context, *telego.Bot, telego.CallbackQuery) {
-	return func(ctx context.Context, _ *telego.Bot, query telego.CallbackQuery) {
-		if query.From.ID == 0 || !b.isAdmin(query.From.ID) {
-			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
-			return
-		}
-		if query.Message == nil {
-			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
-			return
-		}
-		b.fsm.Clear(query.From.ID)
-		lang := b.userLang(ctx, query.From.ID)
-		b.editAdminText(bot, query.Message.GetChat().ID, query.Message.GetMessageID(),
-			locale.Get("broadcast.menu_title", lang, nil), b.broadcastMenuKeyboard(lang))
-		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
-	}
-}
-
 func (b *Bot) broadcastMenuKeyboard(lang string) *telego.InlineKeyboardMarkup {
 	return tu.InlineKeyboard(
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("broadcast.btn_create", lang, nil)).WithCallbackData("broadcast|create")),
