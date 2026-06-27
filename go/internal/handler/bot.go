@@ -30,7 +30,7 @@ type Bot struct {
 	cfg        *config.Settings
 	db         *db.Store
 	redis      *redisx.Client
-	q          *queue.Client
+	q          taskEnqueuer
 	ytSessions *youtube.SessionStore
 	ttSessions *tiktok.SessionStore
 	spotify    *spotify.Client
@@ -39,7 +39,7 @@ type Bot struct {
 	runtime    *runtime.Store
 }
 
-func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.Client) *Bot {
+func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q taskEnqueuer) *Bot {
 	return &Bot{
 		cfg:        cfg,
 		db:         store,
@@ -55,8 +55,10 @@ func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q *queue.C
 }
 
 func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
+	h.Use(metricsMiddleware())
 	h.HandleMessageCtx(b.onStart(bot), th.CommandEqual("start"))
 	h.HandleMessageCtx(b.onSettings(bot), th.CommandEqual("settings"))
+	h.HandleMessageCtx(b.onClear(bot), th.CommandEqual("clear"))
 	h.HandleMessageCtx(b.onAdmin(bot), th.CommandEqual("admin"))
 	h.HandleMessageCtx(b.onStats(bot), th.CommandEqual("stats"))
 	h.HandleMessageCtx(b.onBroadcast(bot), th.CommandEqual("broadcast"))
@@ -70,7 +72,11 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onAdminBroadcasts(bot), th.CallbackDataEqual("admin|broadcasts"))
 	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
 	h.HandleCallbackQueryCtx(b.onTikTokCarousel(bot), th.CallbackDataPrefix("ttk:img:"))
-	h.HandleMessageCtx(b.onText(bot), th.AnyMessage())
+	h.HandleMessageCtx(b.onDirectMedia(bot), th.And(
+		th.AnyMessage(),
+		th.Not(th.Or(th.AnyMessageWithText(), th.AnyMessageWithCaption())),
+	))
+	h.HandleMessageCtx(b.onText(bot), th.Or(th.AnyMessageWithText(), th.AnyMessageWithCaption()))
 }
 
 func (b *Bot) onStart(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
@@ -78,6 +84,7 @@ func (b *Bot) onStart(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		if msg.From == nil {
 			return
 		}
+		metrics.RecordCommand("start")
 		lang := b.userLang(ctx, msg.From.ID)
 		exists, err := b.db.UserExists(ctx, msg.From.ID)
 		if err != nil {
@@ -119,6 +126,8 @@ func (b *Bot) onLanguageChosen(bot *telego.Bot) func(context.Context, *telego.Bo
 		firstName := query.From.FirstName
 		if err := b.db.CreateUser(ctx, query.From.ID, username, firstName, lang); err != nil {
 			slog.Warn("create user failed", "err", err)
+		} else {
+			metrics.RecordUserCreated()
 		}
 
 		chat := query.Message.GetChat()
@@ -131,12 +140,26 @@ func (b *Bot) onLanguageChosen(bot *telego.Bot) func(context.Context, *telego.Bo
 	}
 }
 
-func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
+func (b *Bot) onDirectMedia(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
 	return func(ctx context.Context, _ *telego.Bot, msg telego.Message) {
-		if msg.Text == "" || msg.From == nil {
+		if msg.From == nil || !hasAttachedMedia(msg) {
 			return
 		}
-		if strings.HasPrefix(msg.Text, "/") {
+		if strings.HasPrefix(msg.Caption, "/") {
+			return
+		}
+		lang := b.userLang(ctx, msg.From.ID)
+		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.send_link", lang, nil)))
+	}
+}
+
+func hasAttachedMedia(msg telego.Message) bool {
+	return msg.Video != nil || msg.Document != nil || len(msg.Photo) > 0 || msg.Animation != nil
+}
+
+func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
+	return func(ctx context.Context, _ *telego.Bot, msg telego.Message) {
+		if shouldSkipIncomingMessage(msg) {
 			return
 		}
 
@@ -155,62 +178,89 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 			return
 		}
 
-		links := linkparser.ExtractURLs(msg.Text)
+		links := extractMessageLinks(msg)
 		if len(links) == 0 {
 			return
 		}
-		link := links[0]
-
-		switch link.Platform {
-		case linkparser.PlatformSpotify:
-			if !b.runtime.PlatformEnabled(ctx, "spotify") {
-				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
-				return
-			}
-			b.handleSpotifyLink(ctx, bot, msg, lang, link)
-		case linkparser.PlatformSoundCloud:
-			if !b.runtime.PlatformEnabled(ctx, "soundcloud") {
-				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
-				return
-			}
-			b.handleSoundCloudLink(ctx, bot, msg, lang, link.URL)
-		case linkparser.PlatformPinterest:
-			if !b.runtime.PlatformEnabled(ctx, "pinterest") {
-				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
-				return
-			}
-			_ = b.enqueue(ctx, bot, msg, lang, link, "pinterest", queue.TypePinterest)
-		case linkparser.PlatformTikTok:
-			_ = b.enqueue(ctx, bot, msg, lang, link, "tiktok", queue.TypeTikTok)
-		case linkparser.PlatformUnknown:
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
-		case linkparser.PlatformYouTube:
-			if !b.cfg.YouTubeEnabled {
-				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
-				return
-			}
-			b.handleYouTubeLink(ctx, bot, msg, lang, link)
-		default:
-			_ = b.enqueue(ctx, bot, msg, lang, link, string(link.Platform), queue.TypeDownload)
+		for _, link := range links {
+			b.dispatchLink(ctx, bot, msg, lang, link, len(links) > 1)
 		}
 	}
 }
 
-func (b *Bot) enqueue(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink, scene, taskType string) error {
-	token, ok, err := b.redis.AcquireUserLock(ctx, msg.From.ID, scene, lockTTL(b.cfg, scene))
-	if err != nil {
-		return err
+func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink, batch bool) {
+	switch link.Platform {
+	case linkparser.PlatformSpotify:
+		if !b.runtime.PlatformEnabled(ctx, "spotify") {
+			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
+			return
+		}
+		b.handleSpotifyLink(ctx, bot, msg, lang, link)
+	case linkparser.PlatformSoundCloud:
+		if !b.runtime.PlatformEnabled(ctx, "soundcloud") {
+			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
+			return
+		}
+		b.handleSoundCloudLink(ctx, bot, msg, lang, link.URL)
+	case linkparser.PlatformPinterest:
+		if !b.runtime.PlatformEnabled(ctx, "pinterest") {
+			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
+			return
+		}
+		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "pinterest", queue.TypePinterest, batch)
+	case linkparser.PlatformTikTok:
+		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "tiktok", queue.TypeTikTok, batch)
+	case linkparser.PlatformUnknown:
+		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+	case linkparser.PlatformYouTube:
+		if !b.cfg.YouTubeEnabled {
+			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+			return
+		}
+		b.handleYouTubeLink(ctx, bot, msg, lang, link)
+	default:
+		b.enqueueOrReplyError(ctx, bot, msg, lang, link, string(link.Platform), queue.TypeDownload, batch)
 	}
-	if !ok {
-		b.replyBusy(ctx, bot, msg, lang)
-		return nil
+}
+
+func (b *Bot) enqueueOrReplyError(ctx context.Context, bot messageSender, msg telego.Message, lang string, link linkparser.ParsedLink, scene, taskType string, batch bool) {
+	if err := b.enqueue(ctx, bot, msg, lang, link, scene, taskType, batch); err != nil {
+		slog.Warn("enqueue failed", "platform", link.Platform, "err", err)
+		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
+	}
+}
+
+func (b *Bot) acquireUserLock(ctx context.Context, userID int64, scene string, ttl time.Duration) (string, bool, error) {
+	if b.isAdmin(userID) {
+		return "", true, nil
+	}
+	return b.redis.AcquireUserLock(ctx, userID, scene, ttl)
+}
+
+func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message, lang string, link linkparser.ParsedLink, scene, taskType string, batch bool) error {
+	var token string
+	if shouldAcquireUserLock(msg.From.ID, batch, b.cfg.AdminTelegramID) {
+		var ok bool
+		var err error
+		token, ok, err = b.acquireUserLock(ctx, msg.From.ID, scene, lockTTL(b.cfg, scene))
+		if err != nil {
+			return err
+		}
+		if !ok {
+			b.replyBusy(ctx, bot, msg, lang, scene)
+			return nil
+		}
 	}
 
-	status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)).WithReplyMarkup(
-		cancel.Keyboard(lang, scene, msg.From.ID, token),
-	))
+	statusMsg := tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil))
+	if token != "" {
+		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, scene, msg.From.ID, token))
+	}
+	status, err := bot.SendMessage(statusMsg)
 	if err != nil {
-		_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, scene, token)
+		if token != "" {
+			_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, scene, token)
+		}
 		return err
 	}
 
@@ -237,15 +287,17 @@ func (b *Bot) enqueue(ctx context.Context, bot *telego.Bot, msg telego.Message, 
 		enqueueErr = b.q.EnqueueDownload(payload)
 	}
 	if enqueueErr != nil {
-		_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, scene, token)
+		if token != "" {
+			_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, scene, token)
+		}
 		return fmt.Errorf("enqueue: %w", enqueueErr)
 	}
 	metrics.DownloadsEnqueued.WithLabelValues(string(link.Platform)).Inc()
 	return nil
 }
 
-func (b *Bot) allowRateLimit(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string) bool {
-	if msg.From != nil && msg.From.ID == b.cfg.AdminTelegramID {
+func (b *Bot) allowRateLimit(ctx context.Context, bot messageSender, msg telego.Message, lang string) bool {
+	if msg.From != nil && b.isAdmin(msg.From.ID) {
 		return true
 	}
 	window := time.Minute

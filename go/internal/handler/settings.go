@@ -9,6 +9,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 )
 
 func (b *Bot) onSettings(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
@@ -16,6 +17,7 @@ func (b *Bot) onSettings(bot *telego.Bot) func(context.Context, *telego.Bot, tel
 		if msg.From == nil {
 			return
 		}
+		metrics.RecordCommand("settings")
 		lang := b.userLang(ctx, msg.From.ID)
 		text := b.settingsSummary(ctx, msg.From.ID, lang)
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithReplyMarkup(b.settingsMenuKeyboard(lang)))

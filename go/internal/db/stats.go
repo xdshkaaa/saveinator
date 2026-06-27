@@ -48,7 +48,7 @@ func (s *Store) FetchUserStats(ctx context.Context, bannedCount int) (UserStats,
 	_ = s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT user_id) FROM downloads`).Scan(&stats.UsersWithDownloads)
 	_ = s.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM (
-			SELECT user_id FROM downloads WHERE status = 'completed'::downloadstatus
+			SELECT user_id FROM downloads WHERE status = 'COMPLETED'::downloadstatus
 			GROUP BY user_id HAVING COUNT(*) >= 2
 		) t
 	`).Scan(&stats.ReturningUsers)
@@ -60,7 +60,7 @@ func (s *Store) FetchUserStats(ctx context.Context, bannedCount int) (UserStats,
 			var lang string
 			var count int
 			if rows.Scan(&lang, &count) == nil {
-				switch lang {
+				switch fromDBLanguage(lang) {
 				case "en":
 					stats.LanguageEN = count
 				case "ru":

@@ -19,22 +19,26 @@ import (
 )
 
 func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink) {
+	metrics.SpotifyRequestsTotal.Inc()
 	if link.SpotifyID == "" || link.SpotifyTyp == "" {
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		return
 	}
 
-	token, ok, err := b.redis.AcquireUserLock(ctx, msg.From.ID, "spotify", musicLockTTL(b.cfg, "spotify", b.cfg.SpotifyLockMaxTracks))
+	token, ok, err := b.acquireUserLock(ctx, msg.From.ID, "spotify", musicLockTTL(b.cfg, "spotify", b.cfg.SpotifyLockMaxTracks))
 	if err != nil {
 		slog.Warn("spotify lock failed", "err", err)
 		return
 	}
 	if !ok {
-		b.replyBusy(ctx, bot, msg, lang)
+		b.replyBusy(ctx, bot, msg, lang, "spotify")
 		return
 	}
 
 	releaseLock := func() {
+		if token == "" {
+			return
+		}
 		_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, "spotify", token)
 	}
 
@@ -63,29 +67,32 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 		return
 	}
 
-	downloadEnabled := b.cfg.SpotifyDownloadEnabled
+	downloadEnabled := b.runtime.CurrentBool(ctx, "spotify.download_enabled", b.cfg.SpotifyDownloadEnabled)
 	text := spotify.CardText(release, lang, downloadEnabled)
 	kb := spotify.OpenKeyboard(release, lang)
 	b.sendMusicCard(bot, msg.Chat.ID, release.CoverURL, text, kb)
 
-	releaseLock()
-
 	if !downloadEnabled || len(release.Tracks) == 0 {
+		releaseLock()
 		return
 	}
 
 	releaseJSON, err := json.Marshal(release)
 	if err != nil {
+		releaseLock()
 		return
 	}
 
 	statusText := locale.Get("spotify.download_starting", lang, map[string]string{
 		"total": fmt.Sprintf("%d", len(release.Tracks)),
 	})
-	status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), statusText).WithReplyMarkup(
-		cancel.Keyboard(lang, "spotify", msg.From.ID, token),
-	))
+	statusMsg := tu.Message(tu.ID(msg.Chat.ID), statusText)
+	if token != "" {
+		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, "spotify", msg.From.ID, token))
+	}
+	status, err := bot.SendMessage(statusMsg)
 	if err != nil {
+		releaseLock()
 		return
 	}
 
@@ -107,29 +114,34 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 			MessageID: status.MessageID,
 			Text:      locale.Get("spotify.download_failed", lang, nil),
 		})
+		releaseLock()
 		return
 	}
 	metrics.DownloadsEnqueued.WithLabelValues("spotify").Inc()
 }
 
 func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, rawURL string) {
+	metrics.SoundCloudRequestsTotal.Inc()
 	scLink, err := soundcloud.ParseLink(rawURL)
 	if err != nil {
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		return
 	}
 
-	token, ok, err := b.redis.AcquireUserLock(ctx, msg.From.ID, "soundcloud", musicLockTTL(b.cfg, "soundcloud", b.cfg.SoundCloudMaxTracks))
+	token, ok, err := b.acquireUserLock(ctx, msg.From.ID, "soundcloud", musicLockTTL(b.cfg, "soundcloud", b.cfg.SoundCloudMaxTracks))
 	if err != nil {
 		slog.Warn("soundcloud lock failed", "err", err)
 		return
 	}
 	if !ok {
-		b.replyBusy(ctx, bot, msg, lang)
+		b.replyBusy(ctx, bot, msg, lang, "soundcloud")
 		return
 	}
 
 	releaseLock := func() {
+		if token == "" {
+			return
+		}
 		_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, "soundcloud", token)
 	}
 
@@ -149,35 +161,42 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 				"limit": fmt.Sprintf("%d", b.cfg.SoundCloudMaxTracks),
 			})))
 		default:
+			metrics.SoundCloudMetadataFailuresTotal.Inc()
 			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.download_failed", lang, nil)))
 		}
 		releaseLock()
 		return
 	}
 
-	downloadEnabled := b.cfg.SoundCloudDownloadEnabled
+	downloadEnabled := b.runtime.CurrentBool(ctx, "soundcloud.download_enabled", b.cfg.SoundCloudDownloadEnabled)
 	text := soundcloud.CardText(release, lang, downloadEnabled)
 	kb := soundcloud.OpenKeyboard(release, lang)
 	b.sendMusicCard(bot, msg.Chat.ID, release.ArtworkURL, text, kb)
 
-	releaseLock()
-
 	if !downloadEnabled || len(release.Tracks) == 0 {
+		releaseLock()
 		return
+	}
+	if scLink.Type == soundcloud.LinkTypePlaylist {
+		metrics.SoundCloudPlaylistTracks.Observe(float64(len(release.Tracks)))
 	}
 
 	releaseJSON, err := json.Marshal(release)
 	if err != nil {
+		releaseLock()
 		return
 	}
 
 	statusText := locale.Get("soundcloud.download_starting", lang, map[string]string{
 		"total": fmt.Sprintf("%d", len(release.Tracks)),
 	})
-	status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), statusText).WithReplyMarkup(
-		cancel.Keyboard(lang, "soundcloud", msg.From.ID, token),
-	))
+	statusMsg := tu.Message(tu.ID(msg.Chat.ID), statusText)
+	if token != "" {
+		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, "soundcloud", msg.From.ID, token))
+	}
+	status, err := bot.SendMessage(statusMsg)
 	if err != nil {
+		releaseLock()
 		return
 	}
 
@@ -198,9 +217,11 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 			MessageID: status.MessageID,
 			Text:      locale.Get("soundcloud.download_failed", lang, nil),
 		})
+		releaseLock()
 		return
 	}
 	metrics.DownloadsEnqueued.WithLabelValues("soundcloud").Inc()
+	metrics.SoundCloudDownloadsEnqueuedTotal.Inc()
 }
 
 func (b *Bot) sendMusicCard(bot *telego.Bot, chatID int64, coverURL, text string, kb *telego.InlineKeyboardMarkup) {
@@ -216,7 +237,8 @@ func (b *Bot) sendMusicCard(bot *telego.Bot, chatID int64, coverURL, text string
 	_, _ = bot.SendMessage(tu.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
 }
 
-func (b *Bot) replyBusy(_ context.Context, bot *telego.Bot, msg telego.Message, lang string) {
+func (b *Bot) replyBusy(_ context.Context, bot messageSender, msg telego.Message, lang, scenario string) {
+	metrics.RecordUserQueueRejected(scenario)
 	kb := cancel.QueueButton(lang, msg.From.ID)
 	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.busy", lang, nil)).WithReplyMarkup(kb))
 }

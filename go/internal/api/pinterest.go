@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"saveinator/internal/config"
+	"saveinator/internal/metrics"
 	"saveinator/internal/pinterest"
 )
 
@@ -115,5 +116,5 @@ func RegisterDownloadRoutes(mux *http.ServeMux, cfg *config.Settings) {
 	if !cfg.DownloadAPIEnabled {
 		return
 	}
-	mux.Handle("/download/pinterest", NewPinterestHandler(cfg))
+	mux.Handle("/download/pinterest", metrics.HTTPMiddleware("/download/pinterest", NewPinterestHandler(cfg)))
 }

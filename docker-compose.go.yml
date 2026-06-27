@@ -80,6 +80,7 @@ services:
       SOUNDCLOUD_DOWNLOAD_CONCURRENCY: ${SOUNDCLOUD_DOWNLOAD_CONCURRENCY:-1}
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       METRICS_PORT: "9101"
+      WORKER_METRICS_PORT: "9102"
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
       DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
       SPAM_DEDUP_WINDOW_SECONDS: ${SPAM_DEDUP_WINDOW_SECONDS:-300}
@@ -91,6 +92,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
       - "127.0.0.1:9101:9101"
+      - "127.0.0.1:9102:9102"
     volumes:
       - ./secrets:/secrets:ro
     depends_on:
@@ -103,6 +105,18 @@ services:
       resources:
         limits:
           memory: 768M
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/migrate/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - tools
 
 volumes:
   pgdata:

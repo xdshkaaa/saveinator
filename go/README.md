@@ -35,10 +35,10 @@ go run ./cmd/saveinator
 
 ## Production (Docker)
 
-Single container instead of separate `bot` and `worker` services:
+Single container instead of separate legacy Python `bot` and `worker` services:
 
 ```bash
-docker compose -f docker-compose.go.yml up -d --build
+docker compose up -d --build
 ```
 
 ## Migrated features

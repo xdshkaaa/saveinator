@@ -23,11 +23,23 @@
     "via_bot": "через @{bot_username}",
     "sent_as_doc": "📄 Отправлено как документ ({size} МБ)"
   },
+  "clear": {
+    "success": "Очередь очищена. Можно отправлять новую ссылку.",
+    "empty": "Нет активных загрузок."
+  },
+  "instagram": {
+    "auth_required": "❌ Нужен вход в Instagram. Войди в Instagram в Chrome на этой машине или укажи файл cookies через INSTAGRAM_COOKIES_PATH.",
+    "download_failed": "❌ Не удалось скачать этот пост Instagram. Попробуй позже."
+  },
+  "x": {
+    "text_only": "❌ В этом посте нет видео или изображений для скачивания (только текст)."
+  },
   "errors": {
     "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "busy": "Подожди, пока завершится текущее скачивание, и только потом отправляй новую ссылку.",
+    "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "generic": "Что-то пошло не так. Попробуй позже."
   },
   "spotify": {
@@ -51,9 +63,9 @@
     "download_timeout": "Скачивание заняло слишком много времени. Попробуй более короткий релиз.",
     "download_not_available": "Скачивание аудио недоступно на этом сервере.",
     "not_found": "Spotify-релиз не найден.",
-    "not_configured": "Поддержка Spotify не настроена на этом боте.",
+    "not_configured": "Нет учётных данных Spotify API. Добавь SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET в окружение и установи SPOTIFY_ENABLED=true.",
     "api_error": "Не удалось получить информацию о релизе Spotify. Попробуй позже.",
-    "disabled": "Поддержка Spotify отключена на этом боте."
+    "disabled": "Поддержка Spotify отключена. Установи SPOTIFY_ENABLED=true и добавь SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET для карточек с метаданными."
   },
   "soundcloud": {
     "card_title": "🎧 {artist} — {name}",

@@ -65,7 +65,7 @@ var settings = []Setting{
 
 	// instagram
 	intSetting("instagram.max_file_mb", "SendVideoLimitMB", "instagram", "Max file", "Лимит файла", "MB", 1, 500, 50),
-	intSetting("instagram.timeout_sec", "DownloadTimeoutSeconds", "instagram", "Timeout", "Таймаут", "sec", 10, 300, 60),
+	intSetting("instagram.timeout_sec", "InstagramDownloadTimeoutSeconds", "instagram", "Timeout", "Таймаут", "sec", 10, 600, 120),
 	intSetting("instagram.max_items_per_post", "InstagramMaxItemsPerPost", "instagram", "Max items per post", "Элементов на пост", "", 1, 20, 10),
 	boolSetting("instagram.allow_reels", "InstagramAllowReels", "instagram", "Allow reels", "Reels", true),
 	boolSetting("instagram.allow_posts", "InstagramAllowPosts", "instagram", "Allow posts", "Посты", true),

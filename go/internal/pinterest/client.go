@@ -156,8 +156,12 @@ func (c *Client) downloadBoard(ctx context.Context, boardURL, outputDir string, 
 	// Board pins are fetched via Pinterest's public board feed API.
 	boardPath := strings.TrimPrefix(boardURL, "https://")
 	boardPath = strings.TrimPrefix(boardPath, "http://")
-	if idx := strings.Index(boardPath, "pinterest.com/"); idx >= 0 {
-		boardPath = boardPath[idx+len("pinterest.com/"):]
+	if idx := strings.Index(strings.ToLower(boardPath), "pinterest."); idx >= 0 {
+		boardPath = boardPath[idx:]
+		slash := strings.Index(boardPath, "/")
+		if slash >= 0 {
+			boardPath = boardPath[slash+1:]
+		}
 	}
 	boardPath = strings.Trim(boardPath, "/")
 	if boardPath == "" {

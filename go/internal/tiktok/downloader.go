@@ -40,22 +40,24 @@ var (
 )
 
 type Downloader struct {
-	cookiesPath string
-	timeout     time.Duration
-	maxImages   int
-	audioEnabled bool
+	cookiesPath          string
+	cookiesFromBrowser   string
+	timeout              time.Duration
+	maxImages            int
+	audioEnabled         bool
 }
 
-func NewDownloader(cookiesPath string, timeoutSeconds, maxImages int, audioEnabled bool) *Downloader {
+func NewDownloader(cookiesPath, cookiesFromBrowser string, timeoutSeconds, maxImages int, audioEnabled bool) *Downloader {
 	timeout := time.Duration(timeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
 	}
 	return &Downloader{
-		cookiesPath:  writableCookies(cookiesPath),
-		timeout:      timeout,
-		maxImages:    maxImages,
-		audioEnabled: audioEnabled,
+		cookiesPath:        writableCookies(cookiesPath),
+		cookiesFromBrowser: strings.TrimSpace(cookiesFromBrowser),
+		timeout:            timeout,
+		maxImages:          maxImages,
+		audioEnabled:       audioEnabled,
 	}
 }
 
@@ -142,7 +144,7 @@ func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]an
 
 	out, err := d.run(ctx, "yt-dlp", args...)
 	if err != nil {
-		return nil, resolved, err
+		return nil, resolved, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	var info map[string]any
 	if err := json.Unmarshal(out, &info); err != nil {
@@ -159,8 +161,11 @@ func (d *Downloader) runYTDLP(ctx context.Context, url, outputDir, format string
 	}
 	args = append(args, d.cookieArgs()...)
 	args = append(args, url)
-	_, err := d.run(ctx, "yt-dlp", args...)
-	return err
+	out, err := d.run(ctx, "yt-dlp", args...)
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func (d *Downloader) downloadAudio(ctx context.Context, url, outputDir string) (string, error) {
@@ -172,9 +177,11 @@ func (d *Downloader) downloadAudio(ctx context.Context, url, outputDir string) (
 	}
 	args = append(args, d.cookieArgs()...)
 	args = append(args, url)
-	if _, err := d.run(ctx, "yt-dlp", args...); err != nil {
-		return "", err
+	out, err := d.run(ctx, "yt-dlp", args...)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
+	_ = out
 	for _, ext := range []string{".mp3", ".m4a", ".aac", ".opus"} {
 		matches, _ := filepath.Glob(filepath.Join(outputDir, "*"+ext))
 		if len(matches) > 0 {
@@ -203,6 +210,9 @@ func (d *Downloader) downloadImages(ctx context.Context, urls []string, outputDi
 func (d *Downloader) cookieArgs() []string {
 	if d.cookiesPath != "" {
 		return []string{"--cookies", d.cookiesPath}
+	}
+	if d.cookiesFromBrowser != "" {
+		return []string{"--cookies-from-browser", d.cookiesFromBrowser}
 	}
 	return nil
 }
@@ -341,12 +351,16 @@ func findMediaFiles(dir string) (images []string, video, audio string) {
 }
 
 func writableCookies(path string) string {
-	if strings.TrimSpace(path) == "" {
+	path = strings.TrimSpace(path)
+	if path == "" {
 		return ""
 	}
-	src := path
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() || info.Size() == 0 {
+		return ""
+	}
 	dst := "/tmp/tiktok_cookies.txt"
-	in, err := os.ReadFile(src)
+	in, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}

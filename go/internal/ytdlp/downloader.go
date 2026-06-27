@@ -11,11 +11,13 @@ import (
 )
 
 type Options struct {
-	FormatID         string
-	Platform         string
-	InstagramCookies string
-	TikTokCookies    string
-	Timeout          time.Duration
+	FormatID                    string
+	Platform                    string
+	InstagramCookies            string
+	InstagramCookiesFromBrowser string
+	TikTokCookies               string
+	TikTokCookiesFromBrowser    string
+	Timeout                     time.Duration
 }
 
 func Download(ctx context.Context, url string, outputDir string, opts Options) error {
@@ -47,12 +49,7 @@ func run(ctx context.Context, url string, outputDir string, opts Options, skipDo
 		args = append(args, "--skip-download")
 	}
 
-	if opts.Platform == "instagram" && fileExists(opts.InstagramCookies) {
-		args = append(args, "--cookies", opts.InstagramCookies)
-	}
-	if opts.Platform == "tiktok" && fileExists(opts.TikTokCookies) {
-		args = append(args, "--cookies", opts.TikTokCookies)
-	}
+	args = appendPlatformCookies(args, opts)
 
 	args = append(args, url)
 
@@ -71,8 +68,31 @@ func fileExists(path string) bool {
 	if strings.TrimSpace(path) == "" {
 		return false
 	}
-	_, err := os.Stat(path)
-	return err == nil
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	return info.Size() > 0
+}
+
+func appendPlatformCookies(args []string, opts Options) []string {
+	switch opts.Platform {
+	case "instagram":
+		if fileExists(opts.InstagramCookies) {
+			return append(args, "--cookies", opts.InstagramCookies)
+		}
+		if browser := strings.TrimSpace(opts.InstagramCookiesFromBrowser); browser != "" {
+			return append(args, "--cookies-from-browser", browser)
+		}
+	case "tiktok":
+		if fileExists(opts.TikTokCookies) {
+			return append(args, "--cookies", opts.TikTokCookies)
+		}
+		if browser := strings.TrimSpace(opts.TikTokCookiesFromBrowser); browser != "" {
+			return append(args, "--cookies-from-browser", browser)
+		}
+	}
+	return args
 }
 
 var (

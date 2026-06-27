@@ -11,9 +11,9 @@ Production monitoring stack for the Saveinator bot VPS (`103.214.69.38`).
 | Alertmanager | `9093` | Alert routing |
 | node_exporter | `9100` | VPS CPU/RAM/disk/network |
 | cAdvisor | `8180` | Docker container metrics |
-| Bot metrics | `9101` | Telegram bot `/metrics` |
+| Bot metrics | `9101` | Saveinator app `/metrics` (bot + HTTP) |
 | Bot webhook | `8000` | Telegram webhook HTTP app (localhost only) |
-| Worker metrics | `9102` | Celery worker `/metrics` |
+| Worker metrics | `9102` | Same registry, worker-compat scrape port (asynq tasks inside `saveinator`) |
 | postgres_exporter | `9187` | PostgreSQL metrics |
 | redis_exporter | `9121` | Redis metrics |
 | Loki | `3100` | Log aggregation |
@@ -114,7 +114,7 @@ curl -fsS https://saveinator-hooks.xdshka.party/health
 | Telegram Bots | `monitoring/grafana/dashboards/telegram-bots.json` |
 | Saveinator Operations | `monitoring/grafana/dashboards/operations.json` |
 | Download Operations | `monitoring/grafana/dashboards/downloads.json` |
-| Worker / Celery | `monitoring/grafana/dashboards/worker-celery.json` |
+| Worker / Celery | `monitoring/grafana/dashboards/worker-celery.json` | Uses `saveinator_celery_tasks_total` emulated from asynq |
 | User Activity | `monitoring/grafana/dashboards/user-activity.json` |
 | Error & Reliability | `monitoring/grafana/dashboards/reliability-errors.json` |
 | PostgreSQL & Redis | `monitoring/grafana/dashboards/data-stores.json` |
