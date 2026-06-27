@@ -89,3 +89,11 @@ func fmtError(msg string) error {
 type simpleError struct{ msg string }
 
 func (e *simpleError) Error() string { return e.msg }
+
+func TestUserFacingErrorKey_instagramReadOnlyCookies(t *testing.T) {
+	t.Parallel()
+	err := errors.New("OSError: [Errno 30] Read-only file system: '/secrets/instagram_cookies.txt'")
+	if got := UserFacingErrorKey("instagram", err); got != "instagram.download_failed" {
+		t.Fatalf("got %q, want instagram.download_failed", got)
+	}
+}
