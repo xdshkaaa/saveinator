@@ -15,6 +15,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
+	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/api"
 	"saveinator/internal/config"
@@ -108,6 +109,10 @@ func (a *App) runBot(ctx context.Context, bot *telego.Bot, store *db.Store, redi
 
 	handler.New(a.cfg, store, redisClient, q).Register(bh, bot)
 
+	if err := a.registerBotCommands(bot); err != nil {
+		slog.Warn("register bot commands failed", "err", err)
+	}
+
 	if a.cfg.UsePolling {
 		bh.Start()
 		return nil
@@ -176,6 +181,7 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 
 	mux := asynq.NewServeMux()
 	worker.NewHandler(a.cfg, bot, store, redisClient).Register(mux)
+	worker.StartMaintenance(ctx, a.cfg)
 
 	go func() {
 		<-ctx.Done()
@@ -211,4 +217,31 @@ func (a *App) runMetrics(ctx context.Context) error {
 func health(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+func (a *App) registerBotCommands(bot *telego.Bot) error {
+	defaultCommands := []telego.BotCommand{
+		{Command: "start", Description: "Start / language"},
+		{Command: "settings", Description: "User settings"},
+	}
+	if err := bot.SetMyCommands(&telego.SetMyCommandsParams{Commands: defaultCommands}); err != nil {
+		return err
+	}
+	if a.cfg.AdminTelegramID > 0 {
+		adminCommands := append(defaultCommands,
+			telego.BotCommand{Command: "admin", Description: "Admin panel"},
+			telego.BotCommand{Command: "stats", Description: "User statistics"},
+			telego.BotCommand{Command: "broadcast", Description: "Send broadcast"},
+		)
+		_ = bot.SetMyCommands(&telego.SetMyCommandsParams{
+			Commands: adminCommands,
+			Scope: &telego.BotCommandScopeChat{
+				Type:   "chat",
+				ChatID: tu.ID(a.cfg.AdminTelegramID),
+			},
+		})
+	}
+	return bot.SetChatMenuButton(&telego.SetChatMenuButtonParams{
+		MenuButton: &telego.MenuButtonCommands{Type: "commands"},
+	})
 }

@@ -105,6 +105,12 @@ func (b *Bot) onAdminCallback(bot *telego.Bot) func(context.Context, *telego.Bot
 			}
 			b.adminToggleBool(ctx, bot, query, parts[2], lang)
 			return
+		case "set_enum":
+			if len(parts) < 4 {
+				break
+			}
+			b.adminSetEnum(ctx, bot, query, parts[2], parts[3], lang)
+			return
 		case "confirm":
 			b.adminConfirm(ctx, bot, query, parts, lang)
 			return
@@ -147,12 +153,20 @@ func (b *Bot) serviceKeyboard(service, lang string) *telego.InlineKeyboardMarkup
 	var rows [][]telego.InlineKeyboardButton
 	for _, def := range runtime.ServiceSettings(service) {
 		label := runtime.KindLabel(def, lang)
-		if def.ValueType == runtime.TypeBool {
+		switch def.ValueType {
+		case runtime.TypeBool:
 			rows = append(rows, tu.InlineKeyboardRow(
 				tu.InlineKeyboardButton(locale.Get("admin.btn_change", lang, map[string]string{"label": label})).
 					WithCallbackData("admin|edit_bool|"+def.RedisKey),
 			))
-		} else {
+		case runtime.TypeEnum:
+			for _, val := range def.Allowed {
+				btnLabel := fmt.Sprintf("%s → %s", label, val)
+				rows = append(rows, tu.InlineKeyboardRow(
+					tu.InlineKeyboardButton(btnLabel).WithCallbackData("admin|set_enum|"+def.RedisKey+"|"+val),
+				))
+			}
+		default:
 			rows = append(rows, tu.InlineKeyboardRow(
 				tu.InlineKeyboardButton(locale.Get("admin.btn_change", lang, map[string]string{"label": label})).
 					WithCallbackData("admin|edit|"+def.RedisKey),
@@ -247,6 +261,9 @@ func (b *Bot) adminStartEdit(bot *telego.Bot, query telego.CallbackQuery, redisK
 	if def.ValueType == runtime.TypeInt && (def.MinValue > 0 || def.MaxValue > 0) {
 		hint = fmt.Sprintf("\n(min=%d, max=%d)", def.MinValue, def.MaxValue)
 	}
+	if def.ValueType == runtime.TypeList && len(def.Allowed) > 0 {
+		hint += fmt.Sprintf("\n(allowed: %s)", strings.Join(def.Allowed, ", "))
+	}
 	text := locale.Get("admin.enter_value", lang, map[string]string{
 		"service": runtime.ServiceLabel(def.Service, lang),
 		"label":   runtime.KindLabel(def, lang),
@@ -297,6 +314,26 @@ func (b *Bot) adminSaveBan(ctx context.Context, bot *telego.Bot, msg telego.Mess
 		"user_id": strconv.FormatInt(uid, 10),
 	})))
 	return true
+}
+
+func (b *Bot) adminSetEnum(ctx context.Context, bot *telego.Bot, query telego.CallbackQuery, redisKey, value, lang string) {
+	def, ok := runtime.Lookup(redisKey)
+	if !ok || def.ValueType != runtime.TypeEnum {
+		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
+		return
+	}
+	if err := b.runtime.Validate(def, value); err != nil {
+		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("admin.invalid_value", lang, map[string]string{"error": err.Error()})).WithShowAlert())
+		return
+	}
+	_ = b.runtime.SetValue(ctx, redisKey, value)
+	text, _ := b.serviceSummary(ctx, def.Service, lang)
+	chat := query.Message.GetChat()
+	b.editAdminText(bot, chat.ID, query.Message.GetMessageID(), text, b.serviceKeyboard(def.Service, lang))
+	_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("admin.saved", lang, map[string]string{
+		"label": runtime.KindLabel(def, lang),
+		"value": value,
+	})))
 }
 
 func (b *Bot) adminToggleBool(ctx context.Context, bot *telego.Bot, query telego.CallbackQuery, redisKey, lang string) {

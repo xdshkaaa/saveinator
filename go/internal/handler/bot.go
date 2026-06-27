@@ -16,6 +16,7 @@ import (
 	"saveinator/internal/db"
 	"saveinator/internal/linkparser"
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
 	"saveinator/internal/runtime"
@@ -159,11 +160,19 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 
 		switch link.Platform {
 		case linkparser.PlatformSpotify:
+			if !b.runtime.PlatformEnabled(ctx, "spotify") {
+				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
+				return
+			}
 			b.handleSpotifyLink(ctx, bot, msg, lang, link)
 		case linkparser.PlatformSoundCloud:
+			if !b.runtime.PlatformEnabled(ctx, "soundcloud") {
+				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
+				return
+			}
 			b.handleSoundCloudLink(ctx, bot, msg, lang, link.URL)
 		case linkparser.PlatformPinterest:
-			if !b.cfg.PinterestEnabled {
+			if !b.runtime.PlatformEnabled(ctx, "pinterest") {
 				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
 				return
 			}
@@ -173,6 +182,10 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 		case linkparser.PlatformUnknown:
 			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		case linkparser.PlatformYouTube:
+			if !b.cfg.YouTubeEnabled {
+				_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+				return
+			}
 			b.handleYouTubeLink(ctx, bot, msg, lang, link)
 		default:
 			_ = b.enqueue(ctx, bot, msg, lang, link, string(link.Platform), queue.TypeDownload)
@@ -224,6 +237,7 @@ func (b *Bot) enqueue(ctx context.Context, bot *telego.Bot, msg telego.Message, 
 		_ = b.redis.ReleaseUserLock(ctx, msg.From.ID, scene, token)
 		return fmt.Errorf("enqueue: %w", enqueueErr)
 	}
+	metrics.DownloadsEnqueued.WithLabelValues(string(link.Platform)).Inc()
 	return nil
 }
 
@@ -239,6 +253,7 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot *telego.Bot, msg telego.Me
 			return true
 		}
 		if !ok {
+			metrics.RateLimitDropped.WithLabelValues("user").Inc()
 			if msg.Chat.Type == "private" {
 				_, _ = bot.SendMessage(tu.Message(
 					tu.ID(msg.Chat.ID),
@@ -255,7 +270,14 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot *telego.Bot, msg telego.Me
 	if err != nil {
 		return true
 	}
-	return ok
+	if !ok {
+		metrics.RateLimitDropped.WithLabelValues("chat").Inc()
+		if msg.Chat.Type != "private" {
+			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.chat_rate_limit", lang, nil)))
+		}
+		return false
+	}
+	return true
 }
 
 func (b *Bot) userLang(ctx context.Context, userID int64) string {

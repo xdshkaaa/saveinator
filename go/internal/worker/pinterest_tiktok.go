@@ -43,8 +43,11 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	}
 	defer os.RemoveAll(taskDir)
 
-	client := pinterest.NewClient(h.cfg.PinterestCookiesPath, h.cfg.PinterestTimeoutSeconds)
-	result, err := client.Download(ctx, p.URL, taskDir, h.cfg.PinterestMaxItems, h.cfg.PinterestDownloadImages, h.cfg.PinterestDownloadVideos)
+	client := pinterest.NewClient(h.cfg.PinterestCookiesPath, h.runtime.CurrentInt(ctx, "pinterest.timeout_sec", h.cfg.PinterestTimeoutSeconds))
+	maxItems := h.runtime.CurrentInt(ctx, "pinterest.max_items_per_board", h.cfg.PinterestMaxItems)
+	downloadImages := h.runtime.CurrentBool(ctx, "pinterest.download_images", h.cfg.PinterestDownloadImages)
+	downloadVideos := h.runtime.CurrentBool(ctx, "pinterest.download_videos", h.cfg.PinterestDownloadVideos)
+	result, err := client.Download(ctx, p.URL, taskDir, maxItems, downloadImages, downloadVideos)
 	if err != nil {
 		if errors.Is(err, pinterest.ErrNoMedia) {
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
@@ -62,9 +65,9 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	item := pickPinterestItem(result.Items)
 	sizeMB := float64(item.FileSize) / (1024 * 1024)
-	limit := float64(h.cfg.SendVideoLimitMB)
+	limit := float64(h.runtime.PlatformMaxFileMB(ctx, "pinterest"))
 	if item.MediaType == "image" {
-		limit = float64(h.cfg.SendDocumentLimitMB)
+		limit = float64(h.runtime.CurrentInt(ctx, "global.document_limit_mb", h.cfg.SendDocumentLimitMB))
 	}
 	if sizeMB > limit {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.all_too_large", lang, nil))
@@ -115,9 +118,9 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 
 	dl := tiktok.NewDownloader(
 		h.cfg.TikTokCookiesPath,
-		h.cfg.DownloadTimeoutSeconds,
-		h.cfg.TikTokCarouselMaxItems,
-		h.cfg.TikTokCarouselAudioEnabled,
+		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
+		h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems),
+		h.runtime.CurrentBool(ctx, "tiktok.carousel_audio_enabled", h.cfg.TikTokCarouselAudioEnabled),
 	)
 	result, err := dl.Download(ctx, p.URL, taskDir)
 	if err != nil {
@@ -227,7 +230,7 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 	defer os.RemoveAll(taskDir)
 
 	maxItems := h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems)
-	dl := tiktok.NewDownloader(h.cfg.TikTokCookiesPath, h.cfg.DownloadTimeoutSeconds, maxItems, false)
+	dl := tiktok.NewDownloader(h.cfg.TikTokCookiesPath, h.runtime.PlatformTimeoutSec(ctx, "tiktok"), maxItems, false)
 	result, err := dl.DownloadCarouselImages(ctx, p.URL, taskDir)
 	if err != nil || len(result.Images) == 0 {
 		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_empty", lang, nil)))

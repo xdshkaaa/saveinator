@@ -11,6 +11,7 @@ import (
 
 	"saveinator/internal/linkparser"
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/youtube"
 )
@@ -21,13 +22,31 @@ func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego
 		slog.Warn("load user settings failed", "err", err)
 	}
 
-	autoQuality := parseAutoQuality(settings.YouTubeQuality)
+	allowedQualities := b.runtime.CurrentStringList(ctx, "youtube.allowed_qualities", []string{"1080", "720", "480"})
+	allowedRatios := b.runtime.CurrentStringList(ctx, "youtube.allowed_ratios", []string{"16_9", "21_9", "9_16"})
+	validQualities := youtube.QualitySetFromStrings(allowedQualities)
+	validRatios := youtube.RatioSetFromStrings(allowedRatios)
+
+	autoQuality := parseAutoQuality(settings.YouTubeQuality, validQualities)
+	if autoQuality == nil {
+		defaultQuality := b.runtime.CurrentString(ctx, "youtube.default_quality", "ask")
+		if defaultQuality != "ask" && defaultQuality != "" {
+			autoQuality = parseAutoQuality(defaultQuality, validQualities)
+		}
+	}
 	autoRatio := settings.YouTubeRatio
 	if autoRatio == "ask" {
 		autoRatio = ""
 	}
+	if autoRatio != "" {
+		if _, ok := validRatios[autoRatio]; !ok {
+			autoRatio = ""
+		}
+	}
 	if linkparser.IsYouTubeShorts(link.URL) {
-		autoRatio = "9_16"
+		if _, ok := validRatios["9_16"]; ok {
+			autoRatio = "9_16"
+		}
 	}
 
 	if autoQuality != nil && autoRatio != "" {
@@ -56,7 +75,7 @@ func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego
 		status, err := bot.SendMessage(tu.Message(
 			tu.ID(msg.Chat.ID),
 			locale.Get("youtube.choose_ratio", lang, nil),
-		).WithReplyMarkup(youtube.RatioKeyboard(lang)))
+		).WithReplyMarkup(youtube.RatioKeyboardFrom(lang, allowedRatios)))
 		if err == nil {
 			session.MessageID = status.MessageID
 			_ = b.ytSessions.Save(ctx, session)
@@ -67,7 +86,7 @@ func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego
 	status, err := bot.SendMessage(tu.Message(
 		tu.ID(msg.Chat.ID),
 		locale.Get("youtube.choose_quality", lang, nil),
-	).WithReplyMarkup(youtube.QualityKeyboard(lang)))
+	).WithReplyMarkup(youtube.QualityKeyboardFrom(lang, allowedQualities)))
 	if err != nil {
 		return
 	}
@@ -87,6 +106,7 @@ func (b *Bot) onQualityChoice(bot *telego.Bot) func(context.Context, *telego.Bot
 			return
 		}
 		lang := b.userLang(ctx, query.From.ID)
+		allowedQualities := youtube.QualitySetFromStrings(b.runtime.CurrentStringList(ctx, "youtube.allowed_qualities", []string{"1080", "720", "480"}))
 		session, err := b.ytSessions.Get(ctx, query.From.ID)
 		if err != nil || session == nil || session.UserID != query.From.ID {
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("youtube.session_expired", lang, nil)).WithShowAlert())
@@ -99,7 +119,7 @@ func (b *Bot) onQualityChoice(bot *telego.Bot) func(context.Context, *telego.Bot
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
 			return
 		}
-		if _, ok := youtube.ValidQualities[quality]; !ok {
+		if _, ok := allowedQualities[quality]; !ok {
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
 			return
 		}
@@ -123,10 +143,10 @@ func (b *Bot) onQualityChoice(bot *telego.Bot) func(context.Context, *telego.Bot
 		}
 
 		_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
-			ChatID:      tu.ID(chat.ID),
-			MessageID:   query.Message.GetMessageID(),
-			Text:        locale.Get("youtube.choose_ratio", session.Lang, nil),
-			ReplyMarkup: youtube.RatioKeyboard(session.Lang),
+			ChatID:    tu.ID(chat.ID),
+			MessageID: query.Message.GetMessageID(),
+			Text:      locale.Get("youtube.choose_ratio", session.Lang, nil),
+			ReplyMarkup: youtube.RatioKeyboardFrom(session.Lang, b.runtime.CurrentStringList(ctx, "youtube.allowed_ratios", []string{"16_9", "21_9", "9_16"})),
 		})
 		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
 	}
@@ -139,6 +159,7 @@ func (b *Bot) onRatioChoice(bot *telego.Bot) func(context.Context, *telego.Bot, 
 			return
 		}
 		lang := b.userLang(ctx, query.From.ID)
+		allowedRatios := youtube.RatioSetFromStrings(b.runtime.CurrentStringList(ctx, "youtube.allowed_ratios", []string{"16_9", "21_9", "9_16"}))
 		session, err := b.ytSessions.Get(ctx, query.From.ID)
 		if err != nil || session == nil || session.Quality == nil {
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("youtube.session_expired", lang, nil)).WithShowAlert())
@@ -146,7 +167,7 @@ func (b *Bot) onRatioChoice(bot *telego.Bot) func(context.Context, *telego.Bot, 
 		}
 
 		ratio := strings.TrimPrefix(query.Data, "ratio:")
-		if _, ok := youtube.ValidRatios[ratio]; !ok {
+		if _, ok := allowedRatios[ratio]; !ok {
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
 			return
 		}
@@ -189,10 +210,12 @@ func (b *Bot) enqueueYouTube(ctx context.Context, bot *telego.Bot, userID, chatI
 	if err := b.q.EnqueueDownload(payload); err != nil {
 		slog.Warn("enqueue youtube failed", "err", err)
 		_, _ = bot.SendMessage(tu.Message(tu.ID(chatID), locale.Get("errors.generic", lang, nil)))
+		return
 	}
+	metrics.DownloadsEnqueued.WithLabelValues("youtube").Inc()
 }
 
-func parseAutoQuality(raw string) *int {
+func parseAutoQuality(raw string, allowed map[int]struct{}) *int {
 	if raw == "" || raw == "ask" {
 		return nil
 	}
@@ -200,7 +223,7 @@ func parseAutoQuality(raw string) *int {
 	if err != nil {
 		return nil
 	}
-	if _, ok := youtube.ValidQualities[quality]; !ok {
+	if _, ok := allowed[quality]; !ok {
 		return nil
 	}
 	return &quality

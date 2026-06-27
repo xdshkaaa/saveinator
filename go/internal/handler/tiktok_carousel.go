@@ -7,6 +7,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/tiktok"
 )
@@ -55,5 +56,6 @@ func (b *Bot) onTikTokCarousel(bot *telego.Bot) func(context.Context, *telego.Bo
 			LockScene:    "tiktok",
 			SessionToken: token,
 		})
+		metrics.DownloadsEnqueued.WithLabelValues("tiktok").Inc()
 	}
 }

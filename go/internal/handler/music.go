@@ -12,6 +12,7 @@ import (
 	"saveinator/internal/cancel"
 	"saveinator/internal/linkparser"
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
@@ -106,7 +107,9 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 			MessageID: status.MessageID,
 			Text:      locale.Get("spotify.download_failed", lang, nil),
 		})
+		return
 	}
+	metrics.DownloadsEnqueued.WithLabelValues("spotify").Inc()
 }
 
 func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, rawURL string) {
@@ -195,7 +198,9 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 			MessageID: status.MessageID,
 			Text:      locale.Get("soundcloud.download_failed", lang, nil),
 		})
+		return
 	}
+	metrics.DownloadsEnqueued.WithLabelValues("soundcloud").Inc()
 }
 
 func (b *Bot) sendMusicCard(bot *telego.Bot, chatID int64, coverURL, text string, kb *telego.InlineKeyboardMarkup) {
