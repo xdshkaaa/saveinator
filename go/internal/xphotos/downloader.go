@@ -17,8 +17,8 @@ import (
 var (
 	statusIDRe = regexp.MustCompile(`/status/(\d+)`)
 
-	ErrNotFound  = errors.New("x photos not found")
-	ErrDownload  = errors.New("x photo download failed")
+	ErrNotFound = errors.New("x photos not found")
+	ErrDownload = errors.New("x photo download failed")
 )
 
 const (
@@ -30,6 +30,17 @@ const (
 type Result struct {
 	Title string
 	ID    string
+}
+
+type TweetMeta struct {
+	Text   string
+	Author string
+}
+
+type parsedTweet struct {
+	text   string
+	author string
+	photos []string
 }
 
 func ExtractStatusID(url string) string {
@@ -74,60 +85,92 @@ func DownloadPhotos(ctx context.Context, url, outputDir, statusID string, maxIte
 	return &Result{Title: title, ID: sid}, paths, nil
 }
 
+func FetchTweetMeta(ctx context.Context, statusID string) (*TweetMeta, error) {
+	if statusID == "" {
+		return nil, fmt.Errorf("%w: empty status id", ErrNotFound)
+	}
+	tweet, err := fetchTweet(ctx, statusID)
+	if err != nil {
+		return nil, err
+	}
+	return &TweetMeta{Text: tweet.text, Author: tweet.author}, nil
+}
+
 func fetchPhotoURLs(ctx context.Context, statusID string) (string, []string, error) {
+	tweet, err := fetchTweet(ctx, statusID)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(tweet.photos) == 0 {
+		return "", nil, fmt.Errorf("%w: empty photo list", ErrNotFound)
+	}
+	title := strings.TrimSpace(tweet.text)
+	if title == "" {
+		title = strings.TrimSpace(tweet.author)
+	}
+	if title == "" {
+		title = "x-post"
+	}
+	return title, tweet.photos, nil
+}
+
+func fetchTweet(ctx context.Context, statusID string) (parsedTweet, error) {
 	var errorsList []string
 	for _, api := range []struct {
 		base   string
-		parser func([]byte) (string, []string, error)
+		parser func([]byte) (parsedTweet, error)
 	}{
 		{fxTwitterAPI, parseFxTwitter},
 		{vxTwitterAPI, parseVxTwitter},
 	} {
-		title, urls, err := fetchFromAPI(ctx, api.base, statusID, api.parser)
+		tweet, err := fetchFromAPI(ctx, api.base, statusID, api.parser)
 		if err != nil {
 			errorsList = append(errorsList, fmt.Sprintf("%s: %v", api.base, err))
 			continue
 		}
-		if len(urls) > 0 {
-			return title, urls, nil
+		if tweet.text != "" || tweet.author != "" || len(tweet.photos) > 0 {
+			return tweet, nil
 		}
-		errorsList = append(errorsList, fmt.Sprintf("%s: empty photo list", api.base))
+		errorsList = append(errorsList, fmt.Sprintf("%s: empty tweet payload", api.base))
 	}
 	if len(errorsList) > 0 {
-		return "", nil, fmt.Errorf("%w: %s", ErrNotFound, strings.Join(errorsList, "; "))
+		return parsedTweet{}, fmt.Errorf("%w: %s", ErrNotFound, strings.Join(errorsList, "; "))
 	}
-	return "", nil, ErrNotFound
+	return parsedTweet{}, ErrNotFound
 }
 
-func fetchFromAPI(ctx context.Context, base, statusID string, parser func([]byte) (string, []string, error)) (string, []string, error) {
+func fetchFromAPI(ctx context.Context, base, statusID string, parser func([]byte) (parsedTweet, error)) (parsedTweet, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/"+statusID, nil)
 	if err != nil {
-		return "", nil, err
+		return parsedTweet{}, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", nil, err
+		return parsedTweet{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return "", nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return parsedTweet{}, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", nil, err
+		return parsedTweet{}, err
 	}
 	return parser(body)
 }
 
-func parseFxTwitter(body []byte) (string, []string, error) {
+func parseFxTwitter(body []byte) (parsedTweet, error) {
 	var data struct {
 		Code    *int   `json:"code"`
 		Message string `json:"message"`
 		Tweet   struct {
-			Text  string `json:"text"`
+			Text   string `json:"text"`
+			Author struct {
+				Name string `json:"name"`
+			} `json:"author"`
 			Media struct {
 				Photos []struct {
 					URL string `json:"url"`
@@ -140,10 +183,10 @@ func parseFxTwitter(body []byte) (string, []string, error) {
 		} `json:"tweet"`
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
-		return "", nil, err
+		return parsedTweet{}, err
 	}
 	if data.Code != nil && *data.Code != 200 {
-		return "", nil, fmt.Errorf("%s", data.Message)
+		return parsedTweet{}, fmt.Errorf("%s", data.Message)
 	}
 	var urls []string
 	for _, photo := range data.Tweet.Media.Photos {
@@ -158,16 +201,19 @@ func parseFxTwitter(body []byte) (string, []string, error) {
 			}
 		}
 	}
-	title := strings.TrimSpace(data.Tweet.Text)
-	if title == "" {
-		title = "x-post"
-	}
-	return title, urls, nil
+	return parsedTweet{
+		text:   strings.TrimSpace(data.Tweet.Text),
+		author: strings.TrimSpace(data.Tweet.Author.Name),
+		photos: urls,
+	}, nil
 }
 
-func parseVxTwitter(body []byte) (string, []string, error) {
+func parseVxTwitter(body []byte) (parsedTweet, error) {
 	var data struct {
-		Text          string   `json:"text"`
+		Text   string `json:"text"`
+		Author struct {
+			Name string `json:"name"`
+		} `json:"author"`
 		MediaURLs     []string `json:"mediaURLs"`
 		MediaExtended []struct {
 			Type string `json:"type"`
@@ -175,7 +221,7 @@ func parseVxTwitter(body []byte) (string, []string, error) {
 		} `json:"media_extended"`
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
-		return "", nil, err
+		return parsedTweet{}, err
 	}
 	urls := append([]string{}, data.MediaURLs...)
 	for _, item := range data.MediaExtended {
@@ -183,11 +229,11 @@ func parseVxTwitter(body []byte) (string, []string, error) {
 			urls = append(urls, item.URL)
 		}
 	}
-	title := strings.TrimSpace(data.Text)
-	if title == "" {
-		title = "x-post"
-	}
-	return title, urls, nil
+	return parsedTweet{
+		text:   strings.TrimSpace(data.Text),
+		author: strings.TrimSpace(data.Author.Name),
+		photos: urls,
+	}, nil
 }
 
 func downloadImage(ctx context.Context, url, outputPath string) error {
