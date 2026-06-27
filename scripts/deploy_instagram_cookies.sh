@@ -16,6 +16,6 @@ ssh "$VPS_USER@$VPS_HOST" "grep -q '^INSTAGRAM_COOKIES_PATH=' $APP_DIR/.env 2>/d
   sed -i 's|^INSTAGRAM_COOKIES_PATH=.*|INSTAGRAM_COOKIES_PATH=/secrets/instagram_cookies.txt|' $APP_DIR/.env || \
   printf '\nINSTAGRAM_COOKIES_PATH=/secrets/instagram_cookies.txt\nINSTAGRAM_COOKIES_FROM_BROWSER=\n' >> $APP_DIR/.env"
 
-ssh "$VPS_USER@$VPS_HOST" "cd $APP_DIR && docker compose build worker && docker compose up -d --force-recreate worker"
+ssh "$VPS_USER@$VPS_HOST" "cd $APP_DIR && docker compose up -d --force-recreate saveinator"
 
 echo "Instagram cookies deployed to $VPS_HOST"
