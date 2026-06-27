@@ -22,7 +22,7 @@ def test_download_task_send_file_too_large_keeps_status_message(monkeypatch):
     fake_bot = FakeBot()
     recorded: list[tuple] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         (output_dir / "video.mp4").write_bytes(b"video")
         return {"title": "blocked"}
 
@@ -61,7 +61,7 @@ def test_download_task_send_file_exception_shows_error(monkeypatch):
     fake_bot = FakeBot()
     recorded: list[tuple] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         (output_dir / "video.mp4").write_bytes(b"video")
         return {"title": "broken-send"}
 

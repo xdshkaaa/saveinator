@@ -80,7 +80,7 @@ def test_dashboards_cover_requested_monitoring_surfaces():
             "Memory Growth per Worker",
         },
         "user-activity.json": {
-            "Active Users per Hour",
+            "Active Users (30m window)",
             "New Users per Day",
             "Most Used Commands",
             "Rate Limit Events",

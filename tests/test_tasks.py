@@ -26,7 +26,7 @@ def test_download_task_accepts_direct_url_without_format_cache(monkeypatch):
     sent_files: list[tuple[Path, int, str]] = []
     recorded: list[tuple[str, str, str, float]] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         assert url == "https://vt.tiktok.com/ZSxv29fme/"
         assert format_id == "best"
         (output_dir / "video.mp4").write_bytes(b"video")
@@ -66,7 +66,7 @@ def test_download_task_rejects_files_over_video_limit(monkeypatch):
     sent_files: list[tuple] = []
     recorded: list[tuple[str, str, str, float, object]] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         path = output_dir / "video.mp4"
         with path.open("wb") as handle:
             handle.truncate(51 * 1024 * 1024)
@@ -150,7 +150,7 @@ def test_x_reply_normal_tweet_without_x_status_id_unchanged(monkeypatch):
 
     orig_download = None
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         nonlocal used_reply_filter, orig_download
         from workers.downloader import download as orig
         orig_download = orig
@@ -299,7 +299,7 @@ def test_download_task_processes_youtube_with_quality_and_ratio(monkeypatch):
     sent_files: list[tuple[Path, int, str]] = []
     processed: list[tuple[str, int]] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         assert "height<=720" in format_id
         (output_dir / "video.mp4").write_bytes(b"video")
         return {"title": "youtube-test"}
@@ -346,7 +346,7 @@ def test_download_task_youtube_shorts_uses_vertical_format(monkeypatch):
     fake_bot = FakeBot()
     processed: list[tuple[str, int]] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         assert "width<=1080" in format_id
         (output_dir / "video.mp4").write_bytes(b"video")
         return {"title": "shorts-test"}
@@ -390,7 +390,7 @@ def test_x_single_image_sent_as_photo(monkeypatch):
     sent_files: list[tuple] = []
     recorded: list[tuple] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         (output_dir / "photo.jpg").write_bytes(b"image-data")
         return {"title": "x-photo"}
 
@@ -429,7 +429,7 @@ def test_x_multiple_images_all_sent(monkeypatch):
     album_calls: list[tuple] = []
     recorded: list[tuple] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         (output_dir / "photo_1.jpg").write_bytes(b"image-1")
         (output_dir / "photo_2.jpg").write_bytes(b"image-2")
         (output_dir / "photo_3.jpg").write_bytes(b"image-3")
@@ -471,7 +471,7 @@ def test_x_image_does_not_require_video_file(monkeypatch):
     fake_bot = FakeBot()
     sent_files: list = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         (output_dir / "photo.jpg").write_bytes(b"image-data")
         return {"title": "x-image-only"}
 
@@ -511,7 +511,7 @@ def test_x_video_still_uses_video_flow(monkeypatch):
     sent_files: list[tuple] = []
     recorded: list[tuple] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         # Both image and video files in same tweet
         (output_dir / "photo.jpg").write_bytes(b"image-data")
         (output_dir / "video.mp4").write_bytes(b"video-data")
@@ -556,7 +556,7 @@ def test_x_gif_detected_as_animation(monkeypatch):
     sent_files: list[tuple] = []
     recorded: list[tuple] = []
 
-    def fake_download(url: str, output_dir: Path, format_id: str):
+    def fake_download(url: str, output_dir: Path, format_id: str, *, platform=None, **kwargs):
         (output_dir / "gif.mp4").write_bytes(b"gif-data")
         return {"title": "x-gif"}
 
