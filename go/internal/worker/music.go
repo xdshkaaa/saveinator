@@ -247,20 +247,17 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 }
 
 func (h *Handler) finishMusicDownload(ctx context.Context, p queue.MusicPayload, lang string, sent, total int, platform string) error {
-	var final string
 	if sent == 0 {
+		var final string
 		if platform == "spotify" {
 			final = locale.Get("spotify.download_none_found", lang, nil)
 		} else {
 			final = locale.Get("soundcloud.download_failed", lang, nil)
 		}
+		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, final, nil)
 	} else {
-		final = locale.Get(platform+".download_done", lang, map[string]string{
-			"count": fmt.Sprintf("%d", sent),
-			"total": fmt.Sprintf("%d", total),
-		})
+		_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	}
-	_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, final, nil)
 	url := p.SourceURL
 	if url == "" {
 		url = platform + ":" + p.ResourceID
