@@ -278,7 +278,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 		statusID = xphotos.ExtractStatusID(p.URL)
 	}
 
-	_, paths, err := xphotos.DownloadPhotos(ctx, p.URL, taskDir, statusID, maxItems)
+	result, paths, err := xphotos.DownloadPhotos(ctx, p.URL, taskDir, statusID, maxItems)
 	if err != nil {
 		slog.Warn("x photo download failed", "url", p.URL, "status_id", statusID, "err", err)
 		recordTaskFailure(taskType)
@@ -291,7 +291,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 		return nil
 	}
 
-	caption := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
+	caption := buildXPhotoCaption(ctx, statusID, result, lang)
 	if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
 		slog.Warn("x photo album send failed", "err", err)
 		recordTaskFailure(taskType)
@@ -357,10 +357,13 @@ func buildInstagramPhotoCaption(paths []string, lang string) string {
 	return buildMediaCaption(title, lang)
 }
 
-func buildXPhotoCaption(_ context.Context, _ string, result *xphotos.Result, lang string) string {
+func buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string) string {
 	title := ""
 	if result != nil {
 		title = x.CleanRawTitle(result.Title)
+	}
+	if title == "" && statusID != "" {
+		title = x.ResolveTitle(ctx, statusID, "")
 	}
 	return buildMediaCaption(title, lang)
 }
@@ -394,7 +397,11 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 	case "instagram":
 		title = instagram.DisplayTitle(videoPath)
 	case "x":
-		title = x.DisplayTitle(videoPath)
+		statusID := p.XStatusID
+		if statusID == "" {
+			statusID = xphotos.ExtractStatusID(p.URL)
+		}
+		title = x.ResolveTitle(ctx, statusID, videoPath)
 	}
 	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
 	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {
