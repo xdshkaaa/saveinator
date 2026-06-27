@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -17,7 +18,11 @@ func NewClient(timeoutSeconds, maxTracks int) *Client {
 	return &Client{timeoutSeconds: timeoutSeconds, maxTracks: maxTracks}
 }
 
-func (c *Client) FetchRelease(ctx context.Context, link *Link) (*Release, error) {
+func (c *Client) FetchRelease(ctx context.Context, link *Link, maxTracks int) (*Release, error) {
+	if maxTracks <= 0 {
+		maxTracks = c.maxTracks
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(c.timeoutSeconds)*time.Second)
 	defer cancel()
 
@@ -34,7 +39,10 @@ func (c *Client) FetchRelease(ctx context.Context, link *Link) (*Release, error)
 		return nil, err
 	}
 	release := normalizeRelease(info, link.URL)
-	if release.ReleaseType == "playlist" && len(release.Tracks) > c.maxTracks {
+	if isRelatedTracksPlaylist(info) {
+		release = collapseRelatedTracksToSeedTrack(release)
+	}
+	if release.ReleaseType == "playlist" && len(release.Tracks) > maxTracks {
 		return nil, fmt.Errorf("%w: %d tracks", ErrTooLarge, len(release.Tracks))
 	}
 	return release, nil
@@ -79,10 +87,35 @@ func normalizeTrack(info map[string]any, num int) Track {
 		Title:         stringField(info, "title"),
 		Artist:        artist(info),
 		DurationMS:    int(durationMS(info["duration"])),
-		SoundCloudURL: stringField(info, "webpage_url"),
+		SoundCloudURL: firstString(stringField(info, "webpage_url"), stringField(info, "url")),
 		ArtworkURL:    bestThumbnail(info),
 		Genre:         genre(info),
 		TrackNumber:   num,
+	}
+}
+
+func isRelatedTracksPlaylist(info map[string]any) bool {
+	id := stringField(info, "id")
+	if strings.Contains(id, "system-playlists:") {
+		return true
+	}
+	return strings.HasPrefix(stringField(info, "title"), "Related tracks:")
+}
+
+func collapseRelatedTracksToSeedTrack(release *Release) *Release {
+	if release == nil || len(release.Tracks) == 0 {
+		return release
+	}
+	seed := release.Tracks[0]
+	seed.TrackNumber = 1
+	return &Release{
+		SourceID:      firstString(seed.SourceID, release.SourceID),
+		Title:         firstString(seed.Title, release.Title),
+		Artist:        firstString(seed.Artist, release.Artist),
+		ReleaseType:   "track",
+		ArtworkURL:    firstString(seed.ArtworkURL, release.ArtworkURL),
+		SoundCloudURL: firstString(seed.SoundCloudURL, release.SoundCloudURL),
+		Tracks:        []Track{seed},
 	}
 }
 
