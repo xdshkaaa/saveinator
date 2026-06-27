@@ -252,10 +252,7 @@ func buildCaption(title, lang, platform string) string {
 	if title != "" {
 		return title + "\n\n" + via
 	}
-	if platform == "tiktok" {
-		return via
-	}
-	return ""
+	return via
 }
 
 func fileSize(path string) int64 {
