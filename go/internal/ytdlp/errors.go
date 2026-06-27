@@ -11,7 +11,7 @@ func UserFacingErrorKey(platform string, err error) string {
 	case strings.Contains(msg, "context deadline exceeded"),
 		strings.Contains(msg, "timed out"):
 		return "download.timeout"
-	case platform == "instagram" && !strings.Contains(msg, "read-only file system") && (strings.Contains(msg, "login") ||
+	case platform == "instagram" && !strings.Contains(msg, "read-only file system") && !strings.Contains(msg, "empty media response") && (strings.Contains(msg, "login") ||
 		(strings.Contains(msg, "cookies") && !strings.Contains(msg, "yt_dlp/cookies.py")) ||
 		strings.Contains(msg, "rate-limit") ||
 		strings.Contains(msg, "checkpoint") ||

@@ -97,3 +97,11 @@ func TestUserFacingErrorKey_instagramReadOnlyCookies(t *testing.T) {
 		t.Fatalf("got %q, want instagram.download_failed", got)
 	}
 }
+
+func TestUserFacingErrorKey_instagramEmptyMediaResponse(t *testing.T) {
+	t.Parallel()
+	err := errors.New("Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in")
+	if got := UserFacingErrorKey("instagram", err); got != "instagram.download_failed" {
+		t.Fatalf("got %q, want instagram.download_failed", got)
+	}
+}
