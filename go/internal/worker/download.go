@@ -19,28 +19,31 @@ import (
 	"saveinator/internal/redisx"
 	"saveinator/internal/runtime"
 	"saveinator/internal/sender"
+	"saveinator/internal/tiktok"
 	"saveinator/internal/video"
 	"saveinator/internal/ytdlp"
 	"saveinator/internal/youtube"
 )
 
 type Handler struct {
-	cfg     *config.Settings
-	bot     *telego.Bot
-	sender  *sender.Telegram
-	db      *db.Store
-	redis   *redisx.Client
-	runtime *runtime.Store
+	cfg        *config.Settings
+	bot        *telego.Bot
+	sender     *sender.Telegram
+	db         *db.Store
+	redis      *redisx.Client
+	runtime    *runtime.Store
+	ttSessions *tiktok.SessionStore
 }
 
 func NewHandler(cfg *config.Settings, bot *telego.Bot, store *db.Store, redis *redisx.Client) *Handler {
 	return &Handler{
-		cfg:     cfg,
-		bot:     bot,
-		sender:  sender.New(bot),
-		db:      store,
-		redis:   redis,
-		runtime: runtime.NewStore(redis, cfg),
+		cfg:        cfg,
+		bot:        bot,
+		sender:     sender.New(bot),
+		db:         store,
+		redis:      redis,
+		runtime:    runtime.NewStore(redis, cfg),
+		ttSessions: tiktok.NewSessionStore(redis.Raw()),
 	}
 }
 
@@ -51,6 +54,7 @@ func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypeSpotify, h.handleSpotify)
 	mux.HandleFunc(queue.TypeSoundCloud, h.handleSoundCloud)
 	mux.HandleFunc(queue.TypeBroadcast, h.handleBroadcast)
+	mux.HandleFunc(queue.TypeTikTokCarousel, h.handleTikTokCarousel)
 }
 
 func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
@@ -79,6 +83,15 @@ func (h *Handler) handleTikTok(ctx context.Context, t *asynq.Task) error {
 		return nil
 	}
 	return h.runTikTok(ctx, p)
+}
+
+func (h *Handler) handleTikTokCarousel(ctx context.Context, t *asynq.Task) error {
+	var p queue.DownloadPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return err
+	}
+	defer h.releaseLock(ctx, p)
+	return h.runTikTokCarouselImages(ctx, p)
 }
 
 func (h *Handler) checkCancelled(ctx context.Context, p queue.DownloadPayload) bool {

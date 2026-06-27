@@ -107,6 +107,33 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 	return result, nil
 }
 
+// DownloadCarouselImages downloads only slideshow images from a TikTok post.
+func (d *Downloader) DownloadCarouselImages(ctx context.Context, url, outputDir string) (*Result, error) {
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return nil, err
+	}
+
+	info, _, err := d.extractInfo(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
+	title, author := metadataFromInfo(info)
+	imageURLs := extractCarouselURLs(info)
+	images := d.downloadImages(ctx, imageURLs, outputDir)
+
+	result := &Result{
+		Title:              title,
+		Author:             author,
+		Images:             images,
+		CarouselImageCount: len(imageURLs),
+	}
+	if len(images) > 0 {
+		result.PostType = PostTypeCarousel
+	}
+	return result, nil
+}
+
 func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]any, string, error) {
 	resolved := resolvePageURL(url)
 	args := []string{"--dump-single-json", "--skip-download", "--no-warnings", "--quiet"}

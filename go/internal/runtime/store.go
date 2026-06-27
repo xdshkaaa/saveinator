@@ -72,7 +72,7 @@ func (s *Store) Validate(def Setting, raw string) error {
 		return fmt.Errorf("expected true/false")
 	case TypeInt:
 		n, err := strconv.Atoi(raw)
-		if err != nil || n <= 0 {
+		if err != nil {
 			return fmt.Errorf("expected positive integer")
 		}
 		if def.MinValue > 0 && n < def.MinValue {
@@ -143,43 +143,70 @@ func deserialise(raw string, def Setting) any {
 }
 
 func defaultFromConfig(cfg *config.Settings, def Setting) any {
-	switch def.ConfigField {
-	case "SendDocumentLimitMB":
-		return cfg.SendDocumentLimitMB
-	case "TelegramUploadLimitMB":
-		return cfg.TelegramUploadLimitMB
-	case "DownloadTimeoutSeconds":
-		return cfg.DownloadTimeoutSeconds
-	case "BroadcastDelayMS":
-		return cfg.BroadcastDelayMS
-	case "BroadcastBatchSize":
-		return cfg.BroadcastBatchSize
-	case "YouTubeMaxFileSizeMB":
-		return cfg.YouTubeMaxFileSizeMB
-	case "YouTubeDownloadTimeoutSeconds":
-		return cfg.YouTubeDownloadTimeoutSeconds
-	case "YouTubeEnabled":
-		return cfg.YouTubeEnabled
-	case "SpotifyEnabled":
-		return cfg.SpotifyEnabled
-	case "SpotifyDownloadEnabled":
-		return cfg.SpotifyDownloadEnabled
-	case "SpotifyTrackTimeoutSeconds":
-		return cfg.SpotifyTrackTimeoutSeconds
-	case "SoundCloudEnabled":
-		return cfg.SoundCloudEnabled
-	case "SoundCloudDownloadEnabled":
-		return cfg.SoundCloudDownloadEnabled
-	case "SoundCloudMaxTracks":
-		return cfg.SoundCloudMaxTracks
-	case "PinterestEnabled":
-		return cfg.PinterestEnabled
-	case "PinterestTimeoutSeconds":
-		return cfg.PinterestTimeoutSeconds
-	default:
-		if def.ValueType == TypeBool {
-			return false
+	if cfg != nil {
+		switch def.ConfigField {
+		case "SendDocumentLimitMB":
+			return cfg.SendDocumentLimitMB
+		case "TelegramUploadLimitMB":
+			return cfg.TelegramUploadLimitMB
+		case "DownloadTimeoutSeconds":
+			return cfg.DownloadTimeoutSeconds
+		case "BroadcastDelayMS":
+			return cfg.BroadcastDelayMS
+		case "BroadcastBatchSize":
+			return cfg.BroadcastBatchSize
+		case "YouTubeMaxFileSizeMB":
+			return cfg.YouTubeMaxFileSizeMB
+		case "YouTubeDownloadTimeoutSeconds":
+			return cfg.YouTubeDownloadTimeoutSeconds
+		case "SendVideoLimitMB":
+			return cfg.SendVideoLimitMB
+		case "SpotifyEnabled":
+			return cfg.SpotifyEnabled
+		case "SpotifyDownloadEnabled":
+			return cfg.SpotifyDownloadEnabled
+		case "SpotifyTrackTimeoutSeconds":
+			return cfg.SpotifyTrackTimeoutSeconds
+		case "SpotifyAPITimeoutSeconds":
+			return cfg.SpotifyAPITimeoutSeconds
+		case "SpotifyLockMaxTracks":
+			return cfg.SpotifyLockMaxTracks
+		case "SpotifyDownloadConcurrency":
+			return cfg.SpotifyDownloadConcurrency
+		case "SoundCloudEnabled":
+			return cfg.SoundCloudEnabled
+		case "SoundCloudDownloadEnabled":
+			return cfg.SoundCloudDownloadEnabled
+		case "SoundCloudTrackTimeoutSeconds":
+			return cfg.SoundCloudTrackTimeoutSeconds
+		case "SoundCloudMaxTracks":
+			return cfg.SoundCloudMaxTracks
+		case "SoundCloudDownloadConcurrency":
+			return cfg.SoundCloudDownloadConcurrency
+		case "PinterestEnabled":
+			return cfg.PinterestEnabled
+		case "PinterestTimeoutSeconds":
+			return cfg.PinterestTimeoutSeconds
+		case "PinterestMaxItems":
+			return cfg.PinterestMaxItems
+		case "PinterestDownloadImages":
+			return cfg.PinterestDownloadImages
+		case "PinterestDownloadVideos":
+			return cfg.PinterestDownloadVideos
+		case "TikTokCarouselMaxItems":
+			return cfg.TikTokCarouselMaxItems
+		case "TikTokCarouselAudioEnabled":
+			return cfg.TikTokCarouselAudioEnabled
 		}
-		return 0
 	}
+	if def.ValueType == TypeBool {
+		return def.DefaultBool
+	}
+	if def.DefaultInt != 0 {
+		return def.DefaultInt
+	}
+	if def.ValueType == TypeBool {
+		return false
+	}
+	return 0
 }

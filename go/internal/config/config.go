@@ -71,6 +71,8 @@ type Settings struct {
 
 	AdminTelegramID int64
 
+	DownloadAPIEnabled bool
+
 	Mode string // bot, worker, all
 }
 
@@ -128,6 +130,7 @@ func Load() (*Settings, error) {
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),
 		AdminTelegramID:        envInt64("ADMIN_TELEGRAM_ID", 0),
+		DownloadAPIEnabled:     envBool("DOWNLOAD_API_ENABLED", true),
 		Mode:                   strings.ToLower(env("SAVEINATOR_MODE", "all")),
 	}
 

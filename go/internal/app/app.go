@@ -16,6 +16,7 @@ import (
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 
+	"saveinator/internal/api"
 	"saveinator/internal/config"
 	"saveinator/internal/db"
 	"saveinator/internal/handler"
@@ -127,6 +128,7 @@ func (a *App) setupWebhook(ctx context.Context, bot *telego.Bot) (<-chan telego.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/", health)
+	api.RegisterDownloadRoutes(mux, a.cfg)
 
 	addr := fmt.Sprintf("%s:%d", a.cfg.WebhookListen, a.cfg.WebhookPort)
 	server := &http.Server{Addr: addr, Handler: mux}

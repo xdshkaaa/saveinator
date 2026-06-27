@@ -81,6 +81,7 @@ services:
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       METRICS_PORT: "9101"
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+      DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
     ports:
       - "127.0.0.1:8000:8000"
       - "127.0.0.1:9101:9101"
