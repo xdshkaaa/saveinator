@@ -144,6 +144,9 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 		if b.checkBanned(ctx, bot, msg, lang) {
 			return
 		}
+		if !b.allowGroupLinks(ctx, msg) {
+			return
+		}
 		if b.handleAdminFSM(ctx, bot, msg, lang) {
 			return
 		}

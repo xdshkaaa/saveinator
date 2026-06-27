@@ -2,6 +2,18 @@
 
 Telegram bot for downloading videos from YouTube, TikTok, Instagram, and X/Twitter, Pinterest images/videos, Spotify album/single/track metadata and audio downloads via yt-dlp YouTube search, plus SoundCloud track/playlist metadata and audio downloads via yt-dlp.
 
+## Go rewrite (recommended for production)
+
+A single Go binary replaces the Python `bot` + Celery `worker` stack (~30–50 MB RAM vs ~300–600 MB). See [`go/README.md`](go/README.md).
+
+```bash
+docker compose -f docker-compose.go.yml up -d --build
+```
+
+Set `SAVEINATOR_MODE=all` (default) for webhook/polling + asynq worker + metrics in one container.
+
+The sections below describe the legacy Python/Celery deployment.
+
 ## Features
 
 - Download videos via yt-dlp (YouTube, TikTok, Instagram, X/Twitter)

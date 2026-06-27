@@ -68,7 +68,7 @@ func (a *App) Run(ctx context.Context) error {
 	if mode == "worker" || mode == "all" {
 		go func() { errCh <- a.runWorker(ctx, bot, store, redisClient) }()
 	}
-	if a.cfg.MetricsEnabled && (mode == "bot" || mode == "all") {
+	if a.cfg.MetricsEnabled {
 		go func() { errCh <- a.runMetrics(ctx) }()
 	}
 
