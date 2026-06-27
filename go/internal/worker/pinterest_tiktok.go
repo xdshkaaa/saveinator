@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,7 +82,7 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 
 	title := item.Title
 	if title == "" {
-		title = filepath.Base(item.FilePath)
+		title = pinterest.DisplayTitle(item.FilePath)
 	}
 	if _, err := os.Stat(item.FilePath); err != nil {
 		slog.Warn("pinterest media file missing", "path", item.FilePath, "err", err)
