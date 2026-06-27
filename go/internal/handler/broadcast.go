@@ -11,6 +11,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 )
 
@@ -19,6 +20,7 @@ func (b *Bot) onBroadcast(bot *telego.Bot) func(context.Context, *telego.Bot, te
 		if msg.From == nil || !b.isAdmin(msg.From.ID) {
 			return
 		}
+		metrics.RecordCommand("broadcast")
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("broadcast.menu_title", lang, nil)).
@@ -210,6 +212,8 @@ func (b *Bot) queueBroadcast(ctx context.Context, bot *telego.Bot, query telego.
 	}); err != nil {
 		slog.Warn("enqueue broadcast failed", "err", err)
 		_ = b.db.FailBroadcast(ctx, broadcastID)
+	} else {
+		metrics.RecordBroadcastCreated(audience)
 	}
 	text := locale.Get("broadcast.starting", lang, map[string]string{
 		"audience":   broadcastAudienceLabel(audience, lang),

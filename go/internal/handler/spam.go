@@ -14,11 +14,12 @@ import (
 )
 
 func (b *Bot) allowGroupLinks(ctx context.Context, msg telego.Message) bool {
-	if msg.Chat.Type == "private" || msg.Text == "" {
+	body := messageBody(msg)
+	if msg.Chat.Type == "private" || body == "" {
 		return true
 	}
 
-	links := linkparser.ExtractURLs(msg.Text)
+	links := linkparser.ExtractURLs(body)
 	if len(links) == 0 {
 		return true
 	}

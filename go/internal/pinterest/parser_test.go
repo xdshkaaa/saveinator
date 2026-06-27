@@ -23,6 +23,13 @@ func TestParseURLBoard(t *testing.T) {
 	}
 }
 
+func TestParseURLRuPin(t *testing.T) {
+	parsed, err := ParseURL("https://ru.pinterest.com/pin/811985007859293841/")
+	if err != nil || parsed.URLType != URLTypePin {
+		t.Fatalf("unexpected: %+v err=%v", parsed, err)
+	}
+}
+
 func TestExtractPinID(t *testing.T) {
 	if got := ExtractPinID("https://pinterest.com/pin/123456/"); got != "123456" {
 		t.Fatalf("got %q", got)

@@ -15,9 +15,9 @@ const (
 )
 
 var (
-	pinPattern   = regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.com/pin/[\w-]+/?(?:[?&]\S*)?`)
+	pinPattern   = regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.[\w.]+/pin/[\w-]+/?(?:[?&]\S*)?`)
 	shortPattern = regexp.MustCompile(`(?i)(?:https?://)?pin\.it/[\w-]+/?(?:[?&]\S*)?`)
-	boardPattern = regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.com/[\w-]+/[\w-]+/?(?:[?&]\S*)?`)
+	boardPattern = regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.[\w.]+/[\w-]+/[\w-]+/?(?:[?&]\S*)?`)
 	pinIDPattern = regexp.MustCompile(`(?i)pin/(\d+)`)
 
 	reservedBoardSegments = map[string]struct{}{
@@ -45,8 +45,13 @@ func ParseURL(raw string) (*ParsedURL, error) {
 	}
 	if m := boardPattern.FindString(normalized); m != "" {
 		path := m
-		if idx := strings.Index(strings.ToLower(path), "pinterest.com/"); idx >= 0 {
-			rest := path[idx+len("pinterest.com/"):]
+		if idx := strings.Index(strings.ToLower(path), "pinterest."); idx >= 0 {
+			suffix := path[idx:]
+			slash := strings.Index(suffix, "/")
+			if slash < 0 {
+				return nil, ErrInvalidURL
+			}
+			rest := suffix[slash+1:]
 			segment := strings.SplitN(rest, "/", 2)[0]
 			if _, reserved := reservedBoardSegments[strings.ToLower(segment)]; !reserved {
 				return &ParsedURL{URL: m, URLType: URLTypeBoard}, nil

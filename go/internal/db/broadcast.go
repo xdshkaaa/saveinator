@@ -169,9 +169,9 @@ func (s *Store) CountBroadcastRecipients(ctx context.Context, audience string) (
 	query := `SELECT COUNT(*) FROM users`
 	switch audience {
 	case "ru":
-		query += ` WHERE language = 'ru'::language`
+		query += ` WHERE language = 'RU'::language`
 	case "en":
-		query += ` WHERE language = 'en'::language`
+		query += ` WHERE language = 'EN'::language`
 	case "active":
 		query = `
 			SELECT COUNT(DISTINCT user_id) FROM downloads
@@ -187,9 +187,9 @@ func (s *Store) BroadcastRecipientIDs(ctx context.Context, audience string) ([]i
 	var query string
 	switch audience {
 	case "ru":
-		query = `SELECT id FROM users WHERE language = 'ru'::language`
+		query = `SELECT id FROM users WHERE language = 'RU'::language`
 	case "en":
-		query = `SELECT id FROM users WHERE language = 'en'::language`
+		query = `SELECT id FROM users WHERE language = 'EN'::language`
 	case "active":
 		query = `
 			SELECT DISTINCT user_id FROM downloads

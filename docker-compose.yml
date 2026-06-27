@@ -5,6 +5,14 @@ services:
       POSTGRES_DB: saveinator
       POSTGRES_USER: saveinator
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - max_connections=50
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -16,6 +24,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -23,16 +32,15 @@ services:
       timeout: 5s
       retries: 5
 
-  bot:
+  saveinator:
     build:
       context: .
-      dockerfile: docker/webhook/Dockerfile
+      dockerfile: docker/go/Dockerfile
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
       REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SAVEINATOR_MODE: all
       USE_POLLING: "${USE_POLLING:-false}"
       WEBHOOK_HOST: "${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}"
       WEBHOOK_PATH: "${WEBHOOK_PATH:-/webhook}"
@@ -40,6 +48,21 @@ services:
       WEBHOOK_LISTEN: "${WEBHOOK_LISTEN:-0.0.0.0}"
       WEBHOOK_SECRET_TOKEN: "${WEBHOOK_SECRET_TOKEN:-}"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DOWNLOAD_TIMEOUT_SECONDS: ${DOWNLOAD_TIMEOUT_SECONDS:-60}
+      SEND_VIDEO_LIMIT_MB: ${SEND_VIDEO_LIMIT_MB:-50}
+      SEND_DOCUMENT_LIMIT_MB: ${SEND_DOCUMENT_LIMIT_MB:-1999}
+      YOUTUBE_MAX_FILE_SIZE_MB: ${YOUTUBE_MAX_FILE_SIZE_MB:-1999}
+      YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS: ${YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS:-600}
+      TIKTOK_COOKIES_PATH: ${TIKTOK_COOKIES_PATH:-/secrets/tiktok_cookies.txt}
+      INSTAGRAM_COOKIES_PATH: ${INSTAGRAM_COOKIES_PATH:-/secrets/instagram_cookies.txt}
+      PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
+      PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_TIMEOUT_SECONDS:-30}
+      PINTEREST_MAX_ITEMS: ${PINTEREST_MAX_ITEMS:-10}
+      PINTEREST_DOWNLOAD_IMAGES: ${PINTEREST_DOWNLOAD_IMAGES:-true}
+      PINTEREST_DOWNLOAD_VIDEOS: ${PINTEREST_DOWNLOAD_VIDEOS:-true}
+      PINTEREST_COOKIES_PATH: ${PINTEREST_COOKIES_PATH:-}
+      TIKTOK_CAROUSEL_MAX_ITEMS: ${TIKTOK_CAROUSEL_MAX_ITEMS:-20}
+      TIKTOK_CAROUSEL_AUDIO_ENABLED: ${TIKTOK_CAROUSEL_AUDIO_ENABLED:-true}
       SPOTIFY_ENABLED: ${SPOTIFY_ENABLED:-false}
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
@@ -47,73 +70,53 @@ services:
       SPOTIFY_DOWNLOAD_ENABLED: ${SPOTIFY_DOWNLOAD_ENABLED:-true}
       SPOTIFY_TRACK_TIMEOUT_SECONDS: ${SPOTIFY_TRACK_TIMEOUT_SECONDS:-60}
       SPOTIFY_DL_OUTPUT_FORMAT: ${SPOTIFY_DL_OUTPUT_FORMAT:-mp3}
+      SPOTIFY_LOCK_MAX_TRACKS: ${SPOTIFY_LOCK_MAX_TRACKS:-50}
       SPOTIFY_DOWNLOAD_CONCURRENCY: ${SPOTIFY_DOWNLOAD_CONCURRENCY:-2}
-      SPOTIFY_META_CACHE_TTL_SECONDS: ${SPOTIFY_META_CACHE_TTL_SECONDS:-3600}
-      YOUTUBE_SEARCH_CACHE_TTL_SECONDS: ${YOUTUBE_SEARCH_CACHE_TTL_SECONDS:-604800}
       SOUNDCLOUD_ENABLED: ${SOUNDCLOUD_ENABLED:-true}
       SOUNDCLOUD_DOWNLOAD_ENABLED: ${SOUNDCLOUD_DOWNLOAD_ENABLED:-false}
       SOUNDCLOUD_TRACK_TIMEOUT_SECONDS: ${SOUNDCLOUD_TRACK_TIMEOUT_SECONDS:-30}
       SOUNDCLOUD_MAX_TRACKS: ${SOUNDCLOUD_MAX_TRACKS:-100}
       SOUNDCLOUD_DL_OUTPUT_FORMAT: ${SOUNDCLOUD_DL_OUTPUT_FORMAT:-mp3}
-      SOUNDCLOUD_MAX_FILE_MB: ${SOUNDCLOUD_MAX_FILE_MB:-50}
-      SOUNDCLOUD_META_CACHE_TTL_SECONDS: ${SOUNDCLOUD_META_CACHE_TTL_SECONDS:-3600}
-      PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
-      PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_TIMEOUT_SECONDS:-30}
-      PINTEREST_MAX_ITEMS: ${PINTEREST_MAX_ITEMS:-10}
+      SOUNDCLOUD_DOWNLOAD_CONCURRENCY: ${SOUNDCLOUD_DOWNLOAD_CONCURRENCY:-1}
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       METRICS_PORT: "9101"
+      WORKER_METRICS_PORT: "9102"
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+      DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
+      SPAM_DEDUP_WINDOW_SECONDS: ${SPAM_DEDUP_WINDOW_SECONDS:-300}
+      YOUTUBE_TRANSCODE_ENABLED: ${YOUTUBE_TRANSCODE_ENABLED:-true}
+      TIKTOK_COOKIES_REFRESH_ENABLED: ${TIKTOK_COOKIES_REFRESH_ENABLED:-true}
+      TIKTOK_COOKIES_REFRESH_URL: ${TIKTOK_COOKIES_REFRESH_URL:-https://vt.tiktok.com/ZSCFGyN3g/}
+      INSTAGRAM_COOKIES_REFRESH_ENABLED: ${INSTAGRAM_COOKIES_REFRESH_ENABLED:-true}
+      INSTAGRAM_COOKIES_REFRESH_URL: ${INSTAGRAM_COOKIES_REFRESH_URL:-https://www.instagram.com/reel/DaAl-AKqLRF/}
     ports:
       - "127.0.0.1:8000:8000"
       - "127.0.0.1:9101:9101"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  worker:
-    build:
-      context: .
-      dockerfile: docker/worker/Dockerfile
-    command: ["celery", "-A", "workers.app", "worker", "--loglevel=info", "-B", "-c", "1", "--max-tasks-per-child=1"]
-    environment:
-      BOT_TOKEN: ${BOT_TOKEN}
-      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
-      PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_TIMEOUT_SECONDS:-30}
-      PINTEREST_MAX_ITEMS: ${PINTEREST_MAX_ITEMS:-10}
-      DOWNLOAD_TIMEOUT_SECONDS: ${DOWNLOAD_TIMEOUT_SECONDS:-60}
-      SEND_VIDEO_LIMIT_MB: ${SEND_VIDEO_LIMIT_MB:-50}
-      SEND_DOCUMENT_LIMIT_MB: ${SEND_DOCUMENT_LIMIT_MB:-1999}
-      YOUTUBE_MAX_FILE_SIZE_MB: ${YOUTUBE_MAX_FILE_SIZE_MB:-1999}
-      YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS: ${YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS:-600}
-      TIKTOK_COOKIES_PATH: ${TIKTOK_COOKIES_PATH:-/secrets/tiktok_cookies.txt}
-      TIKTOK_COOKIES_FROM_BROWSER: ${TIKTOK_COOKIES_FROM_BROWSER:-}
-      TIKTOK_COOKIES_REFRESH_ENABLED: ${TIKTOK_COOKIES_REFRESH_ENABLED:-true}
-      TIKTOK_COOKIES_REFRESH_URL: ${TIKTOK_COOKIES_REFRESH_URL:-https://vt.tiktok.com/ZSCFGyN3g/}
-      INSTAGRAM_COOKIES_PATH: ${INSTAGRAM_COOKIES_PATH:-/secrets/instagram_cookies.txt}
-      INSTAGRAM_COOKIES_FROM_BROWSER: ${INSTAGRAM_COOKIES_FROM_BROWSER:-}
-      INSTAGRAM_COOKIES_REFRESH_ENABLED: ${INSTAGRAM_COOKIES_REFRESH_ENABLED:-true}
-      INSTAGRAM_COOKIES_REFRESH_URL: ${INSTAGRAM_COOKIES_REFRESH_URL:-https://www.instagram.com/reel/DaAl-AKqLRF/}
-      METRICS_ENABLED: ${METRICS_ENABLED:-true}
-      WORKER_METRICS_PORT: "9102"
-      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
-    ports:
       - "127.0.0.1:9102:9102"
     volumes:
-      - ./secrets:/secrets:rw
+      - ./secrets:/secrets:ro
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/migrate/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - tools
 
 volumes:
   pgdata:

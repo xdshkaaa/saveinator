@@ -6,32 +6,8 @@ on:
   pull_request:
 
 jobs:
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Run tests
-        run: uv run pytest -q
-
   go:
-    name: Go build
+    name: Go test & build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,4 +19,19 @@ jobs:
           go-version: "1.22.3"
           cache-dependency-path: go/go.sum
       - run: go build ./...
-      - run: go test ./...
+      - run: go test -race -count=1 -coverprofile=coverage.out ./...
+      - run: go tool cover -func=coverage.out
+
+  migrate-image:
+    name: Migrate Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f docker/migrate/Dockerfile .
+
+  compose:
+    name: Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config -q

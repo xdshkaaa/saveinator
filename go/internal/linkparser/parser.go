@@ -56,9 +56,9 @@ var (
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[^\s?#]+(?:[/?#&]\S*)?`)},
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?on\.soundcloud\.com/[\w-]+(?:[/?#&]\S*)?`)},
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/[\w.-]+(?:[/?#&]\S*)?`)},
-		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?pinterest\.com/pin/[\w-]+/?(?:[?&]\S*)?`)},
+		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.[\w.]+/pin/[\w-]+/?(?:[?&]\S*)?`)},
 		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?pin\.it/[\w-]+/?(?:[?&]\S*)?`)},
-		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?pinterest\.com/[\w-]+/[\w-]+/?(?:[?&]\S*)?`)},
+		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.[\w.]+/[\w-]+/[\w-]+/?(?:[?&]\S*)?`)},
 	}
 )
 

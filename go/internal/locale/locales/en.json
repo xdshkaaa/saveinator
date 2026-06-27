@@ -23,11 +23,23 @@
     "via_bot": "via @{bot_username}",
     "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
   },
+  "clear": {
+    "success": "Queue cleared. You can send a new link.",
+    "empty": "No active downloads."
+  },
+  "instagram": {
+    "auth_required": "\u274c Instagram login is required. Log into Instagram in Chrome on this machine, or provide a valid cookies file via INSTAGRAM_COOKIES_PATH.",
+    "download_failed": "\u274c Could not download this Instagram post. Please try again later."
+  },
+  "x": {
+    "text_only": "\u274c This post has no downloadable video or images (text-only tweet)."
+  },
   "errors": {
     "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "busy": "Please wait until your current download finishes before sending another link.",
+    "send_link": "Send a link instead of a file. I download from YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest URLs.",
     "generic": "Something went wrong. Please try again later."
   },
   "spotify": {
@@ -51,9 +63,9 @@
     "download_timeout": "Download is taking too long. Please try again with a shorter release.",
     "download_not_available": "Audio download is not available on this server.",
     "not_found": "Spotify release not found.",
-    "not_configured": "Spotify support is not configured on this bot.",
+    "not_configured": "Spotify API credentials are missing. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to your environment, then set SPOTIFY_ENABLED=true.",
     "api_error": "Could not fetch Spotify release info. Please try again later.",
-    "disabled": "Spotify support is disabled on this bot."
+    "disabled": "Spotify support is disabled on this bot. Set SPOTIFY_ENABLED=true and add SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET to enable metadata cards."
   },
   "soundcloud": {
     "card_title": "🎧 {artist} — {name}",

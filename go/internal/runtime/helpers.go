@@ -30,6 +30,9 @@ func (s *Store) PlatformTimeoutSec(ctx context.Context, platform string) int {
 	if platform == "soundcloud" {
 		return s.CurrentInt(ctx, "soundcloud.track_timeout_sec", s.cfg.SoundCloudTrackTimeoutSeconds)
 	}
+	if platform == "instagram" {
+		return s.CurrentInt(ctx, "instagram.timeout_sec", s.cfg.InstagramDownloadTimeoutSeconds)
+	}
 	if platform == "pinterest" {
 		return s.CurrentInt(ctx, "pinterest.timeout_sec", s.cfg.PinterestTimeoutSeconds)
 	}

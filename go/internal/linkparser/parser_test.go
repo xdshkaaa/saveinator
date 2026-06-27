@@ -28,3 +28,38 @@ func TestIsYouTubeShorts(t *testing.T) {
 		t.Fatal("expected shorts")
 	}
 }
+
+func TestExtractURLsMultilineBatch(t *testing.T) {
+	text := `https://www.instagram.com/reel/DY_nCCclIFx/?igsh=bmdvNzAxbHlnNXd2
+https://vt.tiktok.com/ZSxv29fme/
+https://www.youtube.com/shorts/0MEIBEbWSVM?feature=share
+https://x.com/solidphono/status/2069500259655413885
+https://vt.tiktok.com/ZSC6GCm3S/
+https://ru.pinterest.com/pin/811985007859293841/
+https://open.spotify.com/track/29YSKt01a9wGNJkPLQG0Kw?si=31980b03a42e4c3a
+https://on.soundcloud.com/pffse5BOEisl5gAXNn`
+
+	links := ExtractURLs(text)
+	if len(links) != 8 {
+		t.Fatalf("expected 8 links, got %d: %+v", len(links), links)
+	}
+
+	want := []Platform{
+		PlatformInstagram,
+		PlatformTikTok,
+		PlatformYouTube,
+		PlatformX,
+		PlatformTikTok,
+		PlatformPinterest,
+		PlatformSpotify,
+		PlatformSoundCloud,
+	}
+	for i, platform := range want {
+		if links[i].Platform != platform {
+			t.Fatalf("link %d: got %q, want %q (url=%s)", i, links[i].Platform, platform, links[i].URL)
+		}
+	}
+	if links[3].XStatusID != "2069500259655413885" {
+		t.Fatalf("unexpected x status id: %q", links[3].XStatusID)
+	}
+}

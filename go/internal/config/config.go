@@ -38,9 +38,12 @@ type Settings struct {
 	BroadcastBatchSize  int
 
 	TikTokCookiesPath              string
+	TikTokCookiesFromBrowser       string
 	TikTokCookiesRefreshEnabled    bool
 	TikTokCookiesRefreshURL        string
-	InstagramCookiesPath           string
+	InstagramCookiesPath            string
+	InstagramCookiesFromBrowser     string
+	InstagramDownloadTimeoutSeconds int
 	InstagramCookiesRefreshEnabled bool
 	InstagramCookiesRefreshURL     string
 
@@ -74,6 +77,7 @@ type Settings struct {
 	MetricsEnabled bool
 	MetricsHost    string
 	MetricsPort    int
+	WorkerMetricsPort int
 
 	AdminTelegramID int64
 
@@ -110,10 +114,13 @@ func Load() (*Settings, error) {
 		BroadcastDelayMS:    envInt("BROADCAST_DELAY_MS", 50),
 		BroadcastBatchSize:  envInt("BROADCAST_BATCH_SIZE", 20),
 		TikTokCookiesPath:              env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
+		TikTokCookiesFromBrowser:       env("TIKTOK_COOKIES_FROM_BROWSER", ""),
 		TikTokCookiesRefreshEnabled:    envBool("TIKTOK_COOKIES_REFRESH_ENABLED", true),
 		TikTokCookiesRefreshURL:        env("TIKTOK_COOKIES_REFRESH_URL", "https://vt.tiktok.com/ZSCFGyN3g/"),
-		InstagramCookiesPath:           env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
-		InstagramCookiesRefreshEnabled: envBool("INSTAGRAM_COOKIES_REFRESH_ENABLED", true),
+		InstagramCookiesPath:            env("INSTAGRAM_COOKIES_PATH", ""),
+		InstagramCookiesFromBrowser:     env("INSTAGRAM_COOKIES_FROM_BROWSER", ""),
+		InstagramDownloadTimeoutSeconds: envInt("INSTAGRAM_DOWNLOAD_TIMEOUT_SECONDS", 120),
+		InstagramCookiesRefreshEnabled:  envBool("INSTAGRAM_COOKIES_REFRESH_ENABLED", true),
 		InstagramCookiesRefreshURL:     env("INSTAGRAM_COOKIES_REFRESH_URL", "https://www.instagram.com/reel/DaAl-AKqLRF/"),
 		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
 		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
@@ -141,6 +148,7 @@ func Load() (*Settings, error) {
 		MetricsEnabled:         envBool("METRICS_ENABLED", true),
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),
+		WorkerMetricsPort:      envInt("WORKER_METRICS_PORT", 9102),
 		AdminTelegramID:        envInt64("ADMIN_TELEGRAM_ID", 0),
 		DownloadAPIEnabled:     envBool("DOWNLOAD_API_ENABLED", true),
 		Mode:                   strings.ToLower(env("SAVEINATOR_MODE", "all")),
@@ -151,14 +159,19 @@ func Load() (*Settings, error) {
 	}
 
 	s.DatabaseURL = normalizePostgresURL(s.DatabaseURL)
+
+	// Enable Spotify metadata when credentials are present unless explicitly disabled.
+	if s.SpotifyClientID != "" && s.SpotifyClientSecret != "" && os.Getenv("SPOTIFY_ENABLED") == "" {
+		s.SpotifyEnabled = true
+	}
+
 	return s, nil
 }
 
 func loadDotEnv() {
-	for _, path := range []string{".env", "../.env"} {
+	for _, path := range []string{".env.go.dev", ".env", "../.env.go.dev", "../.env"} {
 		if _, err := os.Stat(path); err == nil {
 			_ = godotenv.Load(path)
-			return
 		}
 	}
 }

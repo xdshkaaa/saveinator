@@ -11,6 +11,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/runtime"
 )
 
@@ -19,6 +20,7 @@ func (b *Bot) onAdmin(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		if msg.From == nil || !b.isAdmin(msg.From.ID) {
 			return
 		}
+		metrics.RecordCommand("admin")
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.menu_title", lang, nil)).
@@ -31,6 +33,7 @@ func (b *Bot) onStats(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		if msg.From == nil || !b.isAdmin(msg.From.ID) {
 			return
 		}
+		metrics.RecordCommand("stats")
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		text, _ := b.renderStats(ctx, lang)
@@ -288,6 +291,7 @@ func (b *Bot) adminSaveEdit(ctx context.Context, bot *telego.Bot, msg telego.Mes
 	}
 	parsed := b.runtime.Parse(def, raw)
 	_ = b.runtime.SetValue(ctx, redisKey, parsed)
+	metrics.RecordAdminRuntimeSetting(def.Service)
 	b.fsm.Clear(msg.From.ID)
 	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.saved", lang, map[string]string{
 		"label": runtime.KindLabel(def, lang),
@@ -327,6 +331,7 @@ func (b *Bot) adminSetEnum(ctx context.Context, bot *telego.Bot, query telego.Ca
 		return
 	}
 	_ = b.runtime.SetValue(ctx, redisKey, value)
+	metrics.RecordAdminRuntimeSetting(def.Service)
 	text, _ := b.serviceSummary(ctx, def.Service, lang)
 	chat := query.Message.GetChat()
 	b.editAdminText(bot, chat.ID, query.Message.GetMessageID(), text, b.serviceKeyboard(def.Service, lang))
@@ -345,6 +350,7 @@ func (b *Bot) adminToggleBool(ctx context.Context, bot *telego.Bot, query telego
 	current, _ := b.runtime.CurrentValue(ctx, def)
 	cur, _ := current.(bool)
 	_ = b.runtime.SetValue(ctx, redisKey, !cur)
+	metrics.RecordAdminRuntimeSetting(def.Service)
 	text, _ := b.serviceSummary(ctx, def.Service, lang)
 	chat := query.Message.GetChat()
 	b.editAdminText(bot, chat.ID, query.Message.GetMessageID(), text, b.serviceKeyboard(def.Service, lang))

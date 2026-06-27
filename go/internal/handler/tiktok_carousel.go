@@ -31,7 +31,7 @@ func (b *Bot) onTikTokCarousel(bot *telego.Bot) func(context.Context, *telego.Bo
 			return
 		}
 
-		lockToken, acquired, err := b.redis.AcquireUserLock(ctx, userID, "tiktok", lockTTL(b.cfg, "tiktok"))
+		lockToken, acquired, err := b.acquireUserLock(ctx, userID, "tiktok", lockTTL(b.cfg, "tiktok"))
 		if err != nil || !acquired {
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("errors.busy", lang, nil)).WithShowAlert())
 			return
@@ -46,6 +46,7 @@ func (b *Bot) onTikTokCarousel(bot *telego.Bot) func(context.Context, *telego.Bo
 			})
 		}
 
+		metrics.TikTokCarouselRequestsTotal.WithLabelValues("started").Inc()
 		_ = b.q.EnqueueTikTokCarousel(queue.DownloadPayload{
 			URL:          session.URL,
 			Platform:     "tiktok",

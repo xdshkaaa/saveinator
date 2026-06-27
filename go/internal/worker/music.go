@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"saveinator/internal/cancel"
 	"saveinator/internal/config"
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
@@ -24,17 +26,49 @@ import (
 func (h *Handler) handleSpotify(ctx context.Context, t *asynq.Task) error {
 	var p queue.MusicPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return err
+		recordTaskFailure(queue.TypeSpotify)
+		slog.Warn("spotify payload decode failed", "err", err)
+		return nil
 	}
-	return h.runMusicDownload(ctx, p, "spotify")
+	if p.ChatID == 0 || p.MessageID == 0 {
+		slog.Warn("spotify payload missing chat/message", "resource", p.ResourceID)
+		return nil
+	}
+	slog.Info("spotify worker started", "chat", p.ChatID, "message", p.MessageID, "resource", p.ResourceID)
+	if err := h.runMusicDownload(ctx, p, "spotify"); err != nil {
+		slog.Warn("spotify worker failed", "err", err)
+		recordTaskFailure(queue.TypeSpotify)
+		lang := p.Lang
+		if lang == "" {
+			lang = "en"
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("spotify.download_failed", lang, nil))
+		return nil
+	}
+	recordTaskSuccess(queue.TypeSpotify, "spotify", time.Now(), 0)
+	return nil
 }
 
 func (h *Handler) handleSoundCloud(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
 	var p queue.MusicPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return err
+		recordTaskFailure(queue.TypeSoundCloud)
+		slog.Warn("soundcloud payload decode failed", "err", err)
+		return nil
 	}
-	return h.runMusicDownload(ctx, p, "soundcloud")
+	if err := h.runMusicDownload(ctx, p, "soundcloud"); err != nil {
+		slog.Warn("soundcloud worker failed", "err", err)
+		recordTaskFailure(queue.TypeSoundCloud)
+		lang := p.Lang
+		if lang == "" {
+			lang = "en"
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("soundcloud.download_failed", lang, nil))
+		return nil
+	}
+	recordTaskSuccess(queue.TypeSoundCloud, "soundcloud", start, 0)
+	return nil
 }
 
 func (h *Handler) runMusicDownload(ctx context.Context, p queue.MusicPayload, platform string) error {
@@ -45,13 +79,25 @@ func (h *Handler) runMusicDownload(ctx context.Context, p queue.MusicPayload, pl
 
 	lockKey := h.releaseLockKey(platform, p)
 	acquired, err := h.redis.TryAcquireReleaseLock(ctx, lockKey, releaseLockTTL(platform, h.cfg))
-	if err == nil && !acquired {
+	if err != nil {
+		slog.Warn("release lock error", "platform", platform, "key", lockKey, "err", err)
+	}
+	if !acquired {
 		slog.Info("release already downloading", "platform", platform, "key", lockKey)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.busy", lang, nil))
+		h.releaseMusicUserLock(ctx, p)
 		return nil
 	}
-	defer func() { _ = h.redis.ReleaseReleaseLock(ctx, lockKey) }()
+	defer func() {
+		_ = h.redis.ReleaseReleaseLock(ctx, lockKey)
+		h.releaseMusicUserLock(ctx, p)
+	}()
 
 	cancelKB := cancel.Keyboard(lang, p.LockScene, p.UserID, p.LockToken)
+
+	if err := h.beginMusicDownloadStatus(p, lang, platform, cancelKB); err != nil {
+		slog.Warn("music status update failed", "platform", platform, "err", err)
+	}
 
 	switch platform {
 	case "spotify":
@@ -66,7 +112,11 @@ func (h *Handler) runMusicDownload(ctx context.Context, p queue.MusicPayload, pl
 func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPayload, lang string, cancelKB *telego.InlineKeyboardMarkup) error {
 	var release spotify.Release
 	if err := json.Unmarshal([]byte(p.ReleaseJSON), &release); err != nil {
-		return err
+		return fmt.Errorf("decode release: %w", err)
+	}
+	if len(release.Tracks) == 0 {
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("spotify.download_none_found", lang, nil))
+		return nil
 	}
 
 	taskDir, err := os.MkdirTemp("", "saveinator-spotify-*")
@@ -163,12 +213,18 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		trackDir := filepath.Join(taskDir, fmt.Sprintf("track-%d", current))
 
 		sem <- struct{}{}
+		trackStart := time.Now()
 		audioPath, dlErr := audio.DownloadSoundCloudTrack(ctx, trackURL, trackDir, outputFormat, trackTimeout)
 		<-sem
 		if dlErr != nil {
 			slog.Warn("soundcloud track download failed", "title", track.Title, "err", dlErr)
+			metrics.SoundCloudDownloadFailuresTotal.Inc()
+			if errors.Is(dlErr, context.DeadlineExceeded) {
+				metrics.SoundCloudDownloadsTimeoutTotal.Inc()
+			}
 			continue
 		}
+		metrics.SoundCloudDownloadDurationSeconds.Observe(time.Since(trackStart).Seconds())
 
 		sendStatus := locale.Get("soundcloud.send_track", lang, map[string]string{
 			"current": fmt.Sprintf("%d", current),
@@ -180,8 +236,10 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		performer := firstNonEmpty(track.Artist, release.Artist)
 		if err := h.sender.SendAudio(p.ChatID, audioPath, track.Title, performer, track.DurationMS/1000); err != nil {
 			slog.Warn("soundcloud send audio failed", "title", track.Title, "err", err)
+			metrics.SoundCloudDownloadFailuresTotal.Inc()
 			continue
 		}
+		metrics.SoundCloudDownloadsSuccessTotal.Inc()
 		sent++
 	}
 
@@ -209,6 +267,31 @@ func (h *Handler) finishMusicDownload(ctx context.Context, p queue.MusicPayload,
 	}
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, platform, "completed", 0, "")
 	return nil
+}
+
+func (h *Handler) beginMusicDownloadStatus(p queue.MusicPayload, lang, platform string, cancelKB *telego.InlineKeyboardMarkup) error {
+	var release struct {
+		Tracks []struct {
+			Title string `json:"title"`
+		} `json:"tracks"`
+	}
+	if err := json.Unmarshal([]byte(p.ReleaseJSON), &release); err != nil || len(release.Tracks) == 0 {
+		return h.sender.EditMessageMarkup(p.ChatID, p.MessageID, locale.Get(platform+".download_starting", lang, map[string]string{
+			"total": "1",
+		}), cancelKB)
+	}
+	return h.sender.EditMessageMarkup(p.ChatID, p.MessageID, locale.Get(platform+".download_track", lang, map[string]string{
+		"current": "1",
+		"total":   fmt.Sprintf("%d", len(release.Tracks)),
+		"title":   release.Tracks[0].Title,
+	}), cancelKB)
+}
+
+func (h *Handler) releaseMusicUserLock(ctx context.Context, p queue.MusicPayload) {
+	if p.LockToken == "" || p.LockScene == "" {
+		return
+	}
+	_ = h.redis.ReleaseUserLock(ctx, p.UserID, p.LockScene, p.LockToken)
 }
 
 func (h *Handler) releaseLockKey(platform string, p queue.MusicPayload) string {

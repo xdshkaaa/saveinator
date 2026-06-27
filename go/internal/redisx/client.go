@@ -26,6 +26,11 @@ func Connect(redisURL string) (*Client, error) {
 	return &Client{rdb: rdb}, nil
 }
 
+// NewWithRedis wraps an existing go-redis client (used in tests).
+func NewWithRedis(rdb *redis.Client) *Client {
+	return &Client{rdb: rdb}
+}
+
 func (c *Client) Close() error {
 	return c.rdb.Close()
 }
@@ -62,6 +67,11 @@ func (c *Client) ReleaseUserLock(ctx context.Context, userID int64, scenario, to
 	value := scenario + ":" + token
 	_, err := releaseScript.Run(ctx, c.rdb, []string{key}, value).Result()
 	return err
+}
+
+func (c *Client) ForceReleaseUserLock(ctx context.Context, userID int64) error {
+	key := fmt.Sprintf("%s:%d", lockPrefix, userID)
+	return c.rdb.Del(ctx, key).Err()
 }
 
 func (c *Client) AllowRateLimit(ctx context.Context, scope string, id int64, limit int, window time.Duration) (bool, error) {

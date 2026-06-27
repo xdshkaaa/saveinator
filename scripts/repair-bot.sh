@@ -11,21 +11,19 @@ ssh "$VPS_USER@$VPS_HOST" "
     set -euo pipefail
     cd '$APP_DIR'
 
-    bot_len=\$(docker compose exec -T bot python3 -c 'import os; print(len(os.environ.get(\"BOT_TOKEN\", \"\")))')
-    worker_len=\$(docker compose exec -T worker python3 -c 'import os; print(len(os.environ.get(\"BOT_TOKEN\", \"\")))')
     file_len=\$(awk -F= '/^BOT_TOKEN=/ {print length(\$2)}' .env | tr -d ' \"'\''')
+    svc_len=\$(docker compose exec -T saveinator sh -c 'printf %s \"\$BOT_TOKEN\" | wc -c' | tr -d ' ')
 
-    echo \"token lens: file=\$file_len bot=\$bot_len worker=\$worker_len\"
+    echo \"token lens: file=\$file_len saveinator=\$svc_len\"
 
-    if [[ \"\$bot_len\" != \"\$file_len\" || \"\$worker_len\" != \"\$file_len\" ]]; then
-        echo 'Recreating bot and worker to reload BOT_TOKEN from .env...'
-        docker compose up -d --force-recreate bot worker
+    if [[ \"\$svc_len\" != \"\$file_len\" ]]; then
+        echo 'Recreating saveinator to reload BOT_TOKEN from .env...'
+        docker compose up -d --force-recreate saveinator
         sleep 5
     fi
 
-    docker compose ps bot worker
-    docker compose logs --tail=8 bot
-    docker compose logs --tail=8 worker
+    docker compose ps saveinator db redis
+    docker compose logs --tail=20 saveinator
 "
 
 echo "=== Repair complete ==="

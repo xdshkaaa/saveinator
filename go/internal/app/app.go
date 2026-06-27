@@ -61,7 +61,7 @@ func (a *App) Run(ctx context.Context) error {
 		mode = "all"
 	}
 
-	errCh := make(chan error, 3)
+	errCh := make(chan error, 4)
 	if mode == "bot" || mode == "all" {
 		go func() { errCh <- a.runBot(ctx, bot, store, redisClient) }()
 	}
@@ -69,7 +69,10 @@ func (a *App) Run(ctx context.Context) error {
 		go func() { errCh <- a.runWorker(ctx, bot, store, redisClient) }()
 	}
 	if a.cfg.MetricsEnabled {
-		go func() { errCh <- a.runMetrics(ctx) }()
+		go func() { errCh <- a.runMetrics(ctx, a.cfg.MetricsPort) }()
+		if a.cfg.WorkerMetricsPort > 0 && a.cfg.WorkerMetricsPort != a.cfg.MetricsPort {
+			go func() { errCh <- a.runMetrics(ctx, a.cfg.WorkerMetricsPort) }()
+		}
 	}
 
 	select {
@@ -172,11 +175,20 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 		return err
 	}
 
+	if err := queue.RecoverOrphanedActiveTasks(a.cfg.RedisURL); err != nil {
+		slog.Warn("asynq queue recovery failed", "err", err)
+	}
+
 	srv := asynq.NewServer(opt, asynq.Config{
-		Concurrency: 1,
+		Concurrency: 2,
 		Queues: map[string]int{
 			"default": 1,
 		},
+		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
+			slog.Warn("asynq task failed", "type", task.Type(), "err", err)
+			metrics.RecordCeleryTask(task.Type(), "FAILURE")
+			metrics.RecordError("worker")
+		}),
 	})
 
 	mux := asynq.NewServeMux()
@@ -192,12 +204,12 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 	return srv.Run(mux)
 }
 
-func (a *App) runMetrics(ctx context.Context) error {
+func (a *App) runMetrics(ctx context.Context, port int) error {
 	r := chi.NewRouter()
 	r.Use(chimw.Recoverer)
 	r.Handle("/metrics", metrics.Handler())
 
-	addr := fmt.Sprintf("%s:%d", a.cfg.MetricsHost, a.cfg.MetricsPort)
+	addr := fmt.Sprintf("%s:%d", a.cfg.MetricsHost, port)
 	srv := &http.Server{Addr: addr, Handler: r}
 
 	go func() {
@@ -214,15 +226,18 @@ func (a *App) runMetrics(ctx context.Context) error {
 	return nil
 }
 
-func health(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("ok"))
+func health(w http.ResponseWriter, r *http.Request) {
+	metrics.HTTPMiddleware("/health", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})).ServeHTTP(w, r)
 }
 
 func (a *App) registerBotCommands(bot *telego.Bot) error {
 	defaultCommands := []telego.BotCommand{
 		{Command: "start", Description: "Start / language"},
 		{Command: "settings", Description: "User settings"},
+		{Command: "clear", Description: "Clear your download queue"},
 	}
 	if err := bot.SetMyCommands(&telego.SetMyCommandsParams{Commands: defaultCommands}); err != nil {
 		return err

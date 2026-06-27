@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -15,6 +16,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
+	"saveinator/internal/metrics"
 	"saveinator/internal/pinterest"
 	"saveinator/internal/queue"
 	"saveinator/internal/tiktok"
@@ -26,10 +28,14 @@ func (h *Handler) handlePinterest(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	defer h.releaseLock(ctx, p)
+	if h.checkCancelled(ctx, p) {
+		return nil
+	}
 	return h.runPinterest(ctx, p)
 }
 
 func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) error {
+	start := time.Now()
 	lang := p.Lang
 	if lang == "" {
 		lang = "en"
@@ -51,9 +57,11 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	if err != nil {
 		if errors.Is(err, pinterest.ErrNoMedia) {
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
+			recordTaskFailure(queue.TypePinterest)
 			return nil
 		}
 		slog.Warn("pinterest download failed", "err", err)
+		recordTaskFailure(queue.TypePinterest)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.timeout", lang, nil))
 		return nil
 	}
@@ -62,7 +70,6 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		return nil
 	}
 
-	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	item := pickPinterestItem(result.Items)
 	sizeMB := float64(item.FileSize) / (1024 * 1024)
 	limit := float64(h.runtime.PlatformMaxFileMB(ctx, "pinterest"))
@@ -78,11 +85,20 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	if title == "" {
 		title = filepath.Base(item.FilePath)
 	}
-	animation := false
-	if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", animation); err != nil {
-		slog.Warn("pinterest send failed", "err", err)
+	if _, err := os.Stat(item.FilePath); err != nil {
+		slog.Warn("pinterest media file missing", "path", item.FilePath, "err", err)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		return nil
 	}
+	if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
+		slog.Warn("pinterest send failed", "err", err)
+		recordTaskFailure(queue.TypePinterest)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		return nil
+	}
+	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "completed", sizeMB, "")
+	recordTaskSuccess(queue.TypePinterest, "pinterest", start, item.FileSize)
 	return nil
 }
 
@@ -103,6 +119,7 @@ func pickPinterestItem(items []pinterest.MediaItem) pinterest.MediaItem {
 }
 
 func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error {
+	start := time.Now()
 	lang := p.Lang
 	if lang == "" {
 		lang = "en"
@@ -118,6 +135,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 
 	dl := tiktok.NewDownloader(
 		h.cfg.TikTokCookiesPath,
+		h.cfg.TikTokCookiesFromBrowser,
 		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
 		h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems),
 		h.runtime.CurrentBool(ctx, "tiktok.carousel_audio_enabled", h.cfg.TikTokCarouselAudioEnabled),
@@ -125,11 +143,12 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 	result, err := dl.Download(ctx, p.URL, taskDir)
 	if err != nil {
 		slog.Warn("tiktok download failed", "err", err)
+		metrics.TikTokCarouselFailuresTotal.WithLabelValues("download").Inc()
+		recordTaskFailure(queue.TypeTikTok)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 		return nil
 	}
 
-	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	caption := buildTikTokCaption(result.Title, result.Author, lang)
 
 	switch result.PostType {
@@ -138,9 +157,15 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("tiktok.carousel_empty", lang, nil))
 			return nil
 		}
-		_ = h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption)
+		if err := h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption); err != nil {
+			slog.Warn("tiktok carousel send failed", "err", err)
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+			return nil
+		}
 		if result.AudioPath != "" {
-			_ = h.sender.SendAudio(p.ChatID, result.AudioPath, result.Title, result.Author, 0)
+			if err := h.sender.SendAudio(p.ChatID, result.AudioPath, result.Title, result.Author, 0); err != nil {
+				slog.Warn("tiktok audio send failed", "err", err)
+			}
 		}
 	case tiktok.PostTypeVideo:
 		if result.VideoPath == "" {
@@ -151,15 +176,25 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		if result.CarouselImagesAvailable {
 			markup = h.saveCarouselSession(ctx, p, result)
 		}
-		if err := h.sender.SendFileWithMarkup(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false, markup); err != nil {
-			slog.Warn("tiktok send failed", "err", err)
+		var sendErr error
+		if markup != nil {
+			sendErr = h.sender.SendFileWithMarkup(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false, markup)
+		} else {
+			sendErr = h.sender.SendFile(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false)
+		}
+		if sendErr != nil {
+			slog.Warn("tiktok send failed", "err", sendErr)
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+			return nil
 		}
 	default:
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
 		return nil
 	}
 
+	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "completed", 0, "")
+	recordTaskSuccess(queue.TypeTikTok, "tiktok", start, 0)
 	return nil
 }
 
@@ -213,6 +248,7 @@ func (h *Handler) saveCarouselSession(ctx context.Context, p queue.DownloadPaylo
 }
 
 func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadPayload) error {
+	start := time.Now()
 	lang := p.Lang
 	if lang == "" {
 		lang = "en"
@@ -230,9 +266,17 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 	defer os.RemoveAll(taskDir)
 
 	maxItems := h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems)
-	dl := tiktok.NewDownloader(h.cfg.TikTokCookiesPath, h.runtime.PlatformTimeoutSec(ctx, "tiktok"), maxItems, false)
+	dl := tiktok.NewDownloader(
+		h.cfg.TikTokCookiesPath,
+		h.cfg.TikTokCookiesFromBrowser,
+		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
+		maxItems,
+		false,
+	)
 	result, err := dl.DownloadCarouselImages(ctx, p.URL, taskDir)
 	if err != nil || len(result.Images) == 0 {
+		metrics.TikTokCarouselFailuresTotal.WithLabelValues("empty").Inc()
+		recordTaskFailure(queue.TypeTikTokCarousel)
 		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_empty", lang, nil)))
 		return nil
 	}
@@ -246,6 +290,8 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 
 	caption := buildTikTokCaption(result.Title, result.Author, lang)
 	_ = h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption)
+	metrics.TikTokCarouselImagesTotal.Add(float64(len(result.Images)))
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "completed", 0, "")
+	recordTaskSuccess(queue.TypeTikTokCarousel, "tiktok", start, 0)
 	return nil
 }

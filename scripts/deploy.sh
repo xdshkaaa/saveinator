@@ -7,7 +7,7 @@ APP_DIR="/opt/saveinator"
 REPO="git@github.com:pyfig/saveinator.git"
 BRANCH="main"
 
-echo "=== Deploying Saveinator to $VPS_HOST ==="
+echo "=== Deploying Saveinator (Go) to $VPS_HOST ==="
 
 echo "[0/6] Ensuring VPS can access GitHub via SSH..."
 ssh "$VPS_USER@$VPS_HOST" "
@@ -47,18 +47,17 @@ ssh "$VPS_USER@$VPS_HOST" "
     fi
 "
 
-echo "[3/6] Pulling Docker images and starting services..."
+echo "[3/6] Building and starting Go stack..."
 ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
-    docker compose pull
-    docker compose build
-    docker compose up -d --force-recreate bot worker
+    docker compose build saveinator
+    docker compose up -d --force-recreate saveinator
 "
 
 echo "[4/6] Running database migrations..."
 ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
-    docker compose exec -T bot alembic upgrade head || echo '(migrations deferred — run manually after .env is set)'
+    docker compose --profile tools run --rm migrate || echo '(migrations deferred — run manually after .env is set)'
 "
 
 echo "[5/6] Installing systemd service..."
@@ -71,4 +70,5 @@ ssh "$VPS_USER@$VPS_HOST" "
 echo ""
 echo "=== Deployment complete! ==="
 echo "Check status: ssh $VPS_USER@$VPS_HOST 'systemctl status ytbot'"
-echo "Check logs:  ssh $VPS_USER@$VPS_HOST 'docker compose -f $APP_DIR/docker-compose.yml logs -f'"
+echo "Check logs:  ssh $VPS_USER@$VPS_HOST 'docker compose -f $APP_DIR/docker-compose.yml logs -f saveinator'"
+echo "Metrics:     ssh $VPS_USER@$VPS_HOST 'curl -fsS http://127.0.0.1:9101/metrics | head'"

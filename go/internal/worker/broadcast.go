@@ -12,6 +12,7 @@ import (
 	"github.com/mymmrac/telego/telegoapi"
 	tu "github.com/mymmrac/telego/telegoutil"
 
+	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 )
 
@@ -69,6 +70,8 @@ func (h *Handler) handleBroadcast(ctx context.Context, t *asynq.Task) error {
 	}
 
 	_ = h.db.CompleteBroadcast(ctx, p.BroadcastID, sent, failed, blocked)
+	metrics.RecordWorkerBroadcast(p.Audience, sent, failed, blocked)
+	recordTaskSuccess(queue.TypeBroadcast, "", time.Now(), 0)
 	slog.Info("broadcast completed", "id", p.BroadcastID, "sent", sent, "total", total, "failed", failed, "blocked", blocked)
 	return nil
 }

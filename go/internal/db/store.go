@@ -43,7 +43,7 @@ func (s *Store) GetUserLanguage(ctx context.Context, userID int64) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return lang, nil
+	return fromDBLanguage(lang), nil
 }
 
 func (s *Store) UserExists(ctx context.Context, userID int64) (bool, error) {
@@ -57,7 +57,7 @@ func (s *Store) CreateUser(ctx context.Context, userID int64, username, firstNam
 		INSERT INTO users (id, username, first_name, language, created_at)
 		VALUES ($1, $2, $3, $4::language, $5)
 		ON CONFLICT (id) DO NOTHING
-	`, userID, nullable(username), nullable(firstName), lang, time.Now().UTC())
+	`, userID, nullable(username), nullable(firstName), toDBLanguage(lang), time.Now().UTC())
 	return err
 }
 
@@ -65,7 +65,7 @@ func (s *Store) RecordDownload(ctx context.Context, userID, chatID int64, url, p
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO downloads (user_id, chat_id, url, platform, status, file_size, error_message, created_at, completed_at)
 		VALUES ($1, $2, $3, $4::platform, $5::downloadstatus, $6, $7, $8, $9)
-	`, userID, chatID, url, platform, status, int64(fileSizeMB*1024*1024), nullable(errMsg), time.Now().UTC(), time.Now().UTC())
+	`, userID, chatID, url, toDBPlatform(platform), toDBDownloadStatus(status), int64(fileSizeMB*1024*1024), nullable(errMsg), time.Now().UTC(), time.Now().UTC())
 	return err
 }
 
@@ -91,7 +91,7 @@ func (s *Store) GetOrCreateUserSettings(ctx context.Context, userID int64) (User
 		return settings, nil
 	}
 
-	_, err = s.pool.Exec(ctx, `INSERT INTO users (id, created_at) VALUES ($1, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
+	_, err = s.pool.Exec(ctx, `INSERT INTO users (id, language, created_at) VALUES ($1, 'EN'::language, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
 	if err != nil {
 		return settings, err
 	}
@@ -111,7 +111,7 @@ func (s *Store) SetUserLanguage(ctx context.Context, userID int64, lang string) 
 		INSERT INTO users (id, language, created_at)
 		VALUES ($1, $2::language, $3)
 		ON CONFLICT (id) DO UPDATE SET language = EXCLUDED.language
-	`, userID, lang, time.Now().UTC())
+	`, userID, toDBLanguage(lang), time.Now().UTC())
 	return err
 }
 
@@ -124,7 +124,7 @@ func (s *Store) SetYouTubeRatio(ctx context.Context, userID int64, ratio string)
 }
 
 func (s *Store) ResetUserSettings(ctx context.Context, userID int64) error {
-	if _, err := s.pool.Exec(ctx, `UPDATE users SET language = 'en'::language WHERE id = $1`, userID); err != nil {
+	if _, err := s.pool.Exec(ctx, `UPDATE users SET language = 'EN'::language WHERE id = $1`, userID); err != nil {
 		return err
 	}
 	_, err := s.pool.Exec(ctx, `
@@ -136,7 +136,7 @@ func (s *Store) ResetUserSettings(ctx context.Context, userID int64) error {
 }
 
 func (s *Store) upsertSetting(ctx context.Context, userID int64, column, value string) error {
-	_, err := s.pool.Exec(ctx, `INSERT INTO users (id, created_at) VALUES ($1, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
+	_, err := s.pool.Exec(ctx, `INSERT INTO users (id, language, created_at) VALUES ($1, 'EN'::language, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
 	if err != nil {
 		return err
 	}
