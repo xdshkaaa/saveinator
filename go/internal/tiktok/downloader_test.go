@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"saveinator/internal/cookies"
 )
 
 func TestCookieArgsBrowserFallback(t *testing.T) {
@@ -27,7 +29,7 @@ func TestCookieArgsFilePriority(t *testing.T) {
 	if len(args) != 2 || args[0] != "--cookies" {
 		t.Fatalf("expected file cookies, got %v", args)
 	}
-	if args[1] != "/tmp/tiktok_cookies.txt" {
+	if args[1] != cookies.TikTokWritablePath {
 		t.Fatalf("expected writable cookie copy, got %v", args[1])
 	}
 }
