@@ -14,6 +14,7 @@ import (
 	"saveinator/internal/cancel"
 	"saveinator/internal/config"
 	"saveinator/internal/db"
+	"saveinator/internal/instagram"
 	"saveinator/internal/linkparser"
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
@@ -210,6 +211,12 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "pinterest", queue.TypePinterest, batch)
 	case linkparser.PlatformTikTok:
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "tiktok", queue.TypeTikTok, batch)
+	case linkparser.PlatformInstagram:
+		if !b.instagramAllowed(ctx, link.URL) {
+			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+			return
+		}
+		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "instagram", queue.TypeDownload, batch)
 	case linkparser.PlatformUnknown:
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 	case linkparser.PlatformYouTube:
@@ -333,6 +340,15 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot messageSender, msg telego.
 		return false
 	}
 	return true
+}
+
+func (b *Bot) instagramAllowed(ctx context.Context, url string) bool {
+	kind := instagram.KindFromURL(url)
+	settingKey := instagram.AllowSettingKey(kind)
+	if settingKey == "" {
+		return true
+	}
+	return b.runtime.CurrentBool(ctx, settingKey, true)
 }
 
 func (b *Bot) userLang(ctx context.Context, userID int64) string {

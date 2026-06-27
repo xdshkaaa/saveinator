@@ -105,3 +105,20 @@ func TestUserFacingErrorKey_instagramEmptyMediaResponse(t *testing.T) {
 		t.Fatalf("got %q, want instagram.download_failed", got)
 	}
 }
+
+func TestIsInstagramPhotoFallbackError(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		err  error
+		want bool
+	}{
+		{errors.New("ERROR: No video formats found!"), true},
+		{errors.New("Instagram sent an empty media response"), true},
+		{errors.New("login required"), false},
+	}
+	for _, tc := range tests {
+		if got := IsInstagramPhotoFallbackError(tc.err); got != tc.want {
+			t.Fatalf("IsInstagramPhotoFallbackError(%v) = %v, want %v", tc.err, got, tc.want)
+		}
+	}
+}
