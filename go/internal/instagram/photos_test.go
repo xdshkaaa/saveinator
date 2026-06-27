@@ -176,6 +176,63 @@ func TestPhotoClientDownloadPhotos_wrongContentType(t *testing.T) {
 	}
 }
 
+func TestCookieDomainMatches(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		domain string
+		host   string
+		want   bool
+	}{
+		{domain: ".instagram.com", host: "www.instagram.com", want: true},
+		{domain: "instagram.com", host: "www.instagram.com", want: true},
+		{domain: ".facebook.com", host: "www.instagram.com", want: false},
+		{domain: ".google.com", host: "www.google.com", want: true},
+	}
+	for _, tc := range tests {
+		if got := cookieDomainMatches(tc.domain, tc.host); got != tc.want {
+			t.Fatalf("cookieDomainMatches(%q, %q) = %v, want %v", tc.domain, tc.host, got, tc.want)
+		}
+	}
+}
+
+func TestLoadCookies_filtersByDomain(t *testing.T) {
+	t.Parallel()
+	cookieFile := filepath.Join(t.TempDir(), "cookies.txt")
+	content := strings.Join([]string{
+		"# Netscape HTTP Cookie File",
+		".instagram.com\tTRUE\t/\tTRUE\t0\tsessionid\tig_session",
+		".google.com\tTRUE\t/\tTRUE\t0\tSID\tgoogle_session",
+		"www.instagram.com\tFALSE\t/\tTRUE\t0\tcsrftoken\tcsrf",
+	}, "\n")
+	if err := os.WriteFile(cookieFile, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://www.instagram.com/p/TEST/media/?size=l", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &PhotoClient{cookiesPath: cookieFile}
+	client.loadCookies(req, "www.instagram.com")
+
+	if len(req.Cookies()) != 2 {
+		t.Fatalf("expected 2 instagram cookies, got %d: %v", len(req.Cookies()), req.Cookies())
+	}
+	names := map[string]struct{}{}
+	for _, c := range req.Cookies() {
+		names[c.Name] = struct{}{}
+	}
+	if _, ok := names["sessionid"]; !ok {
+		t.Fatal("missing sessionid cookie")
+	}
+	if _, ok := names["csrftoken"]; !ok {
+		t.Fatal("missing csrftoken cookie")
+	}
+	if _, ok := names["SID"]; ok {
+		t.Fatal("google cookie should be filtered out")
+	}
+}
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"
