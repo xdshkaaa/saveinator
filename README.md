@@ -57,9 +57,10 @@ Public routes (via Caddy/Cloudflare): `/`, `/health`, `/webhook*`. Metrics stay 
 
 ```bash
 ./scripts/deploy.sh          # sync + build + up saveinator
-./scripts/cutover-to-go.sh     # one-time migration from legacy Python stack
-./scripts/cleanup-python-vps.sh
 ```
+
+Legacy one-shot migration scripts (post Python cutover): `scripts/cutover-to-go.sh`, `scripts/cleanup-python-vps.sh`.
+
 
 Monitoring: see [`MONITORING.md`](MONITORING.md).
 

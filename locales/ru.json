@@ -23,11 +23,20 @@
     "via_bot": "через @{bot_username}",
     "sent_as_doc": "📄 Отправлено как документ ({size} МБ)"
   },
+  "clear": {
+    "success": "Очередь очищена. Можно отправлять новую ссылку.",
+    "empty": "Нет активных загрузок."
+  },
+  "instagram": {
+    "auth_required": "❌ Нужен вход в Instagram. Войди в Instagram в Chrome на этой машине или укажи файл cookies через INSTAGRAM_COOKIES_PATH.",
+    "download_failed": "❌ Не удалось скачать этот пост Instagram. Попробуй позже."
+  },
   "errors": {
     "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "busy": "Подожди, пока завершится текущее скачивание, и только потом отправляй новую ссылку.",
+    "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "generic": "Что-то пошло не так. Попробуй позже."
   },
   "spotify": {
