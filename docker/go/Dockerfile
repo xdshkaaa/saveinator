@@ -13,7 +13,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg curl ca-certificates python3 python3-pip unzip \
     && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
-    && pip3 install --no-cache-dir --break-system-packages yt-dlp \
+    && pip3 install --no-cache-dir --break-system-packages "yt-dlp[default,curl-cffi]" \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

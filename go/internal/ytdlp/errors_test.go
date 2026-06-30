@@ -106,6 +106,14 @@ func TestUserFacingErrorKey_instagramEmptyMediaResponse(t *testing.T) {
 	}
 }
 
+func TestUserFacingErrorKey_instagramEmptyMediaResponseCookiesHint(t *testing.T) {
+	t.Parallel()
+	err := errors.New("Instagram sent an empty media response. If it is not, then use --cookies-from-browser or --cookies for the authentication")
+	if got := UserFacingErrorKey("instagram", err); got != "instagram.auth_required" {
+		t.Fatalf("got %q, want instagram.auth_required", got)
+	}
+}
+
 func TestIsInstagramPhotoFallbackError(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
