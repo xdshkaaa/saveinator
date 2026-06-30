@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy locale keys from Python locales/ into Go embed locales/ (missing keys only).
+# Copy locale keys from root locales/ into Go embed locales/ (missing keys only).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,7 +25,7 @@ merge_lang() {
     echo "$lang: already in sync"
   else
     echo "$merged" >"$dst"
-    echo "$lang: merged missing keys from Python → Go"
+    echo "$lang: merged missing keys from root locales → Go embed"
   fi
 }
 
