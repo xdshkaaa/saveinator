@@ -14,9 +14,9 @@ func TestAppendPlatformCookiesFilePriority(t *testing.T) {
 		t.Fatal(err)
 	}
 	args := appendPlatformCookies(nil, Options{
-		Platform:                    "instagram",
-		InstagramCookies:            cookieFile,
-		InstagramCookiesFromBrowser: "chrome",
+		Platform:                 "tiktok",
+		TikTokCookies:            cookieFile,
+		TikTokCookiesFromBrowser: "chrome",
 	})
 	if len(args) != 2 || args[0] != "--cookies" || args[1] != cookieFile {
 		t.Fatalf("expected file cookies, got %v", args)
@@ -26,9 +26,9 @@ func TestAppendPlatformCookiesFilePriority(t *testing.T) {
 func TestAppendPlatformCookiesBrowserFallback(t *testing.T) {
 	t.Parallel()
 	args := appendPlatformCookies(nil, Options{
-		Platform:                    "instagram",
-		InstagramCookies:            "/missing/cookies.txt",
-		InstagramCookiesFromBrowser: "chrome",
+		Platform:                 "tiktok",
+		TikTokCookies:            "/missing/cookies.txt",
+		TikTokCookiesFromBrowser: "chrome",
 	})
 	if len(args) != 2 || args[0] != "--cookies-from-browser" || args[1] != "chrome" {
 		t.Fatalf("expected browser cookies, got %v", args)

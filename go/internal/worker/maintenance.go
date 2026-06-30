@@ -33,7 +33,6 @@ func runMaintenance(ctx context.Context, cfg *config.Settings) {
 			sweepStaleTempfiles(time.Hour)
 		case <-cookieTicker.C:
 			refreshTikTokCookies(ctx, cfg)
-			refreshInstagramCookies(ctx, cfg)
 		}
 	}
 }
@@ -106,45 +105,4 @@ func refreshTikTokCookies(ctx context.Context, cfg *config.Settings) {
 		return
 	}
 	slog.Info("tiktok cookie refresh ok")
-}
-
-func refreshInstagramCookies(ctx context.Context, cfg *config.Settings) {
-	if !cfg.InstagramCookiesRefreshEnabled {
-		return
-	}
-	if strings.TrimSpace(cfg.InstagramCookiesPath) == "" && strings.TrimSpace(cfg.InstagramCookiesFromBrowser) == "" {
-		return
-	}
-	probeURL := strings.TrimSpace(cfg.InstagramCookiesRefreshURL)
-	if probeURL == "" {
-		return
-	}
-	taskDir, err := os.MkdirTemp("", "saveinator-ig-refresh-*")
-	if err != nil {
-		return
-	}
-	defer os.RemoveAll(taskDir)
-
-	timeout := time.Duration(cfg.DownloadTimeoutSeconds) * time.Second
-	if timeout <= 0 {
-		timeout = time.Minute
-	}
-	probeCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	instagramCookies := cfg.InstagramCookiesPath
-	if strings.TrimSpace(cfg.InstagramCookiesFromBrowser) == "" {
-		instagramCookies = cookies.SyncFromMount(cfg.InstagramCookiesPath, cookies.InstagramWritablePath)
-	}
-	err = ytdlp.Probe(probeCtx, probeURL, taskDir, ytdlp.Options{
-		Platform:                    "instagram",
-		InstagramCookies:            instagramCookies,
-		InstagramCookiesFromBrowser: cfg.InstagramCookiesFromBrowser,
-		Timeout:                     timeout,
-	})
-	if err != nil {
-		slog.Warn("instagram cookie refresh failed", "err", err)
-		return
-	}
-	slog.Info("instagram cookie refresh ok")
 }

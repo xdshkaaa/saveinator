@@ -29,24 +29,20 @@ func TestIsYouTubeShorts(t *testing.T) {
 	}
 }
 
-func TestExtractURLsInstagramPost(t *testing.T) {
+func TestExtractURLsInstagramUnknown(t *testing.T) {
 	t.Parallel()
-	url := "https://www.instagram.com/p/DaBjYIIMEKF/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ=="
+	url := "https://www.instagram.com/p/DaBjYIIMEKF/?utm_source=ig_web_copy_link"
 	links := ExtractURLs(url)
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
-	if links[0].Platform != PlatformInstagram {
-		t.Fatalf("platform = %q, want instagram", links[0].Platform)
-	}
-	if links[0].URL != url {
-		t.Fatalf("url = %q", links[0].URL)
+	if links[0].Platform != PlatformUnknown {
+		t.Fatalf("platform = %q, want unknown", links[0].Platform)
 	}
 }
 
 func TestExtractURLsMultilineBatch(t *testing.T) {
-	text := `https://www.instagram.com/reel/DY_nCCclIFx/?igsh=bmdvNzAxbHlnNXd2
-https://vt.tiktok.com/ZSxv29fme/
+	text := `https://vt.tiktok.com/ZSxv29fme/
 https://www.youtube.com/shorts/0MEIBEbWSVM?feature=share
 https://x.com/solidphono/status/2069500259655413885
 https://vt.tiktok.com/ZSC6GCm3S/
@@ -55,12 +51,11 @@ https://open.spotify.com/track/29YSKt01a9wGNJkPLQG0Kw?si=31980b03a42e4c3a
 https://on.soundcloud.com/pffse5BOEisl5gAXNn`
 
 	links := ExtractURLs(text)
-	if len(links) != 8 {
-		t.Fatalf("expected 8 links, got %d: %+v", len(links), links)
+	if len(links) != 7 {
+		t.Fatalf("expected 7 links, got %d: %+v", len(links), links)
 	}
 
 	want := []Platform{
-		PlatformInstagram,
 		PlatformTikTok,
 		PlatformYouTube,
 		PlatformX,
@@ -74,7 +69,7 @@ https://on.soundcloud.com/pffse5BOEisl5gAXNn`
 			t.Fatalf("link %d: got %q, want %q (url=%s)", i, links[i].Platform, platform, links[i].URL)
 		}
 	}
-	if links[3].XStatusID != "2069500259655413885" {
-		t.Fatalf("unexpected x status id: %q", links[3].XStatusID)
+	if links[2].XStatusID != "2069500259655413885" {
+		t.Fatalf("unexpected x status id: %q", links[2].XStatusID)
 	}
 }

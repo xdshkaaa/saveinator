@@ -10,52 +10,48 @@ import (
 	"saveinator/internal/cookies"
 )
 
-func TestYtdlpOpts_syncsInstagramCookiesFromMount(t *testing.T) {
+func TestYtdlpOpts_syncsTikTokCookiesFromMount(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	mount := filepath.Join(dir, "mount.txt")
-	writable := filepath.Join(dir, "writable.txt")
-	if err := os.WriteFile(mount, []byte("instagram-cookies"), 0o600); err != nil {
+	if err := os.WriteFile(mount, []byte("tiktok-cookies"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	h := &Handler{cfg: &config.Settings{InstagramCookiesPath: mount}}
-	opts := h.ytdlpOpts("instagram", "best", time.Minute)
+	h := &Handler{cfg: &config.Settings{TikTokCookiesPath: mount}}
+	opts := h.ytdlpOpts("tiktok", "best", time.Minute)
 
-	want := cookies.SyncFromMount(mount, cookies.InstagramWritablePath)
+	want := cookies.SyncFromMount(mount, cookies.TikTokWritablePath)
 	if want == "" {
-		// Writable path is global; verify we at least pass the mount when sync is unavailable.
-		if opts.InstagramCookies != mount {
-			t.Fatalf("expected mount cookies %q, got %q", mount, opts.InstagramCookies)
+		if opts.TikTokCookies != mount {
+			t.Fatalf("expected mount cookies %q, got %q", mount, opts.TikTokCookies)
 		}
 		return
 	}
-	if opts.InstagramCookies != want {
-		t.Fatalf("expected synced cookies %q, got %q", want, opts.InstagramCookies)
+	if opts.TikTokCookies != want {
+		t.Fatalf("expected synced cookies %q, got %q", want, opts.TikTokCookies)
 	}
-	_ = writable
 }
 
 func TestYtdlpOpts_keepsBrowserCookiesWhenConfigured(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	mount := filepath.Join(dir, "mount.txt")
-	if err := os.WriteFile(mount, []byte("instagram-cookies"), 0o600); err != nil {
+	if err := os.WriteFile(mount, []byte("tiktok-cookies"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	h := &Handler{
 		cfg: &config.Settings{
-			InstagramCookiesPath:            mount,
-			InstagramCookiesFromBrowser:     "chrome",
-			TikTokCookiesFromBrowser:        "chrome",
+			TikTokCookiesPath:          mount,
+			TikTokCookiesFromBrowser:   "chrome",
 		},
 	}
-	opts := h.ytdlpOpts("instagram", "best", time.Minute)
-	if opts.InstagramCookies != mount {
-		t.Fatalf("expected mount path with browser fallback, got %q", opts.InstagramCookies)
+	opts := h.ytdlpOpts("tiktok", "best", time.Minute)
+	if opts.TikTokCookies != mount {
+		t.Fatalf("expected mount path with browser fallback, got %q", opts.TikTokCookies)
 	}
-	if opts.InstagramCookiesFromBrowser != "chrome" {
+	if opts.TikTokCookiesFromBrowser != "chrome" {
 		t.Fatalf("expected browser fallback to remain configured")
 	}
 }

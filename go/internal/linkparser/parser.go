@@ -10,7 +10,6 @@ type Platform string
 const (
 	PlatformYouTube    Platform = "youtube"
 	PlatformTikTok     Platform = "tiktok"
-	PlatformInstagram  Platform = "instagram"
 	PlatformX          Platform = "x"
 	PlatformSpotify    Platform = "spotify"
 	PlatformSoundCloud Platform = "soundcloud"
@@ -46,10 +45,6 @@ var (
 			`|(?:vm|vt)\.tiktok\.com/[\w-]+/?(?:[?&]\S*)?` +
 			`|m\.tiktok\.com/v/\d+\.html(?:[?&]\S*)?` +
 			`)`)},
-		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?instagram\.com/(?:p|reels?|tv)/[\w-]+/?(?:[?&#]\S*)?`)},
-		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?instagr\.am/(?:p|reels?|tv)/[\w-]+/?(?:[?&#]\S*)?`)},
-		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?instagram\.com/share/(?:reel|p)/[\w-]+/?(?:[?&#]\S*)?`)},
-		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?instagram\.com/stories/[\w.-]+/\d+/?(?:[?&#]\S*)?`)},
 		{PlatformX, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?(?:x|twitter)\.com/[\w-]+/status/\d+/?(?:[?&]\S*)?`)},
 		{PlatformSpotify, regexp.MustCompile(`(?i)(?:https?://)?(?:open\.)?spotify\.com/(?:album|track)/` + spotifyIDInURL + `(?:[/?#&]\S*)?`)},
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?soundcloud\.com/discover/sets/[^\s?#]+(?:[/?#&]\S*)?`)},

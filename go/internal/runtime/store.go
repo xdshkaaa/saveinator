@@ -221,8 +221,6 @@ func defaultFromConfig(cfg *config.Settings, def Setting) any {
 			return cfg.SoundCloudMaxTracks
 		case "SoundCloudDownloadConcurrency":
 			return cfg.SoundCloudDownloadConcurrency
-		case "InstagramDownloadTimeoutSeconds":
-			return cfg.InstagramDownloadTimeoutSeconds
 		case "PinterestEnabled":
 			return cfg.PinterestEnabled
 		case "PinterestTimeoutSeconds":

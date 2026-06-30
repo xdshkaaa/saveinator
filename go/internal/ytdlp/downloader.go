@@ -11,13 +11,11 @@ import (
 )
 
 type Options struct {
-	FormatID                    string
-	Platform                    string
-	InstagramCookies            string
-	InstagramCookiesFromBrowser string
-	TikTokCookies               string
-	TikTokCookiesFromBrowser    string
-	Timeout                     time.Duration
+	FormatID                 string
+	Platform                 string
+	TikTokCookies            string
+	TikTokCookiesFromBrowser string
+	Timeout                  time.Duration
 }
 
 func Download(ctx context.Context, url string, outputDir string, opts Options) error {
@@ -79,11 +77,6 @@ func writableCookiesPath(src, workDir string) (string, error) {
 
 func prepareCookieOptions(outputDir string, opts Options) Options {
 	prepared := opts
-	if fileExists(prepared.InstagramCookies) {
-		if dest, err := writableCookiesPath(prepared.InstagramCookies, outputDir); err == nil {
-			prepared.InstagramCookies = dest
-		}
-	}
 	if fileExists(prepared.TikTokCookies) {
 		if dest, err := writableCookiesPath(prepared.TikTokCookies, outputDir); err == nil {
 			prepared.TikTokCookies = dest
@@ -105,13 +98,6 @@ func fileExists(path string) bool {
 
 func appendPlatformCookies(args []string, opts Options) []string {
 	switch opts.Platform {
-	case "instagram":
-		if fileExists(opts.InstagramCookies) {
-			return append(args, "--cookies", opts.InstagramCookies)
-		}
-		if browser := strings.TrimSpace(opts.InstagramCookiesFromBrowser); browser != "" {
-			return append(args, "--cookies-from-browser", browser)
-		}
 	case "tiktok":
 		if fileExists(opts.TikTokCookies) {
 			return append(args, "--cookies", opts.TikTokCookies)

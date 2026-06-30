@@ -9,13 +9,6 @@ import (
 )
 
 func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) ytdlp.Options {
-	instagramCookies := h.cfg.InstagramCookiesPath
-	if strings.TrimSpace(h.cfg.InstagramCookiesFromBrowser) == "" {
-		if synced := cookies.SyncFromMount(instagramCookies, cookies.InstagramWritablePath); synced != "" {
-			instagramCookies = synced
-		}
-	}
-
 	tikTokCookies := h.cfg.TikTokCookiesPath
 	if strings.TrimSpace(h.cfg.TikTokCookiesFromBrowser) == "" {
 		if synced := cookies.SyncFromMount(tikTokCookies, cookies.TikTokWritablePath); synced != "" {
@@ -24,12 +17,10 @@ func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) yt
 	}
 
 	return ytdlp.Options{
-		FormatID:                    formatID,
-		Platform:                    platform,
-		InstagramCookies:            instagramCookies,
-		InstagramCookiesFromBrowser: h.cfg.InstagramCookiesFromBrowser,
-		TikTokCookies:               tikTokCookies,
-		TikTokCookiesFromBrowser:    h.cfg.TikTokCookiesFromBrowser,
-		Timeout:                     timeout,
+		FormatID:                 formatID,
+		Platform:                 platform,
+		TikTokCookies:            tikTokCookies,
+		TikTokCookiesFromBrowser: h.cfg.TikTokCookiesFromBrowser,
+		Timeout:                  timeout,
 	}
 }

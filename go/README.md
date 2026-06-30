@@ -57,10 +57,10 @@ docker compose up -d --build
 - **Admin panel** — `/admin` runtime settings (Redis hot-swap), shadow bans, user stats
 - **Broadcasts** — `/broadcast` create/send with asynq worker
 - **Runtime settings** — global + platform int/bool/enum/list keys wired into workers and handlers
-- **Maintenance** — hourly temp dir sweep, TikTok/Instagram cookie refresh (5 min)
+- **Maintenance** — hourly temp dir sweep, TikTok cookie refresh (5 min)
 - **X/Twitter photo posts** — fxtwitter/vxtwitter fallback when yt-dlp finds no video
 - **Group anti-spam** — banned links (DB) + duplicate URL dedup (Redis)
-- Link parsing (YouTube, TikTok, Instagram, X, Pinterest, Spotify, SoundCloud)
+- Link parsing (YouTube, TikTok, X, Pinterest, Spotify, SoundCloud)
 - Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
 - Prometheus metrics on `:9101` (`saveinator_downloads_enqueued_total`, rate limit counters)

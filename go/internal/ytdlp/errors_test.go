@@ -20,7 +20,7 @@ func TestUserFacingErrorKey_timeout(t *testing.T) {
 	}{
 		{platform: "youtube", err: errors.New("context deadline exceeded")},
 		{platform: "tiktok", err: errors.New("download timed out")},
-		{platform: "instagram", err: errors.New("operation timed out")},
+		{platform: "x", err: errors.New("operation timed out")},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -30,33 +30,6 @@ func TestUserFacingErrorKey_timeout(t *testing.T) {
 				t.Fatalf("got %q, want download.timeout", got)
 			}
 		})
-	}
-}
-
-func TestUserFacingErrorKey_instagramAuth(t *testing.T) {
-	t.Parallel()
-	tests := []string{
-		"login required",
-		"use --cookies",
-		"rate-limit reached",
-		"checkpoint required",
-		"authentication failed",
-	}
-	for _, msg := range tests {
-		msg := msg
-		t.Run(msg, func(t *testing.T) {
-			t.Parallel()
-			if got := UserFacingErrorKey("instagram", errors.New(msg)); got != "instagram.auth_required" {
-				t.Fatalf("got %q, want instagram.auth_required", got)
-			}
-		})
-	}
-}
-
-func TestUserFacingErrorKey_instagramGeneric(t *testing.T) {
-	t.Parallel()
-	if got := UserFacingErrorKey("instagram", errors.New("unable to extract video")); got != "instagram.download_failed" {
-		t.Fatalf("got %q, want instagram.download_failed", got)
 	}
 }
 
@@ -74,59 +47,12 @@ func TestUserFacingErrorKey_otherPlatformsDefaultTimeout(t *testing.T) {
 	}
 }
 
-func TestUserFacingErrorKeyInstagramAuth_legacy(t *testing.T) {
+func TestIsNoVideoFormatsError(t *testing.T) {
 	t.Parallel()
-	key := UserFacingErrorKey("instagram", fmtError("login required; use --cookies"))
-	if key != "instagram.auth_required" {
-		t.Fatalf("expected auth key, got %q", key)
+	if !IsNoVideoFormatsError(errors.New("ERROR: No video formats found!")) {
+		t.Fatal("expected true")
 	}
-}
-
-func fmtError(msg string) error {
-	return &simpleError{msg: msg}
-}
-
-type simpleError struct{ msg string }
-
-func (e *simpleError) Error() string { return e.msg }
-
-func TestUserFacingErrorKey_instagramReadOnlyCookies(t *testing.T) {
-	t.Parallel()
-	err := errors.New("OSError: [Errno 30] Read-only file system: '/secrets/instagram_cookies.txt'")
-	if got := UserFacingErrorKey("instagram", err); got != "instagram.download_failed" {
-		t.Fatalf("got %q, want instagram.download_failed", got)
-	}
-}
-
-func TestUserFacingErrorKey_instagramEmptyMediaResponse(t *testing.T) {
-	t.Parallel()
-	err := errors.New("Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in")
-	if got := UserFacingErrorKey("instagram", err); got != "instagram.download_failed" {
-		t.Fatalf("got %q, want instagram.download_failed", got)
-	}
-}
-
-func TestUserFacingErrorKey_instagramEmptyMediaResponseCookiesHint(t *testing.T) {
-	t.Parallel()
-	err := errors.New("Instagram sent an empty media response. If it is not, then use --cookies-from-browser or --cookies for the authentication")
-	if got := UserFacingErrorKey("instagram", err); got != "instagram.auth_required" {
-		t.Fatalf("got %q, want instagram.auth_required", got)
-	}
-}
-
-func TestIsInstagramPhotoFallbackError(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		err  error
-		want bool
-	}{
-		{errors.New("ERROR: No video formats found!"), true},
-		{errors.New("Instagram sent an empty media response"), true},
-		{errors.New("login required"), false},
-	}
-	for _, tc := range tests {
-		if got := IsInstagramPhotoFallbackError(tc.err); got != tc.want {
-			t.Fatalf("IsInstagramPhotoFallbackError(%v) = %v, want %v", tc.err, got, tc.want)
-		}
+	if IsNoVideoFormatsError(errors.New("login required")) {
+		t.Fatal("expected false")
 	}
 }

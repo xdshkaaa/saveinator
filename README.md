@@ -1,12 +1,12 @@
 # Saveinator
 
-Telegram bot for downloading media from YouTube, TikTok, Instagram, X/Twitter, Pinterest, Spotify, and SoundCloud.
+Telegram bot for downloading media from YouTube, TikTok, X/Twitter, Pinterest, Spotify, and SoundCloud.
 
 Production runs as a **single Go binary** (webhook/polling + asynq worker + Prometheus metrics). See [`go/README.md`](go/README.md) for development details.
 
 ## Features
 
-- Video/photo downloads via yt-dlp (YouTube, TikTok, Instagram, X)
+- Video/photo downloads via yt-dlp (YouTube, TikTok, X)
 - Pinterest pins and boards
 - Spotify metadata (Web API) and optional audio via yt-dlp YouTube search
 - SoundCloud metadata and optional audio via yt-dlp

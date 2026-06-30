@@ -29,8 +29,8 @@ func TestBuildCaption(t *testing.T) {
 		platform string
 		want     string
 	}{
-		{title: "My reel", platform: "instagram", want: "My reel\n\nvia @saveinator_bot"},
-		{title: "", platform: "instagram", want: "via @saveinator_bot"},
+		{title: "My reel", platform: "tiktok", want: "My reel\n\nvia @saveinator_bot"},
+		{title: "", platform: "tiktok", want: "via @saveinator_bot"},
 		{title: "", platform: "tiktok", want: "via @saveinator_bot"},
 		{title: "Cool video", platform: "youtube", want: "Cool video\n\nvia @saveinator_bot"},
 		{title: "", platform: "youtube", want: "via @saveinator_bot"},

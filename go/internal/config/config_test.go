@@ -8,7 +8,6 @@ import (
 func TestLoadSoundCloudDownloadFromEnvGoDev(t *testing.T) {
 	t.Setenv("BOT_TOKEN", "test-token")
 	t.Setenv("SOUNDCLOUD_DOWNLOAD_ENABLED", "true")
-	t.Setenv("INSTAGRAM_COOKIES_FROM_BROWSER", "chrome")
 
 	cfg, err := Load()
 	if err != nil {
@@ -16,15 +15,6 @@ func TestLoadSoundCloudDownloadFromEnvGoDev(t *testing.T) {
 	}
 	if !cfg.SoundCloudDownloadEnabled {
 		t.Fatal("expected SoundCloudDownloadEnabled=true")
-	}
-	if cfg.InstagramCookiesPath != "" {
-		t.Fatalf("expected empty default instagram cookies path, got %q", cfg.InstagramCookiesPath)
-	}
-	if cfg.InstagramCookiesFromBrowser != "chrome" {
-		t.Fatalf("expected chrome browser cookies, got %q", cfg.InstagramCookiesFromBrowser)
-	}
-	if cfg.InstagramDownloadTimeoutSeconds != 120 {
-		t.Fatalf("expected instagram timeout 120, got %d", cfg.InstagramDownloadTimeoutSeconds)
 	}
 }
 
