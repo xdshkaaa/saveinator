@@ -61,7 +61,7 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		}
 		slog.Warn("pinterest download failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.timeout", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 	if len(result.Items) == 0 {
@@ -86,13 +86,13 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	}
 	if _, err := os.Stat(item.FilePath); err != nil {
 		slog.Warn("pinterest media file missing", "path", item.FilePath, "err", err)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 	if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
 		slog.Warn("pinterest send failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
@@ -144,7 +144,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		slog.Warn("tiktok download failed", "err", err)
 		metrics.TikTokCarouselFailuresTotal.WithLabelValues("download").Inc()
 		recordTaskFailure(queue.TypeTikTok)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 
@@ -158,7 +158,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		}
 		if err := h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption); err != nil {
 			slog.Warn("tiktok carousel send failed", "err", err)
-			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 			return nil
 		}
 		if result.AudioPath != "" {
@@ -168,7 +168,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		}
 	case tiktok.PostTypeVideo:
 		if result.VideoPath == "" {
-			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
 			return nil
 		}
 		var markup *telego.InlineKeyboardMarkup
@@ -183,11 +183,11 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		}
 		if sendErr != nil {
 			slog.Warn("tiktok send failed", "err", sendErr)
-			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, sendErr))
 			return nil
 		}
 	default:
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("unsupported tiktok post type")))
 		return nil
 	}
 

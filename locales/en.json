@@ -37,7 +37,8 @@
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "busy": "Please wait until your current download finishes before sending another link.",
     "send_link": "Send a link instead of a file. I download from YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest URLs.",
-    "generic": "Something went wrong. Please try again later."
+    "generic": "Something went wrong. Please try again later.",
+    "admin_debug": "\n\n🔧 Debug:\n{detail}"
   },
   "spotify": {
     "card_title": "\ud83c\udfb5 {artist} \u2014 {name}",
