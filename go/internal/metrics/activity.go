@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -10,10 +11,15 @@ import (
 const activeWindow = 30 * time.Minute
 
 var (
-	activeMu        sync.Mutex
-	activeChatIDs   = map[int64]time.Time{}
-	activeUserIDs   = map[int64]time.Time{}
+	activeMu           sync.Mutex
+	activeChatIDs      = map[int64]time.Time{}
+	activeUserIDs      = map[int64]time.Time{}
+	activeUserCounter  func(context.Context) int
 )
+
+func SetActiveUserCounter(fn func(context.Context) int) {
+	activeUserCounter = fn
+}
 
 func RecordMessage(chatID int64, userID int64) {
 	MessagesReceivedTotal.Inc()
@@ -74,5 +80,9 @@ func refreshActiveChats() {
 		}
 	}
 	ActiveChats.Set(float64(len(activeChatIDs)))
+	if activeUserCounter != nil {
+		ActiveUsers.Set(float64(activeUserCounter(context.Background())))
+		return
+	}
 	ActiveUsers.Set(float64(len(activeUserIDs)))
 }

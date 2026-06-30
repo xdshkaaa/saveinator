@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
 
+	"saveinator/internal/db"
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
 	"saveinator/internal/runtime"
@@ -437,18 +439,9 @@ func (b *Bot) renderStats(ctx context.Context, lang string) (string, error) {
 		slog.Warn("fetch stats failed", "err", err)
 		return locale.Get("errors.generic", lang, nil), err
 	}
-	growth := locale.Get("admin.stats_growth_delta_flat", lang, nil)
-	diff := stats.NewToday - stats.NewYesterday
-	if diff != 0 || stats.NewToday != 0 {
-		pct := "new"
-		if stats.NewYesterday > 0 {
-			pct = fmt.Sprintf("%+d%%", 100*diff/stats.NewYesterday)
-		}
-		growth = locale.Get("admin.stats_growth_delta", lang, map[string]string{
-			"diff": fmt.Sprintf("%+d", diff),
-			"pct":  pct,
-		})
-	}
+
+	activeNow, _ := b.redis.CountActiveUsers(ctx, 30*time.Minute)
+
 	var platformLines string
 	if len(stats.TopPlatforms7d) == 0 {
 		platformLines = locale.Get("admin.stats_platforms_empty", lang, nil)
@@ -456,30 +449,50 @@ func (b *Bot) renderStats(ctx context.Context, lang string) (string, error) {
 		var lines []string
 		for _, p := range stats.TopPlatforms7d {
 			lines = append(lines, locale.Get("admin.stats_platform_line", lang, map[string]string{
-				"platform": p.Platform,
+				"platform": runtime.ServiceLabel(db.FromDBPlatform(p.Platform), lang),
 				"count":    strconv.Itoa(p.Count),
 			}))
 		}
 		platformLines = strings.Join(lines, "\n")
 	}
+
+	downloadsLine := formatStatsDownloads(stats.DownloadsToday, stats.Downloads7d, stats.Downloads30d)
+	if lang == "ru" {
+		downloadsLine = formatStatsDownloadsRU(stats.DownloadsToday, stats.Downloads7d, stats.Downloads30d)
+	}
+
+	returningPct := formatPct(stats.ReturningUsers, stats.UsersWithDownloads)
+	if stats.UsersWithDownloads > 0 {
+		returningPct = locale.Get("admin.stats_returning_pct_suffix", lang, map[string]string{"pct": returningPct})
+	}
+
 	body := locale.Get("admin.stats_body", lang, map[string]string{
+		"updated":          time.Now().UTC().Format("02.01.2006 15:04"),
 		"total":            strconv.Itoa(stats.TotalUsers),
 		"new_today":        strconv.Itoa(stats.NewToday),
-		"growth_delta":     growth,
+		"growth_delta":     formatGrowthDelta(stats.NewToday, stats.NewYesterday, lang),
 		"new_7d":           strconv.Itoa(stats.New7d),
 		"new_30d":          strconv.Itoa(stats.New30d),
-		"active_now":       "0",
+		"active_now":       strconv.Itoa(activeNow),
 		"dau":              strconv.Itoa(stats.DAU),
 		"wau":              strconv.Itoa(stats.WAU),
 		"mau":              strconv.Itoa(stats.MAU),
+		"stickiness":       formatStickiness(stats.DAU, stats.MAU),
+		"downloads_line":   downloadsLine,
+		"success_rate":     formatSuccessRate(stats.Completed30d, stats.Failed30d),
 		"with_downloads":   strconv.Itoa(stats.UsersWithDownloads),
+		"with_downloads_pct": formatPct(stats.UsersWithDownloads, stats.TotalUsers),
 		"returning":        strconv.Itoa(stats.ReturningUsers),
-		"lang_en":          strconv.Itoa(stats.LanguageEN),
-		"lang_ru":          strconv.Itoa(stats.LanguageRU),
-		"platform_lines":   platformLines,
-		"banned":           strconv.Itoa(stats.BannedCount),
-		"active_note":      locale.Get("admin.stats_active_note", lang, nil),
-		"download_note":    locale.Get("admin.stats_download_note", lang, nil),
+		"returning_pct":    returningPct,
+		"lang_line": locale.Get("admin.stats_lang_line", lang, map[string]string{
+			"en":      strconv.Itoa(stats.LanguageEN),
+			"en_pct":  formatPct(stats.LanguageEN, stats.TotalUsers),
+			"ru":      strconv.Itoa(stats.LanguageRU),
+			"ru_pct":  formatPct(stats.LanguageRU, stats.TotalUsers),
+		}),
+		"platform_lines": platformLines,
+		"banned":         strconv.Itoa(stats.BannedCount),
+		"download_note":  locale.Get("admin.stats_download_note", lang, nil),
 	})
 	return locale.Get("admin.stats_title", lang, nil) + "\n\n" + body, nil
 }
