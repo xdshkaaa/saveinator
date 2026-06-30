@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compare locale keys across Python and Go i18n files.
+# Compare locale keys across root locales/ and Go embed i18n files.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -57,9 +57,9 @@ diff_keys() {
   fi
 }
 
-diff_keys "en: Python vs Go" "$tmp/py_en" "$tmp/go_en"
-diff_keys "ru: Python vs Go" "$tmp/py_ru" "$tmp/go_ru"
-diff_keys "Python en vs ru" "$tmp/py_en" "$tmp/py_ru"
+diff_keys "en: root vs Go embed" "$tmp/py_en" "$tmp/go_en"
+diff_keys "ru: root vs Go embed" "$tmp/py_ru" "$tmp/go_ru"
+diff_keys "root en vs ru" "$tmp/py_en" "$tmp/py_ru"
 diff_keys "Go en vs ru" "$tmp/go_en" "$tmp/go_ru"
 
 if [[ "$errors" -eq 0 ]]; then

@@ -8,14 +8,12 @@ description: >-
 
 # Saveinator Go Dev Loop
 
-Saveinator Go replaces Python `bot` + Celery `worker` with one binary (`go/cmd/saveinator`).
-Schema migrations live in Python Alembic only — Go uses the existing PostgreSQL schema.
+Saveinator is a single Go binary (`go/cmd/saveinator`). Schema migrations run via Alembic in a Docker migrate container — Go uses the existing PostgreSQL schema.
 
 ## Prerequisites
 
 - `.env.go.dev` at repo root (copy from `.env.example`, **separate dev BOT_TOKEN**)
 - Docker (Postgres + Redis via `docker-compose.dev.yml`)
-- `uv` + Python deps (schema bootstrap in dev script)
 - Local `ffmpeg` + `yt-dlp` if running outside Docker
 
 ## Quick start (recommended)
@@ -26,7 +24,7 @@ scripts/run-go-dev.sh
 
 This script:
 1. Starts `docker-compose.dev.yml` (Postgres + Redis)
-2. Bootstraps schema via Python `Base.metadata.create_all` + `alembic stamp head`
+2. Bootstraps schema via migrate container (`docker compose --profile tools run --rm migrate`)
 3. Builds `bin/saveinator-go-dev`
 4. Runs the binary with `.env.go.dev`
 
@@ -67,9 +65,9 @@ Redis user lock pattern: `user_busy:{user_id}` (value `{scene}:{token}`).
 
 - **Never use prod BOT_TOKEN** in `.env.go.dev`
 - Locale changes require **rebuild** (`//go:embed` in `go/internal/locale/`)
-- New DB tables → Alembic migration in `db/migrations/`, not Go code
-- Prod path: `docker compose -f docker-compose.go.yml` (not `scripts/deploy.sh` Python stack)
-- `scripts/deploy.sh` still deploys legacy Python `bot`+`worker` — confirm stack before deploy
+- New DB tables → Alembic migration in `db/migrations/` (see `saveinator-db-migrate` skill)
+- Prod path: `docker compose up -d` via [`docker-compose.yml`](docker-compose.yml)
+- VPS deploy: `scripts/deploy.sh` builds and starts Go `saveinator` service
 
 ## Key paths
 

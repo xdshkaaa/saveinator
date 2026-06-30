@@ -23,11 +23,20 @@
     "via_bot": "via @{bot_username}",
     "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
   },
+  "clear": {
+    "success": "Queue cleared. You can send a new link.",
+    "empty": "No active downloads."
+  },
+  "instagram": {
+    "auth_required": "\u274c Instagram login is required. Log into Instagram in Chrome on this machine, or provide a valid cookies file via INSTAGRAM_COOKIES_PATH.",
+    "download_failed": "\u274c Could not download this Instagram post. Please try again later."
+  },
   "errors": {
     "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "busy": "Please wait until your current download finishes before sending another link.",
+    "send_link": "Send a link instead of a file. I download from YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest URLs.",
     "generic": "Something went wrong. Please try again later."
   },
   "spotify": {

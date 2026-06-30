@@ -7,13 +7,20 @@ description: >-
 
 # Saveinator Go Test Loop
 
-CI job `go` in `.github/workflows/ci.yml`: Go **1.22.3**, `working-directory: go`.
+CI (`.github/workflows/ci.yml`) runs three jobs:
+
+| Job | What it checks |
+|-----|----------------|
+| `go` | Go **1.22.3**: `go build ./...`, `go test -race -count=1 -coverprofile=coverage.out ./...` |
+| `migrate-image` | `docker build -f docker/migrate/Dockerfile .` |
+| `compose` | `docker compose config -q` |
 
 ## Commands
 
 ```bash
-# Full suite (matches CI)
-cd go && go build ./... && go test ./...
+# Full suite (matches CI go job)
+cd go && go build ./... && go test -race -count=1 -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
 
 # Verbose / targeted
 cd go && go test -v ./internal/linkparser/...
@@ -25,17 +32,18 @@ cd go && go test -run TestName ./internal/...
 
 | Change | Minimum tests |
 |--------|---------------|
-| `linkparser/` | `go test ./internal/linkparser/...` + `uv run pytest tests/test_link_parser.py -q` |
+| `linkparser/` | `go test ./internal/linkparser/...` |
 | `handler/` | `go test ./internal/handler/...` |
 | `queue/`, `worker/` | `go test ./...` (full) |
 | `config/` | `go test ./internal/config/...` |
+| `db/migrations/`, `docker-compose.yml` | Also run migrate-image + compose CI jobs locally |
 | Any `go/` change | `go build ./... && go test ./...` before claiming done |
 
 ## Conventions
 
 - **Table-driven tests** with `t.Parallel()` where safe — see `linkparser/parser_test.go`, `handler/routing_test.go`
-- **Real URL fixtures** in linkparser tests; keep in sync with `tests/test_link_parser.py`
-- **Mock-free unit tests** in Go; cross-stack integration lives in Python `tests/`
+- **Real URL fixtures** in linkparser tests — keep cases comprehensive in `parser_test.go`
+- **Mock-free unit tests** in Go; DB integration uses `go/internal/db/testdata/schema.sql`
 - No test database required for most Go packages (pure parsing/routing)
 
 ## Existing Go test files
@@ -60,9 +68,10 @@ Add tests alongside the package you change; prefer extending existing `*_test.go
 
 ```
 - [ ] cd go && go build ./...
-- [ ] cd go && go test ./...
-- [ ] scripts/check-parity.sh (if locales or shared logic changed)
-- [ ] uv run pytest tests/test_<relevant>.py -q (if parity layer touched)
+- [ ] cd go && go test -race -count=1 ./...
+- [ ] scripts/check-parity.sh (if locales changed)
+- [ ] docker build -f docker/migrate/Dockerfile . (if schema/migrate Dockerfile changed)
+- [ ] docker compose config -q (if compose files changed)
 ```
 
 ## CI failure debug

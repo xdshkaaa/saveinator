@@ -13,7 +13,7 @@ Go download flows split across handler (Telegram + enqueue) and worker (yt-dlp /
 
 ```
 1. linkparser/parser.go     — PlatformX constant + regex
-2. linkparser/parser_test.go — table-driven cases (mirror tests/test_link_parser.py)
+2. linkparser/parser_test.go — table-driven cases
 3. handler/bot.go           — dispatchLink() case + runtime.PlatformEnabled check
 4. handler/<platform>.go    — sync UI OR session before enqueue (if needed)
 5. queue/client.go          — TypeX constant + EnqueueX() + payload struct fields
@@ -84,6 +84,7 @@ Registered in `go/internal/handler/bot.go`:
 | Complexity | Files |
 |------------|-------|
 | Simple enqueue | Pinterest/TikTok path in `handler/bot.go` |
+| Pinterest API | `go/internal/pinterest/`, `worker/pinterest_tiktok.go` |
 | Session + callbacks | `handler/youtube.go`, `youtube/session.go` |
 | Music cards | `handler/music.go`, `spotify/`, `soundcloud/` |
 | Platform worker | `worker/pinterest_tiktok.go`, `worker/music.go` |
@@ -96,4 +97,4 @@ cd go && go build ./... && go test ./...
 scripts/check-parity.sh
 ```
 
-Update Python parity if the feature exists in both stacks (see saveinator-python-go-parity).
+Update locale parity if strings or config changed (see `saveinator-locale-parity`).
