@@ -41,11 +41,6 @@ type Settings struct {
 	TikTokCookiesFromBrowser       string
 	TikTokCookiesRefreshEnabled    bool
 	TikTokCookiesRefreshURL        string
-	InstagramCookiesPath            string
-	InstagramCookiesFromBrowser     string
-	InstagramDownloadTimeoutSeconds int
-	InstagramCookiesRefreshEnabled bool
-	InstagramCookiesRefreshURL     string
 
 	PinterestEnabled         bool
 	PinterestTimeoutSeconds  int
@@ -117,11 +112,6 @@ func Load() (*Settings, error) {
 		TikTokCookiesFromBrowser:       env("TIKTOK_COOKIES_FROM_BROWSER", ""),
 		TikTokCookiesRefreshEnabled:    envBool("TIKTOK_COOKIES_REFRESH_ENABLED", true),
 		TikTokCookiesRefreshURL:        env("TIKTOK_COOKIES_REFRESH_URL", "https://vt.tiktok.com/ZSCFGyN3g/"),
-		InstagramCookiesPath:            env("INSTAGRAM_COOKIES_PATH", ""),
-		InstagramCookiesFromBrowser:     env("INSTAGRAM_COOKIES_FROM_BROWSER", ""),
-		InstagramDownloadTimeoutSeconds: envInt("INSTAGRAM_DOWNLOAD_TIMEOUT_SECONDS", 120),
-		InstagramCookiesRefreshEnabled:  envBool("INSTAGRAM_COOKIES_REFRESH_ENABLED", true),
-		InstagramCookiesRefreshURL:     env("INSTAGRAM_COOKIES_REFRESH_URL", "https://www.instagram.com/reel/DaAl-AKqLRF/"),
 		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
 		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
 		PinterestMaxItems:        envInt("PINTEREST_MAX_ITEMS", 10),

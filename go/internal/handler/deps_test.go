@@ -40,7 +40,6 @@ func TestSceneForPlatform(t *testing.T) {
 	}{
 		{platform: "tiktok", want: "tiktok"},
 		{platform: "pinterest", want: "pinterest"},
-		{platform: "instagram", want: "instagram"},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -62,7 +61,6 @@ func TestDispatchLink_platformRouting(t *testing.T) {
 	}{
 		{platform: linkparser.PlatformTikTok, taskType: "download:tiktok", scene: "tiktok"},
 		{platform: linkparser.PlatformPinterest, taskType: "download:pinterest", scene: "pinterest"},
-		{platform: linkparser.PlatformInstagram, taskType: "download:send", scene: "instagram"},
 	}
 	for _, tt := range tests {
 		tt := tt

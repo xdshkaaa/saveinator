@@ -26,7 +26,7 @@ type Setting struct {
 }
 
 var ServiceOrder = []string{
-	"youtube", "tiktok", "instagram", "x", "spotify", "soundcloud", "pinterest",
+	"youtube", "tiktok", "x", "spotify", "soundcloud", "pinterest",
 }
 
 func intSetting(key, field, service, en, ru, unit string, min, max, def int) Setting {
@@ -62,15 +62,6 @@ var settings = []Setting{
 	boolSetting("tiktok.fallback_to_document", "TikTokFallbackToDocument", "tiktok", "Fallback to document", "Документ как fallback", true),
 	intSetting("tiktok.carousel_max_items", "TikTokCarouselMaxItems", "tiktok", "Max carousel images", "Макс. фото в карусели", "", 1, 50, 20),
 	boolSetting("tiktok.carousel_audio_enabled", "TikTokCarouselAudioEnabled", "tiktok", "Carousel audio", "Аудио карусели", true),
-
-	// instagram
-	intSetting("instagram.max_file_mb", "SendVideoLimitMB", "instagram", "Max file", "Лимит файла", "MB", 1, 500, 50),
-	intSetting("instagram.timeout_sec", "InstagramDownloadTimeoutSeconds", "instagram", "Timeout", "Таймаут", "sec", 10, 600, 120),
-	intSetting("instagram.max_items_per_post", "InstagramMaxItemsPerPost", "instagram", "Max items per post", "Элементов на пост", "", 1, 20, 10),
-	boolSetting("instagram.allow_reels", "InstagramAllowReels", "instagram", "Allow reels", "Reels", true),
-	boolSetting("instagram.allow_posts", "InstagramAllowPosts", "instagram", "Allow posts", "Посты", true),
-	boolSetting("instagram.allow_stories", "InstagramAllowStories", "instagram", "Allow stories", "Stories", true),
-	boolSetting("instagram.fallback_to_document", "InstagramFallbackToDocument", "instagram", "Fallback to document", "Документ как fallback", true),
 
 	// x
 	intSetting("x.max_file_mb", "SendVideoLimitMB", "x", "Max file", "Лимит файла", "MB", 1, 500, 50),
@@ -135,7 +126,6 @@ func ServiceLabel(service, lang string) string {
 	labels := map[string][2]string{
 		"youtube":    {"YouTube", "YouTube"},
 		"tiktok":     {"TikTok", "TikTok"},
-		"instagram":  {"Instagram", "Instagram"},
 		"x":          {"X / Twitter", "X / Twitter"},
 		"spotify":    {"Spotify", "Spotify"},
 		"soundcloud": {"SoundCloud", "SoundCloud"},

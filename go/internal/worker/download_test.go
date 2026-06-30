@@ -147,7 +147,7 @@ func TestHandleDownload_cancelledSkipsWork(t *testing.T) {
 	body, _ := json.Marshal(queue.DownloadPayload{
 		UserID:    3,
 		URL:       "https://example.com",
-		Platform:  "instagram",
+		Platform:  "x",
 		LockScene: "tiktok",
 		LockToken: token,
 	})

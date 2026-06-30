@@ -51,7 +51,7 @@ Download tasks use `MaxRetry(0)` — no automatic retry.
 
 ## Payload structs
 
-- `DownloadPayload` — URL downloads (YouTube, TikTok, X, Instagram, Pinterest)
+- `DownloadPayload` — URL downloads (YouTube, TikTok, X, Pinterest)
 - `MusicPayload` — Spotify/SoundCloud with `ReleaseJSON`
 - `BroadcastPayload` — admin broadcasts
 

@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, or Pinterest link in any group. I can download videos, music, and images.",
+    "welcome": "Welcome! Send me a YouTube, TikTok, X/Twitter, Spotify, SoundCloud, or Pinterest link in any group. I can download videos, music, and images.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -27,19 +27,15 @@
     "success": "Queue cleared. You can send a new link.",
     "empty": "No active downloads."
   },
-  "instagram": {
-    "auth_required": "❌ Instagram login is required. Log into Instagram in Chrome on this machine, or provide a valid cookies file via INSTAGRAM_COOKIES_PATH.",
-    "download_failed": "❌ Could not download this Instagram post. Please try again later."
-  },
   "x": {
     "no_media_in_reply": "❌ No media found in the specified reply."
   },
   "errors": {
-    "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
+    "unsupported": "Unsupported link. I work with YouTube, TikTok, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "busy": "Please wait until your current download finishes before sending another link.",
-    "send_link": "Send a link instead of a file. I download from YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest URLs.",
+    "send_link": "Send a link instead of a file. I download from YouTube, TikTok, X/Twitter, Spotify, SoundCloud, and Pinterest URLs.",
     "generic": "Something went wrong. Please try again later.",
     "admin_debug": "\n\n🔧 Debug:\n{detail}"
   },

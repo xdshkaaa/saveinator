@@ -17,9 +17,9 @@ func testStore(t *testing.T) (*Store, *miniredis.Miniredis) {
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	client := redisx.NewWithRedis(rdb)
 	cfg := &config.Settings{
-		SpotifyEnabled:                  true,
-		InstagramDownloadTimeoutSeconds: 120,
-		SendVideoLimitMB:                50,
+		SpotifyEnabled:          true,
+		SendVideoLimitMB:        50,
+		PinterestTimeoutSeconds: 30,
 	}
 	return NewStore(client, cfg), mr
 }
@@ -45,14 +45,14 @@ func TestRuntimeStorePlatformTimeoutSec(t *testing.T) {
 	store, _ := testStore(t)
 	ctx := context.Background()
 
-	if got := store.PlatformTimeoutSec(ctx, "instagram"); got != 120 {
-		t.Fatalf("timeout = %d, want 120", got)
+	if got := store.PlatformTimeoutSec(ctx, "pinterest"); got != 30 {
+		t.Fatalf("timeout = %d, want 30", got)
 	}
-	if err := store.SetValue(ctx, "instagram.timeout_sec", 90); err != nil {
+	if err := store.SetValue(ctx, "pinterest.timeout_sec", 45); err != nil {
 		t.Fatal(err)
 	}
-	if got := store.PlatformTimeoutSec(ctx, "instagram"); got != 90 {
-		t.Fatalf("timeout = %d, want 90", got)
+	if got := store.PlatformTimeoutSec(ctx, "pinterest"); got != 45 {
+		t.Fatalf("timeout = %d, want 45", got)
 	}
 }
 

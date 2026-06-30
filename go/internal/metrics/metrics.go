@@ -13,10 +13,10 @@ var (
 	workerStartTime = time.Now()
 
 	DownloadPlatforms = []string{
-		"youtube", "tiktok", "instagram", "x", "pinterest", "spotify", "soundcloud",
+		"youtube", "tiktok", "x", "pinterest", "spotify", "soundcloud",
 	}
 	YtdlpPlatforms = []string{
-		"youtube", "tiktok", "instagram", "x", "pinterest",
+		"youtube", "tiktok", "x", "pinterest",
 	}
 
 	UptimeSeconds = prometheus.NewGauge(prometheus.GaugeOpts{

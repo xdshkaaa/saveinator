@@ -11,7 +11,7 @@
       {"name": "service", "type": "query", "datasource": {"type": "loki", "uid": "loki"}, "query": "label_values(service)", "refresh": 1, "includeAll": true, "multi": true, "current": {"selected": true, "text": "All", "value": "$__all"}},
       {"name": "container", "type": "query", "datasource": {"type": "loki", "uid": "loki"}, "query": "label_values(container)", "refresh": 1, "includeAll": true, "multi": true, "current": {"selected": true, "text": "All", "value": "$__all"}},
       {"name": "level", "type": "custom", "query": ".*,debug,info,warning,error,critical", "current": {"selected": true, "text": ".*", "value": ".*"}},
-      {"name": "platform", "type": "custom", "query": ".*,youtube,tiktok,instagram,x,pinterest,spotify,soundcloud", "current": {"selected": true, "text": ".*", "value": ".*"}},
+      {"name": "platform", "type": "custom", "query": ".*,youtube,tiktok,x,pinterest,spotify,soundcloud", "current": {"selected": true, "text": ".*", "value": ".*"}},
       {"name": "user_id", "type": "textbox", "query": ".*", "current": {"text": ".*", "value": ".*"}},
       {"name": "chat_id", "type": "textbox", "query": ".*", "current": {"text": ".*", "value": ".*"}},
       {"name": "task_id", "type": "textbox", "query": ".*", "current": {"text": ".*", "value": ".*"}}

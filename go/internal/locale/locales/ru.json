@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud или Pinterest в любую группу. Я скачиваю видео, музыку и изображения.",
+    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, X/Twitter, Spotify, SoundCloud или Pinterest в любую группу. Я скачиваю видео, музыку и изображения.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -27,19 +27,15 @@
     "success": "Очередь очищена. Можно отправлять новую ссылку.",
     "empty": "Нет активных загрузок."
   },
-  "instagram": {
-    "auth_required": "❌ Нужен вход в Instagram. Войди в Instagram в Chrome на этой машине или укажи файл cookies через INSTAGRAM_COOKIES_PATH.",
-    "download_failed": "❌ Не удалось скачать этот пост Instagram. Попробуй позже."
-  },
   "x": {
     "no_media_in_reply": "❌ В указанном ответе не найдено медиа."
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
+    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "busy": "Подожди, пока завершится текущее скачивание, и только потом отправляй новую ссылку.",
-    "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud и Pinterest.",
+    "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, X/Twitter, Spotify, SoundCloud и Pinterest.",
     "generic": "Что-то пошло не так. Попробуй позже.",
     "admin_debug": "\n\n🔧 Отладка:\n{detail}"
   },

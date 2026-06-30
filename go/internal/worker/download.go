@@ -16,7 +16,6 @@ import (
 
 	"saveinator/internal/config"
 	"saveinator/internal/db"
-	"saveinator/internal/instagram"
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
@@ -213,9 +212,6 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		if p.Platform == "x" {
 			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
 		}
-		if p.Platform == "instagram" && instagram.IsPhotoPostURL(p.URL) && ytdlp.IsInstagramPhotoFallbackError(err) {
-			return h.runInstagramPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
-		}
 		slog.Warn("download failed", "url", p.URL, "platform", p.Platform, "err", err)
 		metrics.RecordYtdlpError(p.Platform)
 		recordTaskFailure(queue.TypeDownload)
@@ -229,9 +225,6 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		if p.Platform == "x" {
 			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
 		}
-		if p.Platform == "instagram" && instagram.IsPhotoPostURL(p.URL) {
-			return h.runInstagramPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
-		}
 		recordTaskFailure(queue.TypeDownload)
 		failErr := err
 		if failErr == nil {
@@ -244,7 +237,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	images := ytdlp.ImageFiles(files)
 	sourceVideo := ytdlp.LargestVideo(files)
 	if sourceVideo == "" && len(images) > 0 {
-		caption := buildInstagramPhotoCaption(images, lang)
+		caption := buildMediaCaption("", lang)
 		if err := h.sender.SendPhotoAlbum(p.ChatID, images, caption); err != nil {
 			slog.Warn("send album failed", "err", err)
 			recordTaskFailure(queue.TypeDownload)
@@ -259,9 +252,6 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	if sourceVideo == "" {
 		if p.Platform == "x" {
 			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
-		}
-		if p.Platform == "instagram" && instagram.IsPhotoPostURL(p.URL) {
-			return h.runInstagramPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
 		}
 		recordTaskFailure(queue.TypeDownload)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
@@ -304,55 +294,6 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 	return nil
 }
 
-func (h *Handler) runInstagramPhotos(ctx context.Context, p queue.DownloadPayload, lang, taskDir string, taskType string, start time.Time) error {
-	maxItems := h.runtime.CurrentInt(ctx, "instagram.max_items_per_post", 10)
-	client := instagram.NewPhotoClient(h.cfg.InstagramCookiesPath)
-	result, paths, err := client.DownloadPhotos(ctx, p.URL, taskDir, maxItems)
-	if err != nil {
-		slog.Warn("instagram photo download failed", "url", p.URL, "shortcode", resultShortcode(result), "err", err)
-		recordTaskFailure(taskType)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
-		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "instagram", "failed", 0, err.Error())
-		return nil
-	}
-
-	caption := buildInstagramPhotoCaption(paths, lang)
-	if len(paths) == 1 {
-		title := instagram.DisplayTitle(paths[0])
-		if err := h.sender.SendFile(p.ChatID, paths[0], title, lang, "instagram", false); err != nil {
-			slog.Warn("instagram photo send failed", "err", err)
-			recordTaskFailure(taskType)
-			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
-			return nil
-		}
-	} else if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
-		slog.Warn("instagram photo album send failed", "err", err)
-		recordTaskFailure(taskType)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
-		return nil
-	}
-
-	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
-	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "instagram", "completed", 0, "")
-	recordTaskSuccess(taskType, "instagram", start, 0)
-	return nil
-}
-
-func resultShortcode(result *instagram.PhotoResult) string {
-	if result == nil {
-		return ""
-	}
-	return result.Shortcode
-}
-
-func buildInstagramPhotoCaption(paths []string, lang string) string {
-	title := ""
-	if len(paths) > 0 {
-		title = instagram.DisplayTitle(paths[0])
-	}
-	return buildMediaCaption(title, lang)
-}
-
 func buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string) string {
 	title := ""
 	if result != nil {
@@ -390,8 +331,6 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 	switch p.Platform {
 	case "youtube":
 		title = youtube.DisplayTitle(videoPath)
-	case "instagram":
-		title = instagram.DisplayTitle(videoPath)
 	case "x":
 		statusID := p.XStatusID
 		if statusID == "" {
