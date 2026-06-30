@@ -199,7 +199,11 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		}
 
 		current := i + 1
-		status := locale.Get("soundcloud.download_track", lang, map[string]string{
+		statusKey := "soundcloud.download_track"
+		if track.YouTubeFallback {
+			statusKey = "soundcloud.download_track_youtube"
+		}
+		status := locale.Get(statusKey, lang, map[string]string{
 			"current": fmt.Sprintf("%d", current),
 			"total":   fmt.Sprintf("%d", total),
 			"title":   track.Title,
@@ -207,14 +211,32 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, status, cancelKB)
 
 		trackURL := track.SoundCloudURL
-		if trackURL == "" {
+		if trackURL == "" && !track.YouTubeFallback {
 			continue
 		}
 		trackDir := filepath.Join(taskDir, fmt.Sprintf("track-%d", current))
+		query := soundCloudYouTubeQuery(track, release)
 
 		sem <- struct{}{}
 		trackStart := time.Now()
-		audioPath, dlErr := audio.DownloadSoundCloudTrack(ctx, trackURL, trackDir, outputFormat, trackTimeout)
+		var audioPath string
+		var dlErr error
+		if track.YouTubeFallback {
+			metrics.SoundCloudYouTubeFallbackTotal.Inc()
+			audioPath, dlErr = audio.DownloadFromYouTubeSearch(ctx, query, trackDir, outputFormat, trackTimeout)
+		} else {
+			audioPath, dlErr = audio.DownloadSoundCloudTrack(ctx, trackURL, trackDir, outputFormat, trackTimeout)
+			if dlErr != nil && audio.IsDRMProtectedError(dlErr) {
+				metrics.SoundCloudYouTubeFallbackTotal.Inc()
+				youtubeStatus := locale.Get("soundcloud.download_track_youtube", lang, map[string]string{
+					"current": fmt.Sprintf("%d", current),
+					"total":   fmt.Sprintf("%d", total),
+					"title":   track.Title,
+				})
+				_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, youtubeStatus, cancelKB)
+				audioPath, dlErr = audio.DownloadFromYouTubeSearch(ctx, query, trackDir, outputFormat, trackTimeout)
+			}
+		}
 		<-sem
 		if dlErr != nil {
 			slog.Warn("soundcloud track download failed", "title", track.Title, "err", dlErr)
@@ -313,6 +335,15 @@ func releaseLockTTL(platform string, cfg *config.Settings) time.Duration {
 	default:
 		return 30 * time.Minute
 	}
+}
+
+func soundCloudYouTubeQuery(track soundcloud.Track, release soundcloud.Release) string {
+	artist := firstNonEmpty(track.Artist, release.Artist)
+	title := firstNonEmpty(track.Title, release.Title)
+	if artist != "" && title != "" {
+		return artist + " - " + title
+	}
+	return firstNonEmpty(title, artist)
 }
 
 func firstNonEmpty(values ...string) string {

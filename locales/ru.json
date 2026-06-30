@@ -75,6 +75,8 @@
     "no_download": "Для SoundCloud доступна только карточка трека. Скачивание аудио отключено на этом боте.",
     "download_starting": "Начинаю скачивание: {total} трек(ов)",
     "download_track": "Скачиваю {current}/{total}: {title}",
+    "download_track_youtube": "Ищу на YouTube {current}/{total}: {title}",
+    "youtube_fallback_note": "SoundCloud DRM — скачаем аналог с YouTube.",
     "send_track": "Отправляю {current}/{total}: {title}",
     "download_done": "Готово: {count}/{total} треков отправлено.",
     "download_failed": "Не удалось скачать треки. Попробуй позже.",

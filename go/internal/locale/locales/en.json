@@ -78,6 +78,8 @@
     "no_download": "For SoundCloud, only the track card is available. Audio download is disabled on this bot.",
     "download_starting": "Starting download: {total} track(s)",
     "download_track": "Downloading {current}/{total}: {title}",
+    "download_track_youtube": "Searching YouTube {current}/{total}: {title}",
+    "youtube_fallback_note": "SoundCloud DRM — we'll download a YouTube match instead.",
     "send_track": "Sending {current}/{total}: {title}",
     "download_done": "Finished: {count}/{total} tracks sent.",
     "download_failed": "Could not download tracks. Please try again later.",
