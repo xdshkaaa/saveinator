@@ -152,18 +152,18 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		slog.Warn("youtube download failed", "url", p.URL, "err", err)
 		metrics.RecordYtdlpError("youtube")
 		recordTaskFailure(queue.TypeDownload)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.timeout", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 
 	files, err := ytdlp.FindMediaFiles(taskDir)
 	if err != nil {
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 	sourceVideo := ytdlp.LargestVideo(files)
 	if sourceVideo == "" {
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
 		return nil
 	}
 
@@ -173,7 +173,7 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		processed, transcodeErr = video.ApplyAspectRatio(dlCtx, sourceVideo, p.AspectRatio, p.Quality)
 		if transcodeErr != nil {
 			slog.Warn("youtube transcode failed", "err", transcodeErr)
-			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("youtube.process_failed", lang, nil))
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, transcodeErr))
 			return nil
 		}
 	}
@@ -219,11 +219,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		slog.Warn("download failed", "url", p.URL, "platform", p.Platform, "err", err)
 		metrics.RecordYtdlpError(p.Platform)
 		recordTaskFailure(queue.TypeDownload)
-		errKey := ytdlp.UserFacingErrorKey(p.Platform, err)
-		if errKey == "" {
-			errKey = "errors.generic"
-		}
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get(errKey, lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, err.Error())
 		return nil
 	}
@@ -237,7 +233,11 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 			return h.runInstagramPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
 		}
 		recordTaskFailure(queue.TypeDownload)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		failErr := err
+		if failErr == nil {
+			failErr = errors.New("no media files found")
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, failErr))
 		return nil
 	}
 
@@ -264,7 +264,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 			return h.runInstagramPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
 		}
 		recordTaskFailure(queue.TypeDownload)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
 		return nil
 	}
 
@@ -282,7 +282,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 	if err != nil {
 		slog.Warn("x photo download failed", "url", p.URL, "status_id", statusID, "err", err)
 		recordTaskFailure(taskType)
-		msg := locale.Get("errors.generic", lang, nil)
+		msg := h.userFacingError(lang, p.UserID, err)
 		if errors.Is(err, xphotos.ErrNotFound) {
 			msg = locale.Get("x.text_only", lang, nil)
 		}
@@ -295,7 +295,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 	if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
 		slog.Warn("x photo album send failed", "err", err)
 		recordTaskFailure(taskType)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
@@ -311,11 +311,7 @@ func (h *Handler) runInstagramPhotos(ctx context.Context, p queue.DownloadPayloa
 	if err != nil {
 		slog.Warn("instagram photo download failed", "url", p.URL, "shortcode", resultShortcode(result), "err", err)
 		recordTaskFailure(taskType)
-		errKey := instagram.UserFacingErrorKey(err)
-		if errKey == "" {
-			errKey = "instagram.download_failed"
-		}
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get(errKey, lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "instagram", "failed", 0, err.Error())
 		return nil
 	}
@@ -326,13 +322,13 @@ func (h *Handler) runInstagramPhotos(ctx context.Context, p queue.DownloadPayloa
 		if err := h.sender.SendFile(p.ChatID, paths[0], title, lang, "instagram", false); err != nil {
 			slog.Warn("instagram photo send failed", "err", err)
 			recordTaskFailure(taskType)
-			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 			return nil
 		}
 	} else if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
 		slog.Warn("instagram photo album send failed", "err", err)
 		recordTaskFailure(taskType)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 
@@ -407,7 +403,7 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {
 		slog.Warn("send file failed", "err", err)
 		recordTaskFailure(taskType)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("errors.generic", lang, nil))
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		return nil
 	}
 

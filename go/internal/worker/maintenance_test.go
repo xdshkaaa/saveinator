@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"testing"
 
 	"saveinator/internal/config"
@@ -10,13 +11,13 @@ func TestRefreshTikTokCookies_disabled(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Settings{TikTokCookiesRefreshEnabled: false}
 	// refreshTikTokCookies returns early without panicking
-	refreshTikTokCookies(t.Context(), cfg)
+	refreshTikTokCookies(context.Background(), cfg)
 }
 
 func TestRefreshInstagramCookies_disabled(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Settings{InstagramCookiesRefreshEnabled: false}
-	refreshInstagramCookies(t.Context(), cfg)
+	refreshInstagramCookies(context.Background(), cfg)
 }
 
 func TestRefreshTikTokCookies_missingConfig(t *testing.T) {
@@ -25,7 +26,7 @@ func TestRefreshTikTokCookies_missingConfig(t *testing.T) {
 		TikTokCookiesRefreshEnabled: true,
 		TikTokCookiesRefreshURL:     "https://example.com",
 	}
-	refreshTikTokCookies(t.Context(), cfg)
+	refreshTikTokCookies(context.Background(), cfg)
 }
 
 func TestRefreshInstagramCookies_missingConfig(t *testing.T) {
@@ -34,5 +35,5 @@ func TestRefreshInstagramCookies_missingConfig(t *testing.T) {
 		InstagramCookiesRefreshEnabled: true,
 		InstagramCookiesRefreshURL:     "https://example.com",
 	}
-	refreshInstagramCookies(t.Context(), cfg)
+	refreshInstagramCookies(context.Background(), cfg)
 }
