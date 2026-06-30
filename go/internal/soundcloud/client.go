@@ -29,9 +29,16 @@ func (c *Client) FetchRelease(ctx context.Context, link *Link, maxTracks int) (*
 	out, err := exec.CommandContext(ctx, "yt-dlp",
 		"--dump-single-json", "--skip-download", "--no-warnings", "--quiet",
 		link.URL,
-	).Output()
+	).CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrNotFound, err)
+		if isDRMError(err, out) {
+			release, oembedErr := fetchReleaseFromOEmbed(ctx, link.URL)
+			if oembedErr != nil {
+				return nil, fmt.Errorf("%w: %v", ErrDRMProtected, oembedErr)
+			}
+			return release, nil
+		}
+		return nil, fmt.Errorf("%w: %v", ErrNotFound, execOutputMessage(err, out))
 	}
 
 	var info map[string]any

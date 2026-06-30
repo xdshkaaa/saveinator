@@ -1,11 +1,23 @@
 package audio
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestIsDRMProtectedError(t *testing.T) {
+	t.Parallel()
+	err := errors.New("exit status 1")
+	if !IsDRMProtectedError(err, "ERROR: [soundcloud] DRM protected") {
+		t.Fatal("expected drm error")
+	}
+	if IsDRMProtectedError(errors.New("not found"), "HTTP 404") {
+		t.Fatal("expected non-drm")
+	}
+}
 
 func TestFindAudioFilePicksNewest(t *testing.T) {
 	t.Parallel()

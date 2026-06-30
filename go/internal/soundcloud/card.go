@@ -25,6 +25,9 @@ func CardText(release *Release, lang string, downloadEnabled bool) string {
 		if track.Genre != "" {
 			lines = append(lines, locale.Get("soundcloud.genre", lang, map[string]string{"genre": track.Genre}))
 		}
+		if track.YouTubeFallback {
+			lines = append(lines, locale.Get("soundcloud.youtube_fallback_note", lang, nil))
+		}
 		if !downloadEnabled {
 			lines = append(lines, "", locale.Get("soundcloud.no_download", lang, nil))
 		}
@@ -39,6 +42,9 @@ func CardText(release *Release, lang string, downloadEnabled bool) string {
 		locale.Get("soundcloud.tracks_count", lang, map[string]string{
 			"count": fmt.Sprintf("%d", len(release.Tracks)),
 		}),
+	}
+	if releaseUsesYouTubeFallback(release) {
+		lines = append(lines, locale.Get("soundcloud.youtube_fallback_note", lang, nil))
 	}
 	if !downloadEnabled {
 		lines = append(lines, "", locale.Get("soundcloud.no_download", lang, nil))

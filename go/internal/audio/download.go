@@ -3,6 +3,7 @@ package audio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,29 @@ import (
 	"strings"
 	"time"
 )
+
+func IsDRMProtectedError(err error, outputs ...string) bool {
+	if err == nil && len(outputs) == 0 {
+		return false
+	}
+	msg := strings.ToLower(combineErrorText(err, outputs))
+	return strings.Contains(msg, "drm protected")
+}
+
+func combineErrorText(err error, outputs []string) string {
+	var b strings.Builder
+	for _, o := range outputs {
+		b.WriteString(o)
+	}
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			b.Write(exitErr.Stderr)
+		}
+		b.WriteString(err.Error())
+	}
+	return b.String()
+}
 
 func DownloadFromYouTubeSearch(ctx context.Context, query, outputDir, format string, timeoutSeconds int) (string, error) {
 	videoID, err := resolveYouTubeSearch(ctx, query, timeoutSeconds)
@@ -77,7 +101,7 @@ func DownloadSoundCloudTrack(ctx context.Context, url, outputDir, format string,
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
-	_, err := exec.CommandContext(ctx, "yt-dlp",
+	out, err := exec.CommandContext(ctx, "yt-dlp",
 		"--no-warnings", "--quiet", "--no-playlist",
 		"-f", "bestaudio/best",
 		"-o", filepath.Join(outputDir, "%(title).100s.%(ext)s"),
@@ -85,9 +109,17 @@ func DownloadSoundCloudTrack(ctx context.Context, url, outputDir, format string,
 		url,
 	).CombinedOutput()
 	if err != nil {
-		return "", err
+		return "", ytdlpCombinedError(out, err)
 	}
 	return findAudioFile(outputDir)
+}
+
+func ytdlpCombinedError(out []byte, err error) error {
+	text := strings.TrimSpace(string(out))
+	if text != "" {
+		return fmt.Errorf("%s: %w", text, err)
+	}
+	return err
 }
 
 func findAudioFile(dir string) (string, error) {

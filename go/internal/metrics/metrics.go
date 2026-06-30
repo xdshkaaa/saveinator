@@ -132,6 +132,10 @@ var (
 		Help:    "SoundCloud track download duration",
 		Buckets: []float64{1, 3, 5, 10, 15, 30, 60, 120},
 	})
+	SoundCloudYouTubeFallbackTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "saveinator_soundcloud_youtube_fallback_total",
+		Help: "SoundCloud tracks downloaded via YouTube fallback",
+	})
 
 	TikTokCarouselRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "saveinator_tiktok_carousel_requests_total",
@@ -230,6 +234,7 @@ func init() {
 		SoundCloudRequestsTotal, SoundCloudDownloadsEnqueuedTotal, SoundCloudDownloadsSuccessTotal,
 		SoundCloudDownloadFailuresTotal, SoundCloudDownloadsTimeoutTotal,
 		SoundCloudMetadataFailuresTotal, SoundCloudPlaylistTracks, SoundCloudDownloadDurationSeconds,
+		SoundCloudYouTubeFallbackTotal,
 		TikTokCarouselRequestsTotal, TikTokCarouselImagesTotal, TikTokCarouselAudioTotal, TikTokCarouselFailuresTotal,
 		BroadcastsTotal, BroadcastMessagesSentTotal, BroadcastMessagesFailedTotal,
 		AdminRuntimeSettingsChangedTotal, RPCFailuresTotal,
