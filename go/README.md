@@ -64,9 +64,5 @@ docker compose up -d --build
 - Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
 - Prometheus metrics on `:9101` (`saveinator_downloads_enqueued_total`, rate limit counters)
-- Shared PostgreSQL schema (existing Alembic migrations)
+- Shared PostgreSQL schema (Alembic migrations in `db/migrations/`)
 
-## Optional / same as Python
-
-- Pinterest HTTP API auth (none — disable via `DOWNLOAD_API_ENABLED=false`)
-- Cookie refresh URLs: `TIKTOK_COOKIES_REFRESH_URL`, `INSTAGRAM_COOKIES_REFRESH_URL`
