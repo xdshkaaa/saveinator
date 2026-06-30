@@ -51,6 +51,14 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	defer redisClient.Close()
 
+	metrics.SetActiveUserCounter(func(ctx context.Context) int {
+		n, err := redisClient.CountActiveUsers(ctx, 30*time.Minute)
+		if err != nil {
+			return 0
+		}
+		return n
+	})
+
 	bot, err := telego.NewBot(a.cfg.BotToken, telego.WithDefaultLogger(false, false))
 	if err != nil {
 		return fmt.Errorf("create bot: %w", err)

@@ -2,11 +2,11 @@
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
     "welcome": "Welcome! Send me a YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, or Pinterest link in any group. I can download videos, music, and images.",
-    "btn_en": "\ud83c\uddec\ud83c\udde7 English",
-    "btn_ru": "\ud83c\uddf7\ud83c\uddfa \u0420\u0443\u0441\u0441\u043a\u0438\u0439"
+    "btn_en": "🇬🇧 English",
+    "btn_ru": "🇷🇺 Русский"
   },
   "download": {
-    "downloading": "\u23f3 Downloading...",
+    "downloading": "⏳ Downloading...",
     "cancel": "Cancel",
     "cancelled": "Download cancelled.",
     "cancel_done": "Cancelled",
@@ -18,21 +18,21 @@
     "queue_remove": "Remove {item} download",
     "queue_not_allowed": "This queue belongs to another user.",
     "queue_unavailable": "This queue can no longer be opened.",
-    "timeout": "\u274c Download is taking too long. Please try again later.",
-    "too_large": "\u274c The video is {size} MB. I can't send videos larger than {limit} MB.",
+    "timeout": "❌ Download is taking too long. Please try again later.",
+    "too_large": "❌ The video is {size} MB. I can't send videos larger than {limit} MB.",
     "via_bot": "via @{bot_username}",
-    "sent_as_doc": "\ud83d\udcc4 Sent as document ({size} MB)"
+    "sent_as_doc": "📄 Sent as document ({size} MB)"
   },
   "clear": {
     "success": "Queue cleared. You can send a new link.",
     "empty": "No active downloads."
   },
   "instagram": {
-    "auth_required": "\u274c Instagram login is required. Log into Instagram in Chrome on this machine, or provide a valid cookies file via INSTAGRAM_COOKIES_PATH.",
-    "download_failed": "\u274c Could not download this Instagram post. Please try again later."
+    "auth_required": "❌ Instagram login is required. Log into Instagram in Chrome on this machine, or provide a valid cookies file via INSTAGRAM_COOKIES_PATH.",
+    "download_failed": "❌ Could not download this Instagram post. Please try again later."
   },
   "x": {
-    "text_only": "\u274c This post has no downloadable video or images (text-only tweet)."
+    "no_media_in_reply": "❌ No media found in the specified reply."
   },
   "errors": {
     "unsupported": "Unsupported link. I work with YouTube, TikTok, Instagram, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
@@ -43,8 +43,8 @@
     "generic": "Something went wrong. Please try again later."
   },
   "spotify": {
-    "card_title": "\ud83c\udfb5 {artist} \u2014 {name}",
-    "track_card_title": "\ud83c\udfb5 {artist} \u2014 {title}",
+    "card_title": "🎵 {artist} — {name}",
+    "track_card_title": "🎵 {artist} — {title}",
     "duration": "Duration: {duration}",
     "album_type": "Type: {type}",
     "type_album": "album",
@@ -63,9 +63,9 @@
     "download_timeout": "Download is taking too long. Please try again with a shorter release.",
     "download_not_available": "Audio download is not available on this server.",
     "not_found": "Spotify release not found.",
-    "not_configured": "Spotify API credentials are missing. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to your environment, then set SPOTIFY_ENABLED=true.",
+    "not_configured": "Spotify support is not configured on this bot.",
     "api_error": "Could not fetch Spotify release info. Please try again later.",
-    "disabled": "Spotify support is disabled on this bot. Set SPOTIFY_ENABLED=true and add SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET to enable metadata cards."
+    "disabled": "Spotify support is disabled on this bot."
   },
   "soundcloud": {
     "card_title": "🎧 {artist} — {name}",
@@ -119,13 +119,11 @@
     "btn_broadcasts": "📨 Broadcasts",
     "btn_users": "📊 Users",
     "stats_title": "📊 User statistics",
-    "stats_body": "👥 Registered: {total}\n\n📈 Growth\n• Today: {new_today} ({growth_delta})\n• 7 days: {new_7d}\n• 30 days: {new_30d}\n\n⚡ Active\n• Now (30m): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n\n🎯 Engagement\n• With downloads: {with_downloads}\n• Returning (2+): {returning}\n\n🌐 Languages: EN {lang_en} · RU {lang_ru}\n\n📱 Top platforms (7d)\n{platform_lines}\n\n🚫 Shadow-banned: {banned}\n\n{active_note}\n{download_note}",
-    "stats_growth_delta": "{diff} ({pct})",
-    "stats_growth_delta_flat": "0",
+    "stats_body": "🕐 Updated: {updated} UTC\n\n👥 Registered: {total}\n\n📈 Growth\n• Today: {new_today}{growth_delta}\n• 7 days: {new_7d}\n• 30 days: {new_30d}\n\n⚡ Active\n• Now (30m): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n• Stickiness (DAU/MAU): {stickiness}\n\n⬇️ Downloads (completed)\n• {downloads_line}\n• Success (30d): {success_rate}\n\n🎯 Engagement\n• With downloads: {with_downloads} ({with_downloads_pct})\n• Returning (2+): {returning} ({returning_pct})\n\n🌐 Languages: {lang_line}\n\n📱 Top platforms (7d, users)\n{platform_lines}\n\n🚫 Shadow-banned: {banned}\n\n{download_note}",
+    "stats_growth_delta": " ({diff}, {pct})",
     "stats_platform_line": "• {platform}: {count}",
     "stats_platforms_empty": "• no data",
-    "stats_active_note": "ℹ️ “Now” resets on bot restart.",
-    "stats_download_note": "ℹ️ DAU/WAU/MAU use download events (Spotify/SoundCloud excluded).",
+    "stats_download_note": "ℹ️ DAU/WAU/MAU — unique users with completed downloads.",
     "btn_stats_refresh": "🔄 Refresh",
     "confirm_reset_all": "⚠️ Reset ALL runtime overrides to defaults?\n\nThis will clear all per-platform settings. They will revert to .env defaults.\n\nAre you sure?",
     "confirm_reset_service": "⚠️ Reset all {service} settings to defaults?\n\nAre you sure?",
@@ -134,7 +132,10 @@
     "confirm_no": "❌ No",
     "setting_changed": "🔄 Setting changed by admin\nAdmin: {admin_id}\nKey: {key}\nOld: {old_value}\nNew: {new_value}",
     "no_settings": "No editable settings for this service.",
-    "btn_change": "Change {label}"
+    "btn_change": "Change {label}",
+    "stats_growth_same": "— same as yesterday",
+    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct})",
+    "stats_returning_pct_suffix": "{pct} of downloaders"
   },
   "broadcast": {
     "menu_title": "📨 Broadcasts — send messages to all bot users.",
@@ -182,9 +183,6 @@
   "ban": {
     "shadow_reply": "⚠️ Your messages are not being delivered. Please contact support.",
     "admin_notice": "🚫 Shadow ban\nUser: {user}\nChat: {chat}"
-  },
-  "x": {
-    "no_media_in_reply": "❌ No media found in the specified reply."
   },
   "youtube": {
     "choose_quality": "Choose video quality:",

@@ -24,6 +24,10 @@ func toDBPlatform(platform string) string {
 	return strings.ToUpper(strings.TrimSpace(platform))
 }
 
+func FromDBPlatform(platform string) string {
+	return strings.ToLower(strings.TrimSpace(platform))
+}
+
 func toDBDownloadStatus(status string) string {
 	return strings.ToUpper(strings.TrimSpace(status))
 }

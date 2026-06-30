@@ -193,7 +193,17 @@ func TestIntegration_FetchUserStats(t *testing.T) {
 	ctx := context.Background()
 
 	seedUserAndChat(t, store, 1, 10)
+	seedUserAndChat(t, store, 2, 11)
 	if err := store.RecordDownload(ctx, 1, 10, "https://youtu.be/x", "youtube", "completed", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RecordDownload(ctx, 1, 10, "https://youtu.be/y", "youtube", "completed", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RecordDownload(ctx, 2, 11, "https://open.spotify.com/track/x", "spotify", "completed", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RecordDownload(ctx, 2, 11, "https://youtu.be/z", "youtube", "failed", 0, "err"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -201,7 +211,25 @@ func TestIntegration_FetchUserStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.TotalUsers < 1 {
-		t.Fatalf("stats = %+v", stats)
+	if stats.TotalUsers < 2 {
+		t.Fatalf("total users = %d", stats.TotalUsers)
+	}
+	if stats.UsersWithDownloads != 2 {
+		t.Fatalf("users with downloads = %d, want 2", stats.UsersWithDownloads)
+	}
+	if stats.ReturningUsers != 1 {
+		t.Fatalf("returning users = %d, want 1", stats.ReturningUsers)
+	}
+	if stats.DAU != 2 {
+		t.Fatalf("dau = %d, want 2", stats.DAU)
+	}
+	if stats.DownloadsToday < 3 {
+		t.Fatalf("downloads today = %d, want at least 3 completed downloads", stats.DownloadsToday)
+	}
+	if stats.Completed30d < 3 {
+		t.Fatalf("completed 30d = %d", stats.Completed30d)
+	}
+	if stats.Failed30d < 1 {
+		t.Fatalf("failed 30d = %d", stats.Failed30d)
 	}
 }

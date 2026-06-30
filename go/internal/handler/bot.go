@@ -56,7 +56,7 @@ func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q taskEnqu
 }
 
 func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
-	h.Use(metricsMiddleware())
+	h.Use(metricsMiddleware(b.redis))
 	h.HandleMessageCtx(b.onStart(bot), th.CommandEqual("start"))
 	h.HandleMessageCtx(b.onSettings(bot), th.CommandEqual("settings"))
 	h.HandleMessageCtx(b.onClear(bot), th.CommandEqual("clear"))

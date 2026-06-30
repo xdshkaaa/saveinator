@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const activityDownloadFilter = `status = 'COMPLETED'::downloadstatus`
+
 type UserStats struct {
 	TotalUsers         int
 	NewToday           int
@@ -16,6 +18,11 @@ type UserStats struct {
 	MAU                int
 	UsersWithDownloads int
 	ReturningUsers     int
+	DownloadsToday     int
+	Downloads7d        int
+	Downloads30d       int
+	Completed30d       int
+	Failed30d          int
 	LanguageEN         int
 	LanguageRU         int
 	TopPlatforms7d     []PlatformCount
@@ -33,53 +40,90 @@ func (s *Store) FetchUserStats(ctx context.Context, bannedCount int) (UserStats,
 	now := time.Now().UTC()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	yesterdayStart := todayStart.Add(-24 * time.Hour)
+	d7 := now.Add(-7 * 24 * time.Hour)
+	d30 := now.Add(-30 * 24 * time.Hour)
+	d24 := now.Add(-24 * time.Hour)
 
-	if err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&stats.TotalUsers); err != nil {
+	err := s.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) AS total,
+			COUNT(*) FILTER (WHERE created_at >= $1) AS new_today,
+			COUNT(*) FILTER (WHERE created_at >= $2 AND created_at < $1) AS new_yesterday,
+			COUNT(*) FILTER (WHERE created_at >= $3) AS new_7d,
+			COUNT(*) FILTER (WHERE created_at >= $4) AS new_30d,
+			COUNT(*) FILTER (WHERE language = 'EN'::language) AS lang_en,
+			COUNT(*) FILTER (WHERE language = 'RU'::language) AS lang_ru
+		FROM users
+	`, todayStart, yesterdayStart, d7, d30).Scan(
+		&stats.TotalUsers,
+		&stats.NewToday,
+		&stats.NewYesterday,
+		&stats.New7d,
+		&stats.New30d,
+		&stats.LanguageEN,
+		&stats.LanguageRU,
+	)
+	if err != nil {
 		return stats, err
 	}
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE created_at >= $1`, todayStart).Scan(&stats.NewToday)
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE created_at >= $1 AND created_at < $2`, yesterdayStart, todayStart).Scan(&stats.NewYesterday)
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE created_at >= $1`, now.Add(-7*24*time.Hour)).Scan(&stats.New7d)
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE created_at >= $1`, now.Add(-30*24*time.Hour)).Scan(&stats.New30d)
 
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT user_id) FROM downloads WHERE created_at >= $1`, now.Add(-24*time.Hour)).Scan(&stats.DAU)
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT user_id) FROM downloads WHERE created_at >= $1`, now.Add(-7*24*time.Hour)).Scan(&stats.WAU)
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT user_id) FROM downloads WHERE created_at >= $1`, now.Add(-30*24*time.Hour)).Scan(&stats.MAU)
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT user_id) FROM downloads`).Scan(&stats.UsersWithDownloads)
-	_ = s.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM (
-			SELECT user_id FROM downloads WHERE status = 'COMPLETED'::downloadstatus
-			GROUP BY user_id HAVING COUNT(*) >= 2
-		) t
-	`).Scan(&stats.ReturningUsers)
+	err = s.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE `+activityDownloadFilter+` AND created_at >= $1) AS downloads_today,
+			COUNT(*) FILTER (WHERE `+activityDownloadFilter+` AND created_at >= $2) AS downloads_7d,
+			COUNT(*) FILTER (WHERE `+activityDownloadFilter+` AND created_at >= $3) AS downloads_30d,
+			COUNT(*) FILTER (WHERE `+activityDownloadFilter+` AND created_at >= $3) AS completed_30d,
+			COUNT(*) FILTER (WHERE status = 'FAILED'::downloadstatus
+				AND created_at >= $3) AS failed_30d
+		FROM downloads
+	`, todayStart, d7, d30).Scan(
+		&stats.DownloadsToday,
+		&stats.Downloads7d,
+		&stats.Downloads30d,
+		&stats.Completed30d,
+		&stats.Failed30d,
+	)
+	if err != nil {
+		return stats, err
+	}
 
-	rows, err := s.pool.Query(ctx, `SELECT language::text, COUNT(*) FROM users GROUP BY language`)
+	err = s.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(DISTINCT user_id) FROM downloads
+				WHERE `+activityDownloadFilter+` AND created_at >= $1) AS dau,
+			(SELECT COUNT(DISTINCT user_id) FROM downloads
+				WHERE `+activityDownloadFilter+` AND created_at >= $2) AS wau,
+			(SELECT COUNT(DISTINCT user_id) FROM downloads
+				WHERE `+activityDownloadFilter+` AND created_at >= $3) AS mau,
+			(SELECT COUNT(DISTINCT user_id) FROM downloads
+				WHERE `+activityDownloadFilter+`) AS users_with_downloads,
+			(SELECT COUNT(*) FROM (
+				SELECT user_id FROM downloads
+				WHERE `+activityDownloadFilter+`
+				GROUP BY user_id HAVING COUNT(*) >= 2
+			) t) AS returning_users
+	`, d24, d7, d30).Scan(
+		&stats.DAU,
+		&stats.WAU,
+		&stats.MAU,
+		&stats.UsersWithDownloads,
+		&stats.ReturningUsers,
+	)
+	if err != nil {
+		return stats, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT platform::text, COUNT(DISTINCT user_id)
+		FROM downloads
+		WHERE `+activityDownloadFilter+` AND created_at >= $1
+		GROUP BY platform ORDER BY COUNT(DISTINCT user_id) DESC LIMIT 3
+	`, d7)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var lang string
-			var count int
-			if rows.Scan(&lang, &count) == nil {
-				switch fromDBLanguage(lang) {
-				case "en":
-					stats.LanguageEN = count
-				case "ru":
-					stats.LanguageRU = count
-				}
-			}
-		}
-	}
-
-	rows2, err := s.pool.Query(ctx, `
-		SELECT platform::text, COUNT(DISTINCT user_id)
-		FROM downloads WHERE created_at >= $1
-		GROUP BY platform ORDER BY COUNT(DISTINCT user_id) DESC LIMIT 3
-	`, now.Add(-7*24*time.Hour))
-	if err == nil {
-		defer rows2.Close()
-		for rows2.Next() {
 			var pc PlatformCount
-			if rows2.Scan(&pc.Platform, &pc.Count) == nil {
+			if rows.Scan(&pc.Platform, &pc.Count) == nil {
 				stats.TopPlatforms7d = append(stats.TopPlatforms7d, pc)
 			}
 		}
