@@ -23,11 +23,13 @@ func UserFacingErrorKey(platform string, err error) string {
 	case strings.Contains(msg, "context deadline exceeded"),
 		strings.Contains(msg, "timed out"):
 		return "download.timeout"
-	case platform == "instagram" && !strings.Contains(msg, "read-only file system") && !strings.Contains(msg, "empty media response") && (strings.Contains(msg, "login") ||
-		(strings.Contains(msg, "cookies") && !strings.Contains(msg, "yt_dlp/cookies.py")) ||
-		strings.Contains(msg, "rate-limit") ||
-		strings.Contains(msg, "checkpoint") ||
-		strings.Contains(msg, "authentication")):
+	case platform == "instagram" && !strings.Contains(msg, "read-only file system") && (strings.Contains(msg, "use --cookies") ||
+		strings.Contains(msg, "cookies-from-browser") ||
+		(!strings.Contains(msg, "empty media response") && (strings.Contains(msg, "login") ||
+			(strings.Contains(msg, "cookies") && !strings.Contains(msg, "yt_dlp/cookies.py")) ||
+			strings.Contains(msg, "rate-limit") ||
+			strings.Contains(msg, "checkpoint") ||
+			strings.Contains(msg, "authentication")))):
 		return "instagram.auth_required"
 	case platform == "instagram":
 		return "instagram.download_failed"
