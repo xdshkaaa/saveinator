@@ -84,3 +84,107 @@ func TestPhotoURLQueryParamsStripped(t *testing.T) {
 		t.Fatalf("photo URL with query params should resolve to clean video URL:\n  got:  %s\n  want: %s", got, want)
 	}
 }
+
+func TestIsPhotoModeDetectsPhotomodeThumbnail(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://p16.tiktokcdn.com/tos-useast2a-i-photomode-euttp/image.jpeg"},
+			map[string]any{"id": "originCover", "url": "https://p16.tiktokcdn.com/tos-useast2a-i-photomode-euttp/image.jpeg"},
+		},
+	}
+	if !isPhotoMode(info) {
+		t.Fatal("expected isPhotoMode to return true for photomode thumbnails")
+	}
+}
+
+func TestIsPhotoModeFalseForRegularThumbnails(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://p16.tiktokcdn.com/tos-maliva-avt/image.jpeg"},
+		},
+	}
+	if isPhotoMode(info) {
+		t.Fatal("expected isPhotoMode to return false for regular thumbnails")
+	}
+}
+
+func TestIsPhotoModeFalseWhenNoThumbnails(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{}
+	if isPhotoMode(info) {
+		t.Fatal("expected isPhotoMode to return false when no thumbnails")
+	}
+}
+
+func TestExtractCarouselURLsFromTopLevelThumbnails(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://example.com/photo1.jpg"},
+			map[string]any{"id": "orig", "url": "https://example.com/photo2.webp"},
+		},
+	}
+	urls := extractCarouselURLs(info)
+	if len(urls) != 2 {
+		t.Fatalf("expected 2 carousel URLs from top-level thumbnails, got %d: %v", len(urls), urls)
+	}
+}
+
+func TestExtractCarouselURLsFiltersVideoURLs(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://example.com/video/123.mp4"},
+			map[string]any{"id": "orig", "url": "https://example.com/photo.jpg"},
+		},
+	}
+	urls := extractCarouselURLs(info)
+	if len(urls) != 1 {
+		t.Fatalf("expected 1 carousel URL (video filtered out), got %d: %v", len(urls), urls)
+	}
+}
+
+func TestPreferVideoDeliveryRejectsAudioOnlyStream(t *testing.T) {
+	t.Parallel()
+	// photomode post: top-level url is audio-only with vcodec=none
+	info := map[string]any{
+		"url":     "https://example.com/audio.mp3",
+		"vcodec":  "none",
+		"acodec":  "mp3",
+	}
+	if preferVideoDelivery(info) {
+		t.Fatal("expected preferVideoDelivery=false for audio-only stream (vcodec=none)")
+	}
+}
+
+func TestPreferVideoDeliveryAcceptsVideoStream(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{
+		"url":     "https://example.com/video.mp4",
+		"vcodec":  "h264",
+	}
+	if !preferVideoDelivery(info) {
+		t.Fatal("expected preferVideoDelivery=true for video stream")
+	}
+}
+
+func TestPhotoModeEntryTriggersSlideshowDetection(t *testing.T) {
+	t.Parallel()
+	// Simulates real photomode yt-dlp output: no entries, no is_slideshow,
+	// but thumbnails contain photomode URLs.
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://p16.tiktokcdn.com/tos-useast2a-i-photomode-euttp/c412e909e3d1490b927608a6801582cd~tplv-photomode-image.jpeg"},
+		},
+	}
+	isSlideshow := boolField(info, "is_slideshow") || len(infoEntries(info)) >= 2 || isPhotoMode(info)
+	if !isSlideshow {
+		t.Fatal("expected photomode post to be detected as slideshow")
+	}
+	imageURLs := extractCarouselURLs(info)
+	if len(imageURLs) == 0 {
+		t.Fatal("expected image URLs to be extracted from photomode post")
+	}
+}
