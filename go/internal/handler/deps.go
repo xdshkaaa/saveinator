@@ -9,7 +9,7 @@ import (
 type taskEnqueuer interface {
 	EnqueueDownload(p queue.DownloadPayload) error
 	EnqueueTikTok(p queue.DownloadPayload) error
-	EnqueuePinterest(p queue.DownloadPayload) error
+	EnqueuePinterestDefault(p queue.DownloadPayload) error
 	EnqueueSpotify(p queue.MusicPayload) error
 	EnqueueSoundCloud(p queue.MusicPayload) error
 	EnqueueBroadcast(p queue.BroadcastPayload) error
@@ -24,8 +24,6 @@ func sceneForPlatform(platform string) string {
 	switch platform {
 	case "tiktok":
 		return "tiktok"
-	case "pinterest":
-		return "pinterest"
 	case "spotify":
 		return "spotify"
 	case "soundcloud":

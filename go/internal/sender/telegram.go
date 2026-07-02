@@ -14,11 +14,31 @@ import (
 )
 
 type Telegram struct {
-	bot *telego.Bot
+	bot         *telego.Bot
+	botUsername string
 }
 
 func New(bot *telego.Bot) *Telegram {
-	return &Telegram{bot: bot}
+	return NewWithUsername(bot, "saveinator_bot")
+}
+
+func NewWithUsername(bot *telego.Bot, username string) *Telegram {
+	if username == "" {
+		username = "saveinator_bot"
+	}
+	return &Telegram{bot: bot, botUsername: username}
+}
+
+// ResolveBotUsername returns @handle without @ from Telegram getMe, or fallback.
+func ResolveBotUsername(bot *telego.Bot, fallback string) string {
+	if fallback == "" {
+		fallback = "saveinator_bot"
+	}
+	me, err := bot.GetMe()
+	if err != nil || me.Username == "" {
+		return fallback
+	}
+	return me.Username
 }
 
 func (t *Telegram) EditMessage(chatID int64, messageID int, text string) error {
@@ -64,7 +84,7 @@ func (t *Telegram) SendFile(chatID int64, path, title, lang, platform string, an
 	defer file.close()
 
 	sizeMB := float64(fileSize(path)) / (1024 * 1024)
-	caption := buildCaption(title, lang, platform)
+	caption := t.buildCaption(title, lang, platform)
 
 	if animation {
 		return metrics.CallTelegram("SendAnimation", func() error {
@@ -123,7 +143,7 @@ func (t *Telegram) SendFileWithMarkup(chatID int64, path, title, lang, platform 
 	defer file.close()
 
 	sizeMB := float64(fileSize(path)) / (1024 * 1024)
-	caption := buildCaption(title, lang, platform)
+	caption := t.buildCaption(title, lang, platform)
 	chat := tu.ID(chatID)
 
 	if animation {
@@ -246,13 +266,17 @@ func (t *Telegram) SendAudio(chatID int64, path, title, performer string, durati
 	})
 }
 
-func buildCaption(title, lang, platform string) string {
-	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
+func (t *Telegram) buildCaption(title, lang, platform string) string {
+	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": t.botUsername})
 	title = strings.TrimSpace(title)
 	if title != "" {
 		return title + "\n\n" + via
 	}
 	return via
+}
+
+func buildCaption(title, lang, platform, botUsername string) string {
+	return (&Telegram{botUsername: botUsername}).buildCaption(title, lang, platform)
 }
 
 func fileSize(path string) int64 {

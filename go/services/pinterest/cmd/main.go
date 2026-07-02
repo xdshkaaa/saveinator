@@ -1,17 +1,16 @@
-package app
+package main
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/hibiken/asynq"
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
@@ -19,32 +18,46 @@ import (
 
 	"saveinator/internal/config"
 	"saveinator/internal/db"
-	"saveinator/internal/handler"
+	"saveinator/internal/api"
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
+	"saveinator/internal/sender"
 	"saveinator/internal/worker"
+	pinteresthandler "saveinator/services/pinterest/handler"
+	pinterestworker "saveinator/services/pinterest/worker"
 )
 
-type App struct {
-	cfg *config.Settings
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("config error", "err", err)
+		os.Exit(1)
+	}
+
+	level := slog.LevelInfo
+	if cfg.LogLevel == "DEBUG" {
+		level = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
+
+	if err := run(cfg); err != nil {
+		slog.Error("application stopped", "err", err)
+		os.Exit(1)
+	}
 }
 
-func New(cfg *config.Settings) *App {
-	return &App{cfg: cfg}
-}
-
-func (a *App) Run(ctx context.Context) error {
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+func run(cfg *config.Settings) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	store, err := db.Connect(ctx, a.cfg.DatabaseURL)
+	store, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 
-	redisClient, err := redisx.Connect(a.cfg.RedisURL)
+	redisClient, err := redisx.Connect(cfg.RedisURL)
 	if err != nil {
 		return err
 	}
@@ -58,28 +71,25 @@ func (a *App) Run(ctx context.Context) error {
 		return n
 	})
 
-	bot, err := telego.NewBot(a.cfg.BotToken, telego.WithDefaultLogger(false, false))
+	bot, err := telego.NewBot(cfg.BotToken, telego.WithDefaultLogger(false, false))
 	if err != nil {
 		return fmt.Errorf("create bot: %w", err)
 	}
 
-	mode := a.cfg.Mode
+	mode := cfg.Mode
 	if mode == "" {
 		mode = "all"
 	}
 
-	errCh := make(chan error, 4)
+	errCh := make(chan error, 3)
 	if mode == "bot" || mode == "all" {
-		go func() { errCh <- a.runBot(ctx, bot, store, redisClient) }()
+		go func() { errCh <- runBot(ctx, bot, store, redisClient, cfg) }()
 	}
 	if mode == "worker" || mode == "all" {
-		go func() { errCh <- a.runWorker(ctx, bot, store, redisClient) }()
+		go func() { errCh <- runWorker(ctx, bot, store, redisClient, cfg) }()
 	}
-	if a.cfg.MetricsEnabled {
-		go func() { errCh <- a.runMetrics(ctx, a.cfg.MetricsPort) }()
-		if a.cfg.WorkerMetricsPort > 0 && a.cfg.WorkerMetricsPort != a.cfg.MetricsPort {
-			go func() { errCh <- a.runMetrics(ctx, a.cfg.WorkerMetricsPort) }()
-		}
+	if cfg.MetricsEnabled {
+		go func() { errCh <- runMetrics(ctx, cfg) }()
 	}
 
 	select {
@@ -90,22 +100,22 @@ func (a *App) Run(ctx context.Context) error {
 	}
 }
 
-func (a *App) runBot(ctx context.Context, bot *telego.Bot, store *db.Store, redisClient *redisx.Client) error {
-	q, err := queue.NewClient(a.cfg.RedisURL)
+func runBot(ctx context.Context, bot *telego.Bot, store *db.Store, redisClient *redisx.Client, cfg *config.Settings) error {
+	q, err := queue.NewClient(cfg.RedisURL)
 	if err != nil {
 		return err
 	}
 	defer q.Close()
 
 	var updates <-chan telego.Update
-	if a.cfg.UsePolling {
-		slog.Info("starting polling mode")
+	if cfg.UsePolling {
+		slog.Info("starting polling mode (pinterest)")
 		updates, err = bot.UpdatesViaLongPolling(nil)
 		if err != nil {
 			return err
 		}
 	} else {
-		updates, err = a.setupWebhook(ctx, bot)
+		updates, err = setupWebhook(ctx, bot, cfg)
 		if err != nil {
 			return err
 		}
@@ -117,25 +127,25 @@ func (a *App) runBot(ctx context.Context, bot *telego.Bot, store *db.Store, redi
 	}
 	defer bh.Stop()
 
-	handler.New(a.cfg, store, redisClient, q).Register(bh, bot)
+	pinteresthandler.New(cfg, store, redisClient, q).Register(bh, bot)
 
-	if err := a.registerBotCommands(bot); err != nil {
+	if err := registerBotCommands(bot, cfg); err != nil {
 		slog.Warn("register bot commands failed", "err", err)
 	}
 
-	if a.cfg.UsePolling {
+	if cfg.UsePolling {
 		bh.Start()
 		return nil
 	}
 
 	go bh.Start()
-	addr := fmt.Sprintf("%s:%d", a.cfg.WebhookListen, a.cfg.WebhookPort)
-	slog.Info("starting webhook mode", "addr", addr)
+	addr := fmt.Sprintf("%s:%d", cfg.WebhookListen, cfg.WebhookPort)
+	slog.Info("starting webhook mode (pinterest)", "addr", addr)
 	return bot.StartWebhook(addr)
 }
 
-func (a *App) setupWebhook(ctx context.Context, bot *telego.Bot) (<-chan telego.Update, error) {
-	path := a.cfg.WebhookPath
+func setupWebhook(ctx context.Context, bot *telego.Bot, cfg *config.Settings) (<-chan telego.Update, error) {
+	path := cfg.WebhookPath
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
@@ -143,21 +153,22 @@ func (a *App) setupWebhook(ctx context.Context, bot *telego.Bot) (<-chan telego.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/", health)
+	api.RegisterDownloadRoutes(mux, cfg)
 
-	addr := fmt.Sprintf("%s:%d", a.cfg.WebhookListen, a.cfg.WebhookPort)
+	addr := fmt.Sprintf("%s:%d", cfg.WebhookListen, cfg.WebhookPort)
 	server := &http.Server{Addr: addr, Handler: mux}
 
 	whServer := telego.HTTPWebhookServer{
 		Server:      server,
 		ServeMux:    mux,
-		SecretToken: a.cfg.WebhookSecretToken,
+		SecretToken: cfg.WebhookSecretToken,
 	}
 
 	updates, err := bot.UpdatesViaWebhook(path,
 		telego.WithWebhookServer(whServer),
 		telego.WithWebhookSet(&telego.SetWebhookParams{
-			URL:                a.cfg.WebhookURL(),
-			SecretToken:        a.cfg.WebhookSecretToken,
+			URL:                cfg.WebhookURL(),
+			SecretToken:        cfg.WebhookSecretToken,
 			DropPendingUpdates: true,
 		}),
 	)
@@ -175,20 +186,20 @@ func (a *App) setupWebhook(ctx context.Context, bot *telego.Bot) (<-chan telego.
 	return updates, nil
 }
 
-func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, redisClient *redisx.Client) error {
-	opt, err := queue.RedisOpt(a.cfg.RedisURL)
+func runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, redisClient *redisx.Client, cfg *config.Settings) error {
+	opt, err := queue.RedisOpt(cfg.RedisURL)
 	if err != nil {
 		return err
 	}
 
-	if err := queue.RecoverOrphanedActiveTasks(a.cfg.RedisURL); err != nil {
+	if err := queue.RecoverOrphanedActiveTasks(cfg.RedisURL, queue.PinterestQueueName); err != nil {
 		slog.Warn("asynq queue recovery failed", "err", err)
 	}
 
 	srv := asynq.NewServer(opt, asynq.Config{
 		Concurrency: 2,
 		Queues: map[string]int{
-			"default": 1,
+			queue.PinterestQueueName: 1,
 		},
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 			slog.Warn("asynq task failed", "type", task.Type(), "err", err)
@@ -198,25 +209,26 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 	})
 
 	mux := asynq.NewServeMux()
-	worker.NewHandler(a.cfg, bot, store, redisClient).Register(mux)
-	worker.StartMaintenance(ctx, a.cfg)
+	snd := sender.NewWithUsername(bot, sender.ResolveBotUsername(bot, cfg.BotUsername))
+	pinterestworker.NewHandler(cfg, snd, store, redisClient).Register(mux)
+
+	worker.StartTempfileSweep(ctx)
 
 	go func() {
 		<-ctx.Done()
 		srv.Shutdown()
 	}()
 
-	slog.Info("starting asynq worker")
+	slog.Info("starting asynq worker (pinterest)")
 	return srv.Run(mux)
 }
 
-func (a *App) runMetrics(ctx context.Context, port int) error {
-	r := chi.NewRouter()
-	r.Use(chimw.Recoverer)
-	r.Handle("/metrics", metrics.Handler())
-
-	addr := fmt.Sprintf("%s:%d", a.cfg.MetricsHost, port)
-	srv := &http.Server{Addr: addr, Handler: r}
+func runMetrics(ctx context.Context, cfg *config.Settings) error {
+	addr := fmt.Sprintf("%s:%d", cfg.MetricsHost, cfg.MetricsPort)
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: metrics.Handler(),
+	}
 
 	go func() {
 		<-ctx.Done()
@@ -239,26 +251,26 @@ func health(w http.ResponseWriter, r *http.Request) {
 	})).ServeHTTP(w, r)
 }
 
-func (a *App) registerBotCommands(bot *telego.Bot) error {
+func registerBotCommands(bot *telego.Bot, cfg *config.Settings) error {
 	defaultCommands := []telego.BotCommand{
-		{Command: "start", Description: "Start / language"},
+		{Command: "start", Description: "Start"},
+		{Command: "lang", Description: "Change language"},
 		{Command: "settings", Description: "User settings"},
 		{Command: "clear", Description: "Clear your download queue"},
 	}
 	if err := bot.SetMyCommands(&telego.SetMyCommandsParams{Commands: defaultCommands}); err != nil {
 		return err
 	}
-	if a.cfg.AdminTelegramID > 0 {
+	if cfg.AdminTelegramID > 0 {
 		adminCommands := append(defaultCommands,
 			telego.BotCommand{Command: "admin", Description: "Admin panel"},
 			telego.BotCommand{Command: "stats", Description: "User statistics"},
-			telego.BotCommand{Command: "broadcast", Description: "Send broadcast"},
 		)
 		_ = bot.SetMyCommands(&telego.SetMyCommandsParams{
 			Commands: adminCommands,
 			Scope: &telego.BotCommandScopeChat{
 				Type:   "chat",
-				ChatID: tu.ID(a.cfg.AdminTelegramID),
+				ChatID: tu.ID(cfg.AdminTelegramID),
 			},
 		})
 	}

@@ -16,6 +16,11 @@
 }
 
 :8093 {
+	@pinterest_hooks path /webhook/pinterest /download/pinterest
+	handle @pinterest_hooks {
+		reverse_proxy 127.0.0.1:8001
+	}
+
 	@telegram_hooks path / /health /webhook*
 	handle @telegram_hooks {
 		reverse_proxy 127.0.0.1:8000

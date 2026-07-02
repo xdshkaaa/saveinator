@@ -6,7 +6,10 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-const defaultQueueName = "default"
+const (
+	defaultQueueName   = "default"
+	PinterestQueueName = "pinterest"
+)
 
 var userTaskTypes = map[string]struct{}{
 	TypeDownload:      {},
@@ -85,11 +88,31 @@ func TaskLockRef(taskType string, payload []byte) (LockRef, bool) {
 	}
 }
 
-func ClearUserTasks(insp *asynq.Inspector, userID int64) (ClearUserResult, []LockRef, error) {
+func ClearUserTasks(insp *asynq.Inspector, userID int64, queueNames ...string) (ClearUserResult, []LockRef, error) {
+	if len(queueNames) == 0 {
+		queueNames = []string{defaultQueueName}
+	}
 	var result ClearUserResult
 	var lockRefs []LockRef
 
-	active, err := insp.ListActiveTasks(defaultQueueName)
+	for _, queueName := range queueNames {
+		part, refs, err := clearUserTasksInQueue(insp, userID, queueName)
+		if err != nil {
+			return result, lockRefs, err
+		}
+		result.DeletedPending += part.DeletedPending
+		result.CancelledActive += part.CancelledActive
+		lockRefs = append(lockRefs, refs...)
+	}
+
+	return result, lockRefs, nil
+}
+
+func clearUserTasksInQueue(insp *asynq.Inspector, userID int64, queueName string) (ClearUserResult, []LockRef, error) {
+	var result ClearUserResult
+	var lockRefs []LockRef
+
+	active, err := insp.ListActiveTasks(queueName)
 	if err != nil {
 		return result, nil, err
 	}
@@ -111,7 +134,7 @@ func ClearUserTasks(insp *asynq.Inspector, userID int64) (ClearUserResult, []Loc
 		insp.ListScheduledTasks,
 		insp.ListRetryTasks,
 	} {
-		tasks, err := listFn(defaultQueueName)
+		tasks, err := listFn(queueName)
 		if err != nil {
 			return result, lockRefs, err
 		}
@@ -120,7 +143,7 @@ func ClearUserTasks(insp *asynq.Inspector, userID int64) (ClearUserResult, []Loc
 			if !ok || uid != userID {
 				continue
 			}
-			if err := insp.DeleteTask(defaultQueueName, task.ID); err == nil {
+			if err := insp.DeleteTask(queueName, task.ID); err == nil {
 				result.DeletedPending++
 			}
 		}

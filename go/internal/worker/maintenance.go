@@ -17,6 +17,22 @@ func StartMaintenance(ctx context.Context, cfg *config.Settings) {
 	go runMaintenance(ctx, cfg)
 }
 
+func StartTempfileSweep(ctx context.Context) {
+	go func() {
+		sweepStaleTempfiles(time.Hour)
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sweepStaleTempfiles(time.Hour)
+			}
+		}
+	}()
+}
+
 func runMaintenance(ctx context.Context, cfg *config.Settings) {
 	sweepStaleTempfiles(time.Hour)
 

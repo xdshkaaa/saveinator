@@ -23,10 +23,10 @@ Pinterest is implemented entirely in Go — **not** `pinterest-dl` or legacy Pyt
 Telegram message / HTTP API
         │
         ▼
-go/internal/linkparser/parser.go     # URL validation
+go/services/pinterest/handler/bot.go   # Pinterest-only Telegram bot
         │
-        ├── Telegram: handler → queue → worker/pinterest_tiktok.go
-        └── HTTP API: go/internal/api/pinterest.go
+        ▼
+go/internal/queue → go/services/pinterest/worker/
         │
         ▼
 go/internal/pinterest/client.go      # PinResource / BoardFeedResource API
@@ -35,15 +35,18 @@ go/internal/pinterest/client.go      # PinResource / BoardFeedResource API
 /tmp/saveinator-*/                   # ephemeral storage
 ```
 
+Main `saveinator` bot no longer handles Pinterest — users get `errors.pinterest_dedicated_bot`.
+
 ### Key modules
 
 | Module | Purpose |
 |--------|---------|
+| `go/services/pinterest/cmd/main.go` | Microservice entrypoint |
+| `go/services/pinterest/handler/` | Pinterest Telegram bot |
+| `go/services/pinterest/worker/` | asynq worker (`download:pinterest`) |
 | `go/internal/pinterest/parser.go` | Pin/board/short URL detection |
 | `go/internal/pinterest/client.go` | Pinterest API + file download |
-| `go/internal/pinterest/json.go` | Response parsing |
-| `go/internal/worker/pinterest_tiktok.go` | asynq worker handler |
-| `go/internal/api/pinterest.go` | `POST /download/pinterest` |
+| `go/internal/api/pinterest.go` | `POST /download/pinterest` (on pinterest service) |
 
 Pins and short links use `PinResource` API. Boards use `BoardFeedResource` API.
 
@@ -53,10 +56,9 @@ Send a supported Pinterest URL to the bot. Handler enqueues `download:pinterest`
 
 ## HTTP API
 
-When `DOWNLOAD_API_ENABLED=true`:
+When `DOWNLOAD_API_ENABLED=true` on the **pinterest** service:
 
-- Webhook mode: `http://{host}:{WEBHOOK_PORT}/download/pinterest`
-- Polling mode: `http://127.0.0.1:{METRICS_PORT}/download/pinterest`
+- Webhook mode: `http://{host}:{PINTEREST_WEBHOOK_PORT}/download/pinterest` (default `:8001` in Docker)
 
 ### Request
 

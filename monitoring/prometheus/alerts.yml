@@ -57,6 +57,15 @@ groups:
           summary: Saveinator worker metrics target down
           description: Prometheus cannot scrape the Celery worker metrics endpoint.
 
+      - alert: PinterestTargetDown
+        expr: up{job="saveinator-pinterest"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Pinterest bot metrics target down
+          description: Prometheus cannot scrape the Pinterest microservice metrics endpoint on :9103.
+
       - alert: PostgresDown
         expr: pg_up == 0
         for: 1m

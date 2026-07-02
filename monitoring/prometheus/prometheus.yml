@@ -45,6 +45,14 @@ scrape_configs:
         labels:
           service: worker
 
+  - job_name: saveinator-pinterest
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 127.0.0.1:9103
+        labels:
+          service: pinterest
+
   - job_name: postgres
     static_configs:
       - targets:

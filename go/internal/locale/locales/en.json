@@ -1,9 +1,12 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Welcome! Send me a YouTube, TikTok, X/Twitter, Spotify, SoundCloud, or Pinterest link in any group. I can download videos, music, and images.",
+    "welcome": "Welcome! Send me a YouTube, TikTok, X/Twitter, Spotify, or SoundCloud link in any group. I can download videos and music.",
+    "welcome_pinterest": "👋 Hello!!\n📥 I can download videos from Pinterest\n👉 Send the link to the bot and in a couple of seconds you will receive a video without a watermark.",
     "btn_en": "🇬🇧 English",
-    "btn_ru": "🇷🇺 Русский"
+    "btn_ru": "🇷🇺 Русский",
+    "lang_command_prompt": "Choose your language:",
+    "lang_changed": "Language updated."
   },
   "download": {
     "downloading": "⏳ Downloading...",
@@ -31,13 +34,14 @@
     "no_media_in_reply": "❌ No media found in the specified reply."
   },
   "errors": {
-    "unsupported": "Unsupported link. I work with YouTube, TikTok, X/Twitter, Spotify, SoundCloud, and Pinterest links.",
+    "unsupported": "Unsupported link. I work with YouTube, TikTok, X/Twitter, Spotify, and SoundCloud links.",
     "rate_limit": "Slow down! You can make {count} requests every {window} seconds.",
     "chat_rate_limit": "This group is sending too many requests. Try again in a moment.",
     "busy": "Please wait until your current download finishes before sending another link.",
-    "send_link": "Send a link instead of a file. I download from YouTube, TikTok, X/Twitter, Spotify, SoundCloud, and Pinterest URLs.",
+    "send_link": "Send a link instead of a file. I download from YouTube, TikTok, X/Twitter, Spotify, and SoundCloud URLs.",
     "generic": "Something went wrong. Please try again later.",
-    "admin_debug": "\n\n🔧 Debug:\n{detail}"
+    "admin_debug": "\n\n🔧 Debug:\n{detail}",
+    "pinterest_dedicated_bot": "Pinterest is not available."
   },
   "spotify": {
     "card_title": "🎵 {artist} — {name}",
@@ -227,6 +231,7 @@
     "invalid_link": "❌ This is not a TikTok video link. Use Share → Copy link in the TikTok app."
   },
   "pinterest": {
+    "not_pinterest_link": "I only work with Pinterest links. Send me a pin, board, or pin.it link.",
     "disabled": "Pinterest support is disabled on this bot.",
     "no_media": "❌ No media found at this Pinterest URL.",
     "all_too_large": "❌ All media files exceeded the size limit.",

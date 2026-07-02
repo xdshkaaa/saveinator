@@ -1,7 +1,10 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, X/Twitter, Spotify, SoundCloud или Pinterest в любую группу. Я скачиваю видео, музыку и изображения.",
+    "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, X/Twitter, Spotify или SoundCloud в любую группу. Я скачиваю видео и музыку.",
+    "welcome_pinterest": "👋 Привет!!\n📥 Я скачиваю видео с Pinterest\n👉 Отправь ссылку боту — через пару секунд получишь видео без водяного знака.",
+    "lang_command_prompt": "Выберите язык:",
+    "lang_changed": "Язык изменён.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский"
   },
@@ -28,11 +31,12 @@
     "empty": "Нет активных загрузок."
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, X/Twitter, Spotify, SoundCloud и Pinterest.",
+    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, X/Twitter, Spotify и SoundCloud.",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "busy": "Подожди, пока завершится текущее скачивание, и только потом отправляй новую ссылку.",
-    "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, X/Twitter, Spotify, SoundCloud и Pinterest.",
+    "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, X/Twitter, Spotify и SoundCloud.",
+    "pinterest_dedicated_bot": "Pinterest недоступен.",
     "generic": "Что-то пошло не так. Попробуй позже.",
     "admin_debug": "\n\n🔧 Отладка:\n{detail}"
   },
@@ -227,6 +231,7 @@
     "invalid_link": "❌ Это не ссылка на видео TikTok. Нажми «Поделиться» → «Копировать ссылку» в приложении."
   },
   "pinterest": {
+    "not_pinterest_link": "Я работаю только со ссылками Pinterest. Пришли мне ссылку на пин, доску или pin.it.",
     "disabled": "Поддержка Pinterest отключена на этом боте.",
     "no_media": "❌ Не удалось найти медиа по этой ссылке Pinterest.",
     "all_too_large": "❌ Все файлы превышают допустимый размер.",

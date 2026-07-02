@@ -41,18 +41,17 @@ func (q *recordingQueue) EnqueueTikTok(p queue.DownloadPayload) error {
 	return q.err
 }
 
-func (q *recordingQueue) EnqueuePinterest(p queue.DownloadPayload) error {
+func (q *recordingQueue) EnqueueSpotify(p queue.MusicPayload) error { return nil }
+func (q *recordingQueue) EnqueueSoundCloud(p queue.MusicPayload) error { return nil }
+func (q *recordingQueue) EnqueueBroadcast(p queue.BroadcastPayload) error { return nil }
+func (q *recordingQueue) EnqueueTikTokCarousel(p queue.DownloadPayload) error { return nil }
+func (q *recordingQueue) EnqueuePinterestDefault(p queue.DownloadPayload) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.calls = append(q.calls, queue.TypePinterest)
 	q.last = p
 	return q.err
 }
-
-func (q *recordingQueue) EnqueueSpotify(p queue.MusicPayload) error { return nil }
-func (q *recordingQueue) EnqueueSoundCloud(p queue.MusicPayload) error { return nil }
-func (q *recordingQueue) EnqueueBroadcast(p queue.BroadcastPayload) error { return nil }
-func (q *recordingQueue) EnqueueTikTokCarousel(p queue.DownloadPayload) error { return nil }
 
 type stubMessenger struct {
 	messageID int

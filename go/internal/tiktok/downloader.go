@@ -85,7 +85,7 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 			result.PostType = PostTypeCarousel
 			result.Images = images
 			if d.audioEnabled {
-				if audio, err := d.downloadAudio(ctx, url, outputDir); err == nil {
+				if audio, err := d.downloadAudio(ctx, resolved, outputDir); err == nil {
 					result.AudioPath = audio
 				}
 			}
@@ -93,7 +93,7 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 		}
 	}
 
-	if err := d.runYTDLP(ctx, url, outputDir, "best"); err != nil {
+	if err := d.runYTDLP(ctx, resolved, outputDir, "best"); err != nil {
 		return nil, err
 	}
 
@@ -107,7 +107,6 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 		result.CarouselImagesAvailable = true
 		result.CarouselImageCount = len(imageURLs)
 	}
-	_ = resolved
 	return result, nil
 }
 

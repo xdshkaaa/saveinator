@@ -11,6 +11,7 @@ import (
 
 type Settings struct {
 	BotToken           string
+	BotUsername        string
 	DatabaseURL        string
 	RedisURL           string
 	UsePolling         bool
@@ -86,6 +87,7 @@ func Load() (*Settings, error) {
 
 	s := &Settings{
 		BotToken:               os.Getenv("BOT_TOKEN"),
+		BotUsername:            env("BOT_USERNAME", ""),
 		DatabaseURL:            env("DATABASE_URL", "postgres://saveinator:saveinator@localhost:5432/saveinator?sslmode=disable"),
 		RedisURL:               env("REDIS_URL", "redis://localhost:6379/0"),
 		UsePolling:             envBool("USE_POLLING", true),

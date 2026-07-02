@@ -83,6 +83,7 @@ curl -fsS https://saveinator-hooks.xdshka.party/health
 | VPS Overview | `monitoring/grafana/dashboards/vps-overview.json` |
 | Docker Containers | `monitoring/grafana/dashboards/docker-containers.json` |
 | Telegram Bots | `monitoring/grafana/dashboards/telegram-bots.json` |
+| Pinterest Bot | `monitoring/grafana/dashboards/pinterest-bot.json` |
 | Saveinator Operations | `monitoring/grafana/dashboards/operations.json` |
 | Download Operations | `monitoring/grafana/dashboards/downloads.json` |
 | Worker / Celery | `monitoring/grafana/dashboards/worker-celery.json` |
