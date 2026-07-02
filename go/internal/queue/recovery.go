@@ -15,7 +15,19 @@ const defaultQueue = "default"
 // RecoverOrphanedActiveTasks removes stale asynq active entries left behind after
 // a crash or manual redis key deletion. Without this, the worker may dequeue tasks
 // whose metadata is missing and silently skip user-visible progress updates.
-func RecoverOrphanedActiveTasks(redisURL string) error {
+func RecoverOrphanedActiveTasks(redisURL string, queues ...string) error {
+	if len(queues) == 0 {
+		queues = []string{defaultQueue}
+	}
+	for _, queueName := range queues {
+		if err := recoverOrphanedActiveTasks(redisURL, queueName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func recoverOrphanedActiveTasks(redisURL string, queueName string) error {
 	opt, err := RedisOpt(redisURL)
 	if err != nil {
 		return err
@@ -34,8 +46,8 @@ func RecoverOrphanedActiveTasks(redisURL string) error {
 	insp := asynq.NewInspector(opt)
 	defer insp.Close()
 
-	activeKey := fmt.Sprintf("asynq:{%s}:active", defaultQueue)
-	leaseKey := fmt.Sprintf("asynq:{%s}:lease", defaultQueue)
+	activeKey := fmt.Sprintf("asynq:{%s}:active", queueName)
+	leaseKey := fmt.Sprintf("asynq:{%s}:lease", queueName)
 
 	ids, err := rdb.LRange(ctx, activeKey, 0, -1).Result()
 	if err != nil {
@@ -46,7 +58,7 @@ func RecoverOrphanedActiveTasks(redisURL string) error {
 		if id == "" {
 			continue
 		}
-		taskKey := fmt.Sprintf("asynq:{%s}:t:%s", defaultQueue, id)
+		taskKey := fmt.Sprintf("asynq:{%s}:t:%s", queueName, id)
 		exists, err := rdb.Exists(ctx, taskKey).Result()
 		if err != nil {
 			return err
@@ -54,7 +66,7 @@ func RecoverOrphanedActiveTasks(redisURL string) error {
 
 		remove := exists == 0
 		if !remove {
-			info, err := insp.GetTaskInfo(defaultQueue, id)
+			info, err := insp.GetTaskInfo(queueName, id)
 			if err != nil || info == nil || info.Type == "" {
 				remove = true
 			}
@@ -73,7 +85,7 @@ func RecoverOrphanedActiveTasks(redisURL string) error {
 		if exists > 0 {
 			_ = rdb.Del(ctx, taskKey).Err()
 		}
-		slog.Warn("removed orphaned asynq active task", "id", id)
+		slog.Warn("removed orphaned asynq active task", "queue", queueName, "id", id)
 	}
 
 	return nil

@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.22-bookworm AS builder
+
+WORKDIR /src
+COPY go/go.mod go/go.sum ./
+RUN go mod download
+COPY go/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /pinterest ./services/pinterest/cmd
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /pinterest /app/pinterest
+
+ENV SAVEINATOR_MODE=all
+ENV USE_POLLING=false
+ENV METRICS_ENABLED=true
+ENV METRICS_PORT=9103
+ENV WEBHOOK_PORT=8001
+
+EXPOSE 8001 9103
+
+ENTRYPOINT ["/app/pinterest"]

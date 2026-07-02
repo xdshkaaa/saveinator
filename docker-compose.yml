@@ -54,12 +54,6 @@ services:
       YOUTUBE_MAX_FILE_SIZE_MB: ${YOUTUBE_MAX_FILE_SIZE_MB:-1999}
       YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS: ${YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS:-600}
       TIKTOK_COOKIES_PATH: ${TIKTOK_COOKIES_PATH:-/secrets/tiktok_cookies.txt}
-      PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
-      PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_TIMEOUT_SECONDS:-30}
-      PINTEREST_MAX_ITEMS: ${PINTEREST_MAX_ITEMS:-10}
-      PINTEREST_DOWNLOAD_IMAGES: ${PINTEREST_DOWNLOAD_IMAGES:-true}
-      PINTEREST_DOWNLOAD_VIDEOS: ${PINTEREST_DOWNLOAD_VIDEOS:-true}
-      PINTEREST_COOKIES_PATH: ${PINTEREST_COOKIES_PATH:-}
       TIKTOK_CAROUSEL_MAX_ITEMS: ${TIKTOK_CAROUSEL_MAX_ITEMS:-20}
       TIKTOK_CAROUSEL_AUDIO_ENABLED: ${TIKTOK_CAROUSEL_AUDIO_ENABLED:-true}
       SPOTIFY_ENABLED: ${SPOTIFY_ENABLED:-false}
@@ -102,6 +96,50 @@ services:
       resources:
         limits:
           memory: 768M
+
+  pinterest:
+    build:
+      context: .
+      dockerfile: docker/go/Dockerfile.pinterest
+    environment:
+      BOT_TOKEN: ${PINTEREST_BOT_TOKEN:?set PINTEREST_BOT_TOKEN}
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
+      REDIS_URL: redis://redis:6379/0
+      SAVEINATOR_MODE: all
+      USE_POLLING: "${PINTEREST_USE_POLLING:-false}"
+      WEBHOOK_HOST: "${PINTEREST_WEBHOOK_HOST:-${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}}"
+      WEBHOOK_PATH: "${PINTEREST_WEBHOOK_PATH:-/webhook/pinterest}"
+      WEBHOOK_PORT: "${PINTEREST_WEBHOOK_PORT:-8001}"
+      WEBHOOK_LISTEN: "${WEBHOOK_LISTEN:-0.0.0.0}"
+      WEBHOOK_SECRET_TOKEN: "${PINTEREST_WEBHOOK_SECRET_TOKEN:-${WEBHOOK_SECRET_TOKEN:-}}"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
+      PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_TIMEOUT_SECONDS:-30}
+      PINTEREST_MAX_ITEMS: ${PINTEREST_MAX_ITEMS:-10}
+      PINTEREST_DOWNLOAD_IMAGES: ${PINTEREST_DOWNLOAD_IMAGES:-true}
+      PINTEREST_DOWNLOAD_VIDEOS: ${PINTEREST_DOWNLOAD_VIDEOS:-true}
+      PINTEREST_COOKIES_PATH: ${PINTEREST_COOKIES_PATH:-}
+      BOT_USERNAME: ${PINTEREST_BOT_USERNAME:-}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PORT: "9103"
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+      DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
+      SPAM_DEDUP_WINDOW_SECONDS: ${SPAM_DEDUP_WINDOW_SECONDS:-300}
+    ports:
+      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:9103:9103"
+    volumes:
+      - ./secrets:/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   migrate:
     build:

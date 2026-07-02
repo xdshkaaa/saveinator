@@ -86,6 +86,16 @@ func (c *Client) EnqueuePinterest(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypePinterest, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(PinterestQueueName))
+	return err
+}
+
+func (c *Client) EnqueuePinterestDefault(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypePinterest, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
 	return err
 }

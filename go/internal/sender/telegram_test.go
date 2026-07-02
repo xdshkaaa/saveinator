@@ -39,7 +39,7 @@ func TestBuildCaption(t *testing.T) {
 		tc := tc
 		t.Run(tc.platform+"_"+tc.title, func(t *testing.T) {
 			t.Parallel()
-			if got := buildCaption(tc.title, "en", tc.platform); got != tc.want {
+			if got := buildCaption(tc.title, "en", tc.platform, "saveinator_bot"); got != tc.want {
 				t.Fatalf("buildCaption(%q, en, %q) = %q, want %q", tc.title, tc.platform, got, tc.want)
 			}
 		})

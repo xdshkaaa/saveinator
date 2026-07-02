@@ -50,8 +50,8 @@ ssh "$VPS_USER@$VPS_HOST" "
 echo "[3/6] Building and starting Go stack..."
 ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
-    docker compose build saveinator
-    docker compose up -d --force-recreate saveinator
+    docker compose build saveinator pinterest
+    docker compose up -d --force-recreate saveinator pinterest
 "
 
 echo "[4/6] Running database migrations..."
@@ -70,5 +70,5 @@ ssh "$VPS_USER@$VPS_HOST" "
 echo ""
 echo "=== Deployment complete! ==="
 echo "Check status: ssh $VPS_USER@$VPS_HOST 'systemctl status ytbot'"
-echo "Check logs:  ssh $VPS_USER@$VPS_HOST 'docker compose -f $APP_DIR/docker-compose.yml logs -f saveinator'"
+echo "Check logs:  ssh $VPS_USER@$VPS_HOST 'docker compose -f $APP_DIR/docker-compose.yml logs -f saveinator pinterest'"
 echo "Metrics:     ssh $VPS_USER@$VPS_HOST 'curl -fsS http://127.0.0.1:9101/metrics | head'"

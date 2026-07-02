@@ -1,0 +1,117 @@
+{
+  "uid": "saveinator-pinterest",
+  "title": "Pinterest Bot",
+  "tags": ["saveinator", "telegram", "pinterest"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Metrics Target",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "up{job=\"saveinator-pinterest\"}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}]}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Uptime (s)",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "saveinator_uptime_seconds{job=\"saveinator-pinterest\"}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active Users",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "saveinator_active_users{job=\"saveinator-pinterest\"}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active Chats",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "saveinator_active_chats{job=\"saveinator-pinterest\"}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Messages / min",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "rate(saveinator_messages_received_total{job=\"saveinator-pinterest\"}[5m]) * 60", "legendFormat": "messages/min", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Pinterest Downloads Enqueued / min",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [{"expr": "rate(saveinator_downloads_enqueued_total{job=\"saveinator-pinterest\",platform=\"pinterest\"}[5m]) * 60", "legendFormat": "enqueued/min", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Worker Tasks / min",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{"expr": "rate(saveinator_celery_tasks_total{job=\"saveinator-pinterest\"}[5m]) * 60", "legendFormat": "{{task}} {{status}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Download Duration (p95)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "fieldConfig": {"defaults": {"unit": "s", "min": 0}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, platform) (rate(saveinator_download_duration_seconds_bucket{job=\"saveinator-pinterest\",platform=\"pinterest\"}[$__rate_interval])))", "legendFormat": "p95 {{platform}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Errors / min",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [{"expr": "rate(saveinator_errors_total{job=\"saveinator-pinterest\"}[5m]) * 60", "legendFormat": "{{source}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "HTTP API /download/pinterest",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "targets": [
+        {"expr": "rate(saveinator_http_requests_total{job=\"saveinator-pinterest\",route=\"/download/pinterest\"}[5m]) * 60", "legendFormat": "{{method}} {{status}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(saveinator_http_request_latency_seconds_bucket{job=\"saveinator-pinterest\",route=\"/download/pinterest\"}[$__rate_interval])))", "legendFormat": "p95 latency", "refId": "B", "datasource": {"type": "prometheus", "uid": "prometheus"}}
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Telegram API latency p95",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+      "fieldConfig": {"defaults": {"unit": "s", "min": 0}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, method) (rate(saveinator_telegram_api_latency_seconds_bucket{job=\"saveinator-pinterest\"}[$__rate_interval])))", "legendFormat": "p95 {{method}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Rate Limit Drops / min",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "targets": [{"expr": "rate(saveinator_rate_limit_dropped_total{job=\"saveinator-pinterest\"}[5m]) * 60", "legendFormat": "{{scope}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Pinterest Service Logs",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 36},
+      "targets": [{"expr": "{container=~\".*pinterest.*\"}", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}],
+      "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "Pinterest Errors",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 46},
+      "targets": [{"expr": "{container=~\".*pinterest.*\"} |~ \"error|failed|exception|timeout\"", "refId": "A", "datasource": {"type": "loki", "uid": "loki"}}],
+      "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending"}
+    }
+  ]
+}
