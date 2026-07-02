@@ -77,9 +77,10 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 	result := &Result{Title: title, Author: author}
 
 	imageURLs := extractCarouselURLs(info)
-	isSlideshow := boolField(info, "is_slideshow") || len(infoEntries(info)) >= 2
+	isSlideshow := boolField(info, "is_slideshow") || len(infoEntries(info)) >= 2 || isPhotoMode(info)
+	hasImages := len(imageURLs) >= 2 || (isPhotoMode(info) && len(imageURLs) >= 1)
 
-	if isSlideshow && len(imageURLs) >= 2 && !preferVideoDelivery(info) {
+	if isSlideshow && hasImages && !preferVideoDelivery(info) {
 		images := d.downloadImages(ctx, imageURLs, outputDir)
 		if len(images) > 0 {
 			result.PostType = PostTypeCarousel
@@ -260,7 +261,20 @@ func canonicalVideoURL(url string) string {
 
 func extractCarouselURLs(info map[string]any) []string {
 	var urls []string
-	for _, entry := range infoEntries(info) {
+	entries := infoEntries(info)
+
+	// For photomode/slideshow posts, top-level thumbnails may contain images
+	// when entries are not present.
+	if len(entries) == 0 {
+		for _, t := range infoThumbnails(info) {
+			if u := stringField(t, "url"); u != "" && !looksLikeVideoURL(u) {
+				urls = appendUnique(urls, u)
+			}
+		}
+		return urls
+	}
+
+	for _, entry := range entries {
 		if thumb := stringField(entry, "thumbnail"); thumb != "" && !looksLikeVideoURL(thumb) {
 			urls = appendUnique(urls, thumb)
 			continue
@@ -280,7 +294,8 @@ func extractCarouselURLs(info map[string]any) []string {
 }
 
 func preferVideoDelivery(info map[string]any) bool {
-	if stringField(info, "url") != "" {
+	vcodec := stringField(info, "vcodec")
+	if stringField(info, "url") != "" && vcodec != "" && vcodec != "none" {
 		return true
 	}
 	for _, entry := range infoEntries(info) {
@@ -316,6 +331,29 @@ func infoEntries(info map[string]any) []map[string]any {
 		}
 	}
 	return out
+}
+
+func infoThumbnails(info map[string]any) []map[string]any {
+	raw, ok := info["thumbnails"].([]any)
+	if !ok {
+		return nil
+	}
+	var out []map[string]any
+	for _, item := range raw {
+		if m, ok := item.(map[string]any); ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func isPhotoMode(info map[string]any) bool {
+	for _, t := range infoThumbnails(info) {
+		if strings.Contains(stringField(t, "url"), "photomode") {
+			return true
+		}
+	}
+	return false
 }
 
 func detectPostType(images []string, video, audio string) PostType {
