@@ -7,14 +7,17 @@ import (
 )
 
 const (
-	defaultQueueName   = "default"
-	PinterestQueueName = "pinterest"
+	defaultQueueName     = "default"
+	PinterestQueueName   = "pinterest"
+	PinterestKZQueueName = "pinterest_kz"
+	SpotifyQueueName     = "spotify"
 )
 
 var userTaskTypes = map[string]struct{}{
 	TypeDownload:      {},
 	TypeTikTok:        {},
 	TypePinterest:     {},
+	TypePinterestKZ:   {},
 	TypeSpotify:       {},
 	TypeSoundCloud:    {},
 	TypeTikTokCarousel: {},

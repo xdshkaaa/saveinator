@@ -12,6 +12,7 @@ const (
 	TypeDownload    = "download:send"
 	TypeTikTok      = "download:tiktok"
 	TypePinterest   = "download:pinterest"
+	TypePinterestKZ = "download:pinterest_kz"
 	TypeSpotify     = "download:spotify"
 	TypeSoundCloud  = "download:soundcloud"
 	TypeBroadcast       = "broadcast:execute"
@@ -90,6 +91,16 @@ func (c *Client) EnqueuePinterest(p DownloadPayload) error {
 	return err
 }
 
+func (c *Client) EnqueuePinterestKZ(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypePinterestKZ, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(PinterestKZQueueName))
+	return err
+}
+
 func (c *Client) EnqueuePinterestDefault(p DownloadPayload) error {
 	body, err := json.Marshal(p)
 	if err != nil {
@@ -117,6 +128,16 @@ func (c *Client) EnqueueSpotify(p MusicPayload) error {
 	}
 	task := asynq.NewTask(TypeSpotify, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	return err
+}
+
+func (c *Client) EnqueueSpotifyMicroservice(p MusicPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeSpotify, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(SpotifyQueueName))
 	return err
 }
 

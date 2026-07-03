@@ -21,3 +21,4 @@ build/
 htmlcov/
 repomix-output.*
 .commandcode/
+go/saveinator
