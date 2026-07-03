@@ -25,6 +25,7 @@ type UserStats struct {
 	Failed30d          int
 	LanguageEN         int
 	LanguageRU         int
+	LanguageKK         int
 	TopPlatforms7d     []PlatformCount
 	BannedCount        int
 }
@@ -52,7 +53,8 @@ func (s *Store) FetchUserStats(ctx context.Context, bannedCount int) (UserStats,
 			COUNT(*) FILTER (WHERE created_at >= $3) AS new_7d,
 			COUNT(*) FILTER (WHERE created_at >= $4) AS new_30d,
 			COUNT(*) FILTER (WHERE language = 'EN'::language) AS lang_en,
-			COUNT(*) FILTER (WHERE language = 'RU'::language) AS lang_ru
+			COUNT(*) FILTER (WHERE language = 'RU'::language) AS lang_ru,
+			COUNT(*) FILTER (WHERE language = 'KK'::language) AS lang_kk
 		FROM users
 	`, todayStart, yesterdayStart, d7, d30).Scan(
 		&stats.TotalUsers,
@@ -62,6 +64,7 @@ func (s *Store) FetchUserStats(ctx context.Context, bannedCount int) (UserStats,
 		&stats.New30d,
 		&stats.LanguageEN,
 		&stats.LanguageRU,
+		&stats.LanguageKK,
 	)
 	if err != nil {
 		return stats, err
