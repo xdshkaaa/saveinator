@@ -3,6 +3,7 @@
     "language_prompt": "Choose your language / Выберите язык:",
     "welcome": "Welcome! Send me a YouTube, TikTok, X/Twitter, Spotify, or SoundCloud link in any group. I can download videos and music.",
     "welcome_pinterest": "👋 Hello!!\n📥 I can download videos from Pinterest\n👉 Send the link to the bot and in a couple of seconds you will receive a video without a watermark.",
+    "welcome_spotify": "🎵 Welcome to Spotify Search Tool Bot!\n\nSend me a Spotify album or track link, and I'll download the tracks for you.\n\nExamples:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nJust paste the link — I'll handle the rest.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский",
     "btn_kk": "🇰🇿 Қазақша",
@@ -67,7 +68,8 @@
     "not_found": "Spotify release not found.",
     "not_configured": "Spotify support is not configured on this bot.",
     "api_error": "Could not fetch Spotify release info. Please try again later.",
-    "disabled": "Spotify support is disabled on this bot."
+    "disabled": "Spotify support is disabled on this bot.",
+    "not_spotify_link": "This bot only handles Spotify links. Send me a Spotify album or track URL."
   },
   "soundcloud": {
     "card_title": "🎧 {artist} — {name}",
