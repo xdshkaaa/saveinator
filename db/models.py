@@ -37,6 +37,7 @@ class DownloadStatus(str, enum.Enum):
 class Language(str, enum.Enum):
     EN = "en"
     RU = "ru"
+    KK = "kk"
 
 
 class Chat(Base):
