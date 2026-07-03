@@ -78,6 +78,7 @@ func (b *Bot) languageKeyboard() *telego.InlineKeyboardMarkup {
 		tu.InlineKeyboardRow(
 			tu.InlineKeyboardButton(locale.Get("onboarding.btn_en", "en", nil)).WithCallbackData("lang|en"),
 			tu.InlineKeyboardButton(locale.Get("onboarding.btn_ru", "en", nil)).WithCallbackData("lang|ru"),
+			tu.InlineKeyboardButton(locale.Get("onboarding.btn_kk", "en", nil)).WithCallbackData("lang|kk"),
 		),
 	)
 }
@@ -125,7 +126,7 @@ func (b *Bot) onLanguageChosen(bot *telego.Bot) func(context.Context, *telego.Bo
 			return
 		}
 		lang := parts[1]
-		if lang != "en" && lang != "ru" {
+		if lang != "en" && lang != "ru" && lang != "kk" {
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
 			return
 		}
