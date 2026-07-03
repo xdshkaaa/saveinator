@@ -21,6 +21,16 @@
 		reverse_proxy 127.0.0.1:8001
 	}
 
+	@pinterest_kz_hooks path /webhook/pinterest_kz /download/pinterest_kz
+	handle @pinterest_kz_hooks {
+		reverse_proxy 127.0.0.1:8002
+	}
+
+	@spotify_hooks path /webhook/spotify
+	handle @spotify_hooks {
+		reverse_proxy 127.0.0.1:8003
+	}
+
 	@telegram_hooks path / /health /webhook*
 	handle @telegram_hooks {
 		reverse_proxy 127.0.0.1:8000
