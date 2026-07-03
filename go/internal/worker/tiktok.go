@@ -8,8 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
@@ -72,17 +70,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
 			return nil
 		}
-		var markup *telego.InlineKeyboardMarkup
-		if result.CarouselImagesAvailable {
-			markup = h.saveCarouselSession(ctx, p, result)
-		}
-		var sendErr error
-		if markup != nil {
-			sendErr = h.sender.SendFileWithMarkup(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false, markup)
-		} else {
-			sendErr = h.sender.SendFile(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false)
-		}
-		if sendErr != nil {
+		if sendErr := h.sender.SendFile(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false); sendErr != nil {
 			slog.Warn("tiktok send failed", "err", sendErr)
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, sendErr))
 			return nil
@@ -123,28 +111,6 @@ func stringsJoin(parts []string, sep string) string {
 		out += sep + p
 	}
 	return out
-}
-
-func (h *Handler) saveCarouselSession(ctx context.Context, p queue.DownloadPayload, result *tiktok.Result) *telego.InlineKeyboardMarkup {
-	token := uuid.NewString()[:12]
-	session := &tiktok.CarouselSession{
-		UserID: p.UserID,
-		URL:    p.URL,
-		ChatID: p.ChatID,
-		Lang:   p.Lang,
-		Title:  result.Title,
-		Author: result.Author,
-		Token:  token,
-	}
-	if err := h.ttSessions.Save(ctx, session); err != nil {
-		slog.Warn("save carousel session failed", "err", err)
-		return nil
-	}
-	lang := p.Lang
-	if lang == "" {
-		lang = "en"
-	}
-	return tiktok.CarouselImagesKeyboard(lang, p.UserID, token)
 }
 
 func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadPayload) error {
