@@ -145,6 +145,8 @@ services:
     build:
       context: .
       dockerfile: docker/go/Dockerfile.pinterest_kz
+    dns:
+      - 127.0.0.11
     environment:
       BOT_TOKEN: ${PINTEREST_KZ_BOT_TOKEN:?set PINTEREST_KZ_BOT_TOKEN}
       DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
