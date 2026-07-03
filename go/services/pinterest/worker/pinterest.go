@@ -67,15 +67,18 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		if errors.Is(err, pinterest.ErrNoMedia) {
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
 			recordTaskFailure(queue.TypePinterest)
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, "no media")
 			return nil
 		}
 		slog.Warn("pinterest download failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, err.Error())
 		return nil
 	}
 	if len(result.Items) == 0 {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, "no media")
 		return nil
 	}
 
@@ -87,6 +90,7 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	}
 	if sizeMB > limit {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.all_too_large", lang, nil))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", sizeMB, "too large")
 		return nil
 	}
 
@@ -97,12 +101,14 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	if _, err := os.Stat(item.FilePath); err != nil {
 		slog.Warn("pinterest media file missing", "path", item.FilePath, "err", err)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, err.Error())
 		return nil
 	}
 	if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
 		slog.Warn("pinterest send failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", sizeMB, err.Error())
 		return nil
 	}
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)

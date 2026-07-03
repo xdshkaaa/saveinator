@@ -284,7 +284,11 @@ func (h *Handler) finishMusicDownload(ctx context.Context, p queue.MusicPayload,
 	if url == "" {
 		url = platform + ":" + p.ResourceID
 	}
-	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, platform, "completed", 0, "")
+	if sent == 0 {
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, platform, "failed", 0, fmt.Sprintf("0/%d tracks sent", total))
+	} else {
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, platform, "completed", 0, "")
+	}
 	return nil
 }
 
