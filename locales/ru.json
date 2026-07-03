@@ -125,7 +125,7 @@
     "stats_body": "🕐 Обновлено: {updated} UTC\n\n👥 Всего: {total}\n\n📈 Рост\n• Сегодня: {new_today}{growth_delta}\n• 7 дней: {new_7d}\n• 30 дней: {new_30d}\n\n⚡ Активность\n• Сейчас (30м): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n• Stickiness (DAU/MAU): {stickiness}\n\n⬇️ Загрузки (completed)\n• {downloads_line}\n• Успех (30д): {success_rate}\n\n🎯 Вовлечённость\n• С загрузками: {with_downloads} ({with_downloads_pct})\n• Возвращающиеся (2+): {returning} ({returning_pct})\n\n🌐 Языки: {lang_line}\n\n📱 Топ платформ (7д, пользователи)\n{platform_lines}\n\n🚫 В теневом бане: {banned}\n\n{download_note}",
     "stats_growth_delta": " ({diff}, {pct})",
     "stats_growth_same": "— как вчера",
-    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct})",
+    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct}) · KK {kk} ({kk_pct})",
     "stats_returning_pct_suffix": "{pct} от скачавших",
     "stats_platform_line": "• {platform}: {count}",
     "stats_platforms_empty": "• нет данных",

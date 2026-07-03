@@ -489,6 +489,8 @@ func (b *Bot) renderStats(ctx context.Context, lang string) (string, error) {
 			"en_pct":  formatPct(stats.LanguageEN, stats.TotalUsers),
 			"ru":      strconv.Itoa(stats.LanguageRU),
 			"ru_pct":  formatPct(stats.LanguageRU, stats.TotalUsers),
+			"kk":      strconv.Itoa(stats.LanguageKK),
+			"kk_pct":  formatPct(stats.LanguageKK, stats.TotalUsers),
 		}),
 		"platform_lines": platformLines,
 		"banned":         strconv.Itoa(stats.BannedCount),

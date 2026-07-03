@@ -125,7 +125,7 @@
     "stats_body": "🕐 Updated: {updated} UTC\n\n👥 Registered: {total}\n\n📈 Growth\n• Today: {new_today}{growth_delta}\n• 7 days: {new_7d}\n• 30 days: {new_30d}\n\n⚡ Active\n• Now (30m): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n• Stickiness (DAU/MAU): {stickiness}\n\n⬇️ Downloads (completed)\n• {downloads_line}\n• Success (30d): {success_rate}\n\n🎯 Engagement\n• With downloads: {with_downloads} ({with_downloads_pct})\n• Returning (2+): {returning} ({returning_pct})\n\n🌐 Languages: {lang_line}\n\n📱 Top platforms (7d, users)\n{platform_lines}\n\n🚫 Shadow-banned: {banned}\n\n{download_note}",
     "stats_growth_delta": " ({diff}, {pct})",
     "stats_growth_same": "— same as yesterday",
-    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct})",
+    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct}) · KK {kk} ({kk_pct})",
     "stats_returning_pct_suffix": "{pct} of downloaders",
     "stats_platform_line": "• {platform}: {count}",
     "stats_platforms_empty": "• no data",

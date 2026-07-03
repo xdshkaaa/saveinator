@@ -87,7 +87,7 @@
     "no_settings": "Бұл сервисте өңделетін баптаулар жоқ.",
     "btn_change": "{label} өзгерту",
     "stats_growth_same": "— кешегімен бірдей",
-    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct})",
+    "stats_lang_line": "EN {en} ({en_pct}) · RU {ru} ({ru_pct}) · KK {kk} ({kk_pct})",
     "stats_returning_pct_suffix": "жүктеушілердің {pct}"
   },
   "broadcast": {
