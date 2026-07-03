@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -62,10 +63,32 @@ func (s *Store) CreateUser(ctx context.Context, userID int64, username, firstNam
 }
 
 func (s *Store) RecordDownload(ctx context.Context, userID, chatID int64, url, platform, status string, fileSizeMB float64, errMsg string) error {
+	now := time.Now().UTC()
+	if _, err := s.pool.Exec(ctx, `
+		INSERT INTO users (id, language, created_at) VALUES ($1, 'EN'::language, $2)
+		ON CONFLICT (id) DO NOTHING
+	`, userID, now); err != nil {
+		slog.Warn("record download: ensure user failed", "user_id", userID, "err", err)
+		return err
+	}
+	chatType := "group"
+	if chatID == userID {
+		chatType = "private"
+	}
+	if _, err := s.pool.Exec(ctx, `
+		INSERT INTO chats (id, type, created_at) VALUES ($1, $2, $3)
+		ON CONFLICT (id) DO NOTHING
+	`, chatID, chatType, now); err != nil {
+		slog.Warn("record download: ensure chat failed", "chat_id", chatID, "err", err)
+		return err
+	}
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO downloads (user_id, chat_id, url, platform, status, file_size, error_message, created_at, completed_at)
 		VALUES ($1, $2, $3, $4::platform, $5::downloadstatus, $6, $7, $8, $9)
-	`, userID, chatID, url, toDBPlatform(platform), toDBDownloadStatus(status), int64(fileSizeMB*1024*1024), nullable(errMsg), time.Now().UTC(), time.Now().UTC())
+	`, userID, chatID, url, toDBPlatform(platform), toDBDownloadStatus(status), int64(fileSizeMB*1024*1024), nullable(errMsg), now, now)
+	if err != nil {
+		slog.Warn("record download failed", "user_id", userID, "platform", platform, "status", status, "err", err)
+	}
 	return err
 }
 

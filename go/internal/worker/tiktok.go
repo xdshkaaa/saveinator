@@ -44,6 +44,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		metrics.TikTokCarouselFailuresTotal.WithLabelValues("download").Inc()
 		recordTaskFailure(queue.TypeTikTok)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, err.Error())
 		return nil
 	}
 
@@ -53,11 +54,13 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 	case tiktok.PostTypeCarousel, tiktok.PostTypeAudioOnly:
 		if len(result.Images) == 0 && result.AudioPath == "" {
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("tiktok.carousel_empty", lang, nil))
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, "carousel empty")
 			return nil
 		}
 		if err := h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption); err != nil {
 			slog.Warn("tiktok carousel send failed", "err", err)
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, err.Error())
 			return nil
 		}
 		if result.AudioPath != "" {
@@ -68,15 +71,18 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 	case tiktok.PostTypeVideo:
 		if result.VideoPath == "" {
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, "no video file found")
 			return nil
 		}
 		if sendErr := h.sender.SendFile(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false); sendErr != nil {
 			slog.Warn("tiktok send failed", "err", sendErr)
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, sendErr))
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, sendErr.Error())
 			return nil
 		}
 	default:
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("unsupported tiktok post type")))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, "unsupported tiktok post type")
 		return nil
 	}
 
@@ -144,6 +150,11 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 		metrics.TikTokCarouselFailuresTotal.WithLabelValues("empty").Inc()
 		recordTaskFailure(queue.TypeTikTokCarousel)
 		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_empty", lang, nil)))
+		errMsg := "carousel empty"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, errMsg)
 		return nil
 	}
 
