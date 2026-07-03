@@ -87,6 +87,7 @@ func (b *Bot) editSettingsLang(bot *telego.Bot, chatID int64, messageID int, lan
 			tu.InlineKeyboardRow(
 				tu.InlineKeyboardButton(locale.Get("onboarding.btn_en", lang, nil)).WithCallbackData("settings|lang|en"),
 				tu.InlineKeyboardButton(locale.Get("onboarding.btn_ru", lang, nil)).WithCallbackData("settings|lang|ru"),
+				tu.InlineKeyboardButton(locale.Get("onboarding.btn_kk", lang, nil)).WithCallbackData("settings|lang|kk"),
 			),
 			tu.InlineKeyboardRow(
 				tu.InlineKeyboardButton(locale.Get("settings.btn_back", lang, nil)).WithCallbackData("settings|menu"),
