@@ -106,5 +106,8 @@ func languageLabel(code, lang string) string {
 	if code == "ru" {
 		return locale.Get("onboarding.btn_ru", lang, nil)
 	}
+	if code == "kk" {
+		return locale.Get("onboarding.btn_kk", lang, nil)
+	}
 	return locale.Get("onboarding.btn_en", lang, nil)
 }
