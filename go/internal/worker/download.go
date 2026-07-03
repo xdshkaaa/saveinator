@@ -153,17 +153,20 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		metrics.RecordYtdlpError("youtube")
 		recordTaskFailure(queue.TypeDownload)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", 0, err.Error())
 		return nil
 	}
 
 	files, err := ytdlp.FindMediaFiles(taskDir)
 	if err != nil {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", 0, err.Error())
 		return nil
 	}
 	sourceVideo := ytdlp.LargestVideo(files)
 	if sourceVideo == "" {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", 0, "no video file found")
 		return nil
 	}
 
@@ -174,6 +177,7 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		if transcodeErr != nil {
 			slog.Warn("youtube transcode failed", "err", transcodeErr)
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, transcodeErr))
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", 0, transcodeErr.Error())
 			return nil
 		}
 	}
@@ -232,6 +236,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 			failErr = errors.New("no media files found")
 		}
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, failErr))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, failErr.Error())
 		return nil
 	}
 
@@ -242,11 +247,12 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		if err := h.sender.SendPhotoAlbum(p.ChatID, images, caption); err != nil {
 			slog.Warn("send album failed", "err", err)
 			recordTaskFailure(queue.TypeDownload)
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, err.Error())
 		} else {
 			recordTaskSuccess(queue.TypeDownload, p.Platform, start, 0)
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "completed", 0, "")
 		}
 		_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
-		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "completed", 0, "")
 		return nil
 	}
 
@@ -256,6 +262,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		}
 		recordTaskFailure(queue.TypeDownload)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, "no video file found")
 		return nil
 	}
 
@@ -287,6 +294,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 		slog.Warn("x photo album send failed", "err", err)
 		recordTaskFailure(taskType)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "x", "failed", 0, err.Error())
 		return nil
 	}
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
@@ -344,6 +352,7 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 		slog.Warn("send file failed", "err", err)
 		recordTaskFailure(taskType)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", sizeMB, err.Error())
 		return nil
 	}
 
@@ -402,15 +411,18 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		if errors.Is(err, pinterest.ErrNoMedia) {
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
 			recordTaskFailure(queue.TypePinterest)
+			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, "no media")
 			return nil
 		}
 		slog.Warn("pinterest download failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, err.Error())
 		return nil
 	}
 	if len(result.Items) == 0 {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, "no media")
 		return nil
 	}
 
@@ -422,6 +434,7 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	}
 	if sizeMB > limit {
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.all_too_large", lang, nil))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", sizeMB, "too large")
 		return nil
 	}
 
@@ -432,12 +445,14 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	if _, err := os.Stat(item.FilePath); err != nil {
 		slog.Warn("pinterest media file missing", "path", item.FilePath, "err", err)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, err.Error())
 		return nil
 	}
 	if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
 		slog.Warn("pinterest send failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", sizeMB, err.Error())
 		return nil
 	}
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)

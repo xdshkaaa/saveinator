@@ -145,7 +145,11 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 		_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	}
 	url := "spotify:" + p.ResourceID
-	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, "spotify", "completed", 0, "")
+	if sent == 0 {
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, "spotify", "failed", 0, fmt.Sprintf("0/%d tracks sent", total))
+	} else {
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, url, "spotify", "completed", 0, "")
+	}
 	return nil
 }
 
