@@ -2,11 +2,13 @@
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
     "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, X/Twitter, Spotify или SoundCloud в любую группу. Я скачиваю видео и музыку.",
+    "welcome_spotify": "🎵 Добро пожаловать! Отправь ссылку на альбом или трек Spotify. Я покажу информацию о релизе и скачаю треки.",
     "welcome_pinterest": "👋 Привет!!\n📥 Я скачиваю видео с Pinterest\n👉 Отправь ссылку боту — через пару секунд получишь видео без водяного знака.",
     "lang_command_prompt": "Выберите язык:",
     "lang_changed": "Язык изменён.",
     "btn_en": "🇬🇧 English",
-    "btn_ru": "🇷🇺 Русский"
+    "btn_ru": "🇷🇺 Русский",
+    "btn_kk": "🇰🇿 Қазақша"
   },
   "download": {
     "downloading": "⏳ Скачиваю...",
@@ -63,7 +65,8 @@
     "not_found": "Spotify-релиз не найден.",
     "not_configured": "Поддержка Spotify не настроена на этом боте.",
     "api_error": "Не удалось получить информацию о релизе Spotify. Попробуй позже.",
-    "disabled": "Поддержка Spotify отключена на этом боте."
+    "disabled": "Поддержка Spotify отключена на этом боте.",
+    "not_spotify_link": "Этот бот обрабатывает только ссылки Spotify. Отправь URL альбома или трека Spotify."
   },
   "soundcloud": {
     "card_title": "🎧 {artist} — {name}",
