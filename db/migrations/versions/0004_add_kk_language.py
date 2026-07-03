@@ -16,6 +16,7 @@ depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:
+    op.execute("COMMIT")
     op.execute("ALTER TYPE language ADD VALUE IF NOT EXISTS 'KK'")
 
 
