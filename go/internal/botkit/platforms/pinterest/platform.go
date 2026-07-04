@@ -87,11 +87,11 @@ func (h *taskHandler) run(ctx context.Context, taskType string, p queue.Download
 	if err != nil {
 		if errors.Is(err, pinterest.ErrNoMedia) {
 			_ = d.Sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.no_media", lang, nil))
-			botworker.RecordTaskFailure(taskType)
+			botworker.RecordTaskFailure(h.botID, taskType)
 			return nil
 		}
 		slog.Warn("pinterest download failed", "err", err)
-		botworker.RecordTaskFailure(taskType)
+		botworker.RecordTaskFailure(h.botID, taskType)
 		_ = d.Sender.EditMessage(p.ChatID, p.MessageID, d.UserFacingError(lang, p.UserID, err))
 		return nil
 	}
@@ -122,13 +122,13 @@ func (h *taskHandler) run(ctx context.Context, taskType string, p queue.Download
 	}
 	if err := d.Sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
 		slog.Warn("pinterest send failed", "err", err)
-		botworker.RecordTaskFailure(taskType)
+		botworker.RecordTaskFailure(h.botID, taskType)
 		_ = d.Sender.EditMessage(p.ChatID, p.MessageID, d.UserFacingError(lang, p.UserID, err))
 		return nil
 	}
 	_ = d.Sender.DeleteMessage(p.ChatID, p.MessageID)
 	_ = d.DB.RecordDownloadForBot(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "completed", sizeMB, "", h.botID)
-	botworker.RecordTaskSuccess(taskType, "pinterest", start, item.FileSize)
+	botworker.RecordTaskSuccess(h.botID, taskType, "pinterest", start, item.FileSize)
 	return nil
 }
 
