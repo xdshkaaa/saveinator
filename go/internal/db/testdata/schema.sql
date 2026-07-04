@@ -5,12 +5,28 @@ CREATE TYPE broadcaststatus AS ENUM ('DRAFT', 'QUEUED', 'RUNNING', 'COMPLETED', 
 CREATE TYPE broadcastaudience AS ENUM ('ALL', 'RU', 'EN', 'ACTIVE');
 CREATE TYPE broadcastdeliverystatus AS ENUM ('PENDING', 'SENT', 'FAILED', 'BLOCKED');
 
+CREATE TABLE bots (
+    slug VARCHAR(32) PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO bots (slug) VALUES ('saveinator'), ('pinterest'), ('pinterest_kz'), ('spotify');
+
 CREATE TABLE users (
     id BIGINT PRIMARY KEY,
     username VARCHAR(64),
     first_name VARCHAR(128),
     language language NOT NULL DEFAULT 'EN',
+    bot_id VARCHAR(32) REFERENCES bots(slug),
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE user_bot_settings (
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    bot_id VARCHAR(32) NOT NULL REFERENCES bots(slug),
+    language language NOT NULL DEFAULT 'EN',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, bot_id)
 );
 
 CREATE TABLE chats (
@@ -30,6 +46,7 @@ CREATE TABLE downloads (
     quality_label VARCHAR(32),
     file_size BIGINT,
     status downloadstatus NOT NULL DEFAULT 'QUEUED',
+    bot_id VARCHAR(32) REFERENCES bots(slug),
     error_message TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP

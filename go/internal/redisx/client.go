@@ -12,6 +12,9 @@ import (
 
 type Client struct {
 	rdb *redis.Client
+	// prefix namespaces user-scoped keys (locks, rate limits, dedup,
+	// cancel flags) per bot; bans and runtime settings stay global.
+	prefix string
 }
 
 func Connect(redisURL string) (*Client, error) {
@@ -39,6 +42,19 @@ func (c *Client) Raw() *redis.Client {
 	return c.rdb
 }
 
+// WithPrefix returns a client whose user-scoped keys are namespaced per bot.
+// The underlying connection is shared; Close affects all derived clients.
+func (c *Client) WithPrefix(prefix string) *Client {
+	return &Client{rdb: c.rdb, prefix: prefix}
+}
+
+func (c *Client) key(base string) string {
+	if c.prefix == "" {
+		return base
+	}
+	return c.prefix + ":" + base
+}
+
 const lockPrefix = "user_busy"
 
 var releaseScript = redis.NewScript(`
@@ -50,7 +66,7 @@ return 0
 
 func (c *Client) AcquireUserLock(ctx context.Context, userID int64, scenario string, ttl time.Duration) (string, bool, error) {
 	token := uuid.NewString()
-	key := fmt.Sprintf("%s:%d", lockPrefix, userID)
+	key := c.key(fmt.Sprintf("%s:%d", lockPrefix, userID))
 	value := scenario + ":" + token
 	ok, err := c.rdb.SetNX(ctx, key, value, ttl).Result()
 	if err != nil {
@@ -63,20 +79,20 @@ func (c *Client) AcquireUserLock(ctx context.Context, userID int64, scenario str
 }
 
 func (c *Client) ReleaseUserLock(ctx context.Context, userID int64, scenario, token string) error {
-	key := fmt.Sprintf("%s:%d", lockPrefix, userID)
+	key := c.key(fmt.Sprintf("%s:%d", lockPrefix, userID))
 	value := scenario + ":" + token
 	_, err := releaseScript.Run(ctx, c.rdb, []string{key}, value).Result()
 	return err
 }
 
 func (c *Client) ForceReleaseUserLock(ctx context.Context, userID int64) error {
-	key := fmt.Sprintf("%s:%d", lockPrefix, userID)
+	key := c.key(fmt.Sprintf("%s:%d", lockPrefix, userID))
 	return c.rdb.Del(ctx, key).Err()
 }
 
 func (c *Client) AllowRateLimit(ctx context.Context, scope string, id int64, limit int, window time.Duration) (bool, error) {
 	now := float64(time.Now().UnixNano()) / 1e9
-	key := fmt.Sprintf("ratelimit:%s:%d", scope, id)
+	key := c.key(fmt.Sprintf("ratelimit:%s:%d", scope, id))
 	pipe := c.rdb.Pipeline()
 	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%f", now-float64(window.Seconds())))
 	countCmd := pipe.ZCard(ctx, key)
@@ -92,7 +108,7 @@ func (c *Client) AllowURLDedup(ctx context.Context, urlHash string, window time.
 	if len(urlHash) < 12 {
 		return true, nil
 	}
-	key := "dedup:" + urlHash[:12]
+	key := c.key("dedup:" + urlHash[:12])
 	ok, err := c.rdb.SetNX(ctx, key, "1", window).Result()
 	if err != nil {
 		return false, err
@@ -107,7 +123,7 @@ type ActiveDownload struct {
 }
 
 func (c *Client) GetActiveDownload(ctx context.Context, userID int64) (*ActiveDownload, error) {
-	key := fmt.Sprintf("%s:%d", lockPrefix, userID)
+	key := c.key(fmt.Sprintf("%s:%d", lockPrefix, userID))
 	val, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return nil, nil
@@ -125,12 +141,12 @@ func (c *Client) GetActiveDownload(ctx context.Context, userID int64) (*ActiveDo
 const cancelPrefix = "download:cancel"
 
 func (c *Client) SetDownloadCancelled(ctx context.Context, scenario string, userID int64, token string, ttl time.Duration) error {
-	key := fmt.Sprintf("%s:%s:%d:%s", cancelPrefix, scenario, userID, token)
+	key := c.key(fmt.Sprintf("%s:%s:%d:%s", cancelPrefix, scenario, userID, token))
 	return c.rdb.Set(ctx, key, "1", ttl).Err()
 }
 
 func (c *Client) IsDownloadCancelled(ctx context.Context, scenario string, userID int64, token string) (bool, error) {
-	key := fmt.Sprintf("%s:%s:%d:%s", cancelPrefix, scenario, userID, token)
+	key := c.key(fmt.Sprintf("%s:%s:%d:%s", cancelPrefix, scenario, userID, token))
 	n, err := c.rdb.Exists(ctx, key).Result()
 	return n > 0, err
 }

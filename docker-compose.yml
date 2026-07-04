@@ -97,21 +97,29 @@ services:
         limits:
           memory: 768M
 
-  pinterest:
+  # botd runs every bot from bots.yaml in one process: one webhook port,
+  # one metrics port, /webhook/{slug} per bot.
+  botd:
     build:
       context: .
-      dockerfile: docker/go/Dockerfile.pinterest
+      dockerfile: docker/go/Dockerfile.botd
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
-      BOT_TOKEN: ${PINTEREST_BOT_TOKEN:?set PINTEREST_BOT_TOKEN}
+      PINTEREST_BOT_TOKEN: ${PINTEREST_BOT_TOKEN:?set PINTEREST_BOT_TOKEN}
+      PINTEREST_KZ_BOT_TOKEN: ${PINTEREST_KZ_BOT_TOKEN:?set PINTEREST_KZ_BOT_TOKEN}
+      SPOTIFY_BOT_TOKEN: ${SPOTIFY_BOT_TOKEN:?set SPOTIFY_BOT_TOKEN}
+      # config.Load still requires BOT_TOKEN; unused by fleet bots themselves.
+      BOT_TOKEN: ${PINTEREST_BOT_TOKEN}
       DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
       REDIS_URL: redis://redis:6379/0
       SAVEINATOR_MODE: all
-      USE_POLLING: "${PINTEREST_USE_POLLING:-false}"
-      WEBHOOK_HOST: "${PINTEREST_WEBHOOK_HOST:-${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}}"
-      WEBHOOK_PATH: "${PINTEREST_WEBHOOK_PATH:-/webhook/pinterest}"
-      WEBHOOK_PORT: "${PINTEREST_WEBHOOK_PORT:-8001}"
+      USE_POLLING: "${BOTD_USE_POLLING:-false}"
+      WEBHOOK_HOST: "${BOTD_WEBHOOK_HOST:-${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}}"
+      WEBHOOK_PORT: "${BOTD_WEBHOOK_PORT:-8005}"
       WEBHOOK_LISTEN: "${WEBHOOK_LISTEN:-0.0.0.0}"
-      WEBHOOK_SECRET_TOKEN: "${PINTEREST_WEBHOOK_SECRET_TOKEN:-${WEBHOOK_SECRET_TOKEN:-}}"
+      WEBHOOK_SECRET_TOKEN: "${WEBHOOK_SECRET_TOKEN:-}"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PINTEREST_ENABLED: ${PINTEREST_ENABLED:-true}
       PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_TIMEOUT_SECONDS:-30}
@@ -119,91 +127,6 @@ services:
       PINTEREST_DOWNLOAD_IMAGES: ${PINTEREST_DOWNLOAD_IMAGES:-true}
       PINTEREST_DOWNLOAD_VIDEOS: ${PINTEREST_DOWNLOAD_VIDEOS:-true}
       PINTEREST_COOKIES_PATH: ${PINTEREST_COOKIES_PATH:-}
-      BOT_USERNAME: ${PINTEREST_BOT_USERNAME:-}
-      METRICS_ENABLED: ${METRICS_ENABLED:-true}
-      METRICS_PORT: "9103"
-      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
-      DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
-      SPAM_DEDUP_WINDOW_SECONDS: ${SPAM_DEDUP_WINDOW_SECONDS:-300}
-    ports:
-      - "127.0.0.1:8001:8001"
-      - "127.0.0.1:9103:9103"
-    volumes:
-      - ./secrets:/secrets:ro
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  pinterest_kz:
-    build:
-      context: .
-      dockerfile: docker/go/Dockerfile.pinterest_kz
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
-    environment:
-      BOT_TOKEN: ${PINTEREST_KZ_BOT_TOKEN:?set PINTEREST_KZ_BOT_TOKEN}
-      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
-      REDIS_URL: redis://redis:6379/0
-      SAVEINATOR_MODE: all
-      USE_POLLING: "${PINTEREST_KZ_USE_POLLING:-false}"
-      WEBHOOK_HOST: "${PINTEREST_KZ_WEBHOOK_HOST:-${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}}"
-      WEBHOOK_PATH: "${PINTEREST_KZ_WEBHOOK_PATH:-/webhook/pinterest_kz}"
-      WEBHOOK_PORT: "${PINTEREST_KZ_WEBHOOK_PORT:-8002}"
-      WEBHOOK_LISTEN: "${WEBHOOK_LISTEN:-0.0.0.0}"
-      WEBHOOK_SECRET_TOKEN: "${PINTEREST_KZ_WEBHOOK_SECRET_TOKEN:-${WEBHOOK_SECRET_TOKEN:-}}"
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      PINTEREST_ENABLED: ${PINTEREST_KZ_ENABLED:-true}
-      PINTEREST_TIMEOUT_SECONDS: ${PINTEREST_KZ_TIMEOUT_SECONDS:-30}
-      PINTEREST_MAX_ITEMS: ${PINTEREST_KZ_MAX_ITEMS:-10}
-      PINTEREST_DOWNLOAD_IMAGES: ${PINTEREST_KZ_DOWNLOAD_IMAGES:-true}
-      PINTEREST_DOWNLOAD_VIDEOS: ${PINTEREST_KZ_DOWNLOAD_VIDEOS:-true}
-      PINTEREST_COOKIES_PATH: ${PINTEREST_KZ_COOKIES_PATH:-}
-      BOT_USERNAME: ${PINTEREST_KZ_BOT_USERNAME:-}
-      METRICS_ENABLED: ${METRICS_ENABLED:-true}
-      METRICS_PORT: "9104"
-      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
-      DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
-      SPAM_DEDUP_WINDOW_SECONDS: ${SPAM_DEDUP_WINDOW_SECONDS:-300}
-    ports:
-      - "127.0.0.1:8002:8002"
-      - "127.0.0.1:9104:9104"
-    volumes:
-      - ./secrets:/secrets:ro
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  spotify:
-    build:
-      context: .
-      dockerfile: docker/go/Dockerfile.spotify
-    environment:
-      BOT_TOKEN: ${SPOTIFY_BOT_TOKEN:?set SPOTIFY_BOT_TOKEN}
-      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
-      REDIS_URL: redis://redis:6379/0
-      SAVEINATOR_MODE: all
-      USE_POLLING: "${SPOTIFY_USE_POLLING:-false}"
-      WEBHOOK_HOST: "${SPOTIFY_WEBHOOK_HOST:-${WEBHOOK_HOST:-https://saveinator-hooks.xdshka.party}}"
-      WEBHOOK_PATH: "${SPOTIFY_WEBHOOK_PATH:-/webhook/spotify}"
-      WEBHOOK_PORT: "${SPOTIFY_WEBHOOK_PORT:-8003}"
-      WEBHOOK_LISTEN: "${WEBHOOK_LISTEN:-0.0.0.0}"
-      WEBHOOK_SECRET_TOKEN: "${SPOTIFY_WEBHOOK_SECRET_TOKEN:-${WEBHOOK_SECRET_TOKEN:-}}"
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SPOTIFY_ENABLED: ${SPOTIFY_ENABLED:-false}
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
@@ -213,16 +136,17 @@ services:
       SPOTIFY_DL_OUTPUT_FORMAT: ${SPOTIFY_DL_OUTPUT_FORMAT:-mp3}
       SPOTIFY_LOCK_MAX_TRACKS: ${SPOTIFY_LOCK_MAX_TRACKS:-50}
       SPOTIFY_DOWNLOAD_CONCURRENCY: ${SPOTIFY_DOWNLOAD_CONCURRENCY:-2}
-      BOT_USERNAME: ${SPOTIFY_BOT_USERNAME:-}
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
-      METRICS_PORT: "9105"
+      METRICS_PORT: "9106"
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+      DOWNLOAD_API_ENABLED: ${DOWNLOAD_API_ENABLED:-true}
       SPAM_DEDUP_WINDOW_SECONDS: ${SPAM_DEDUP_WINDOW_SECONDS:-300}
     ports:
-      - "127.0.0.1:8003:8003"
-      - "127.0.0.1:9105:9105"
+      - "127.0.0.1:8005:8005"
+      - "127.0.0.1:9106:9106"
     volumes:
       - ./secrets:/secrets:ro
+      - ./bots.yaml:/app/bots.yaml:ro
     depends_on:
       db:
         condition: service_healthy
@@ -232,7 +156,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
 
   migrate:
     build:

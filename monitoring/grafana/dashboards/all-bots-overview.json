@@ -1,0 +1,142 @@
+{
+  "uid": "saveinator-all-bots",
+  "title": "All Bots Overview",
+  "tags": ["saveinator", "telegram", "overview", "all-bots"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "query",
+        "label": "Bot",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": "label_values(up{job=~\"saveinator-.*\"}, job)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Targets Up",
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+      "options": {"textMode": "value_and_name", "orientation": "horizontal"},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}]}, "overrides": []},
+      "targets": [{"expr": "up{job=~\"saveinator-.*\"}", "legendFormat": "{{job}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Active Users (all bots)",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "sum(saveinator_active_users{job=~\"$job\"})", "legendFormat": "active users", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Messages 1h",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(increase(saveinator_messages_received_total{job=~\"$job\"}[1h]))", "legendFormat": "messages", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Downloads 1h",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "targets": [{"expr": "sum(increase(saveinator_downloads_enqueued_total{job=~\"$job\"}[1h]))", "legendFormat": "downloads", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Errors 1h",
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 20}]}}, "overrides": []},
+      "targets": [{"expr": "sum(increase(saveinator_errors_total{job=~\"$job\"}[1h]))", "legendFormat": "errors", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Messages / min by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "sum by (job) (rate(saveinator_messages_received_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Downloads Enqueued / min by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [{"expr": "sum by (job) (rate(saveinator_downloads_enqueued_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Downloads / min by Platform",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{"expr": "sum by (platform) (rate(saveinator_downloads_enqueued_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{platform}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Errors / min by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "sum by (job, source) (rate(saveinator_errors_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}} {{source}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}},
+        {"expr": "sum by (job, platform) (rate(saveinator_ytdlp_errors_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}} ytdlp {{platform}}", "refId": "B", "datasource": {"type": "prometheus", "uid": "prometheus"}}
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Worker Tasks / min by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [{"expr": "sum by (job, status) (rate(saveinator_celery_tasks_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}} {{status}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Download Duration p95 by Platform",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "fieldConfig": {"defaults": {"unit": "s", "min": 0}, "overrides": []},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, platform) (rate(saveinator_download_duration_seconds_bucket{job=~\"$job\"}[$__rate_interval])))", "legendFormat": "{{platform}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Telegram API Latency p95 by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+      "fieldConfig": {"defaults": {"unit": "s", "min": 0}, "overrides": []},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, job) (rate(saveinator_telegram_api_latency_seconds_bucket{job=~\"$job\"}[$__rate_interval])))", "legendFormat": "{{job}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Telegram API Failures / min by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "targets": [{"expr": "sum by (job) (rate(saveinator_telegram_api_failures_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Active Users by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+      "targets": [
+        {"expr": "saveinator_active_users{job=~\"$job\"}", "legendFormat": "{{job}} active", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}},
+        {"expr": "sum by (job) (increase(saveinator_users_created_total{job=~\"$job\"}[1h]))", "legendFormat": "{{job}} new/hour", "refId": "B", "datasource": {"type": "prometheus", "uid": "prometheus"}}
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Rate Limit Drops / min by Bot",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+      "targets": [{"expr": "sum by (job, scope) (rate(saveinator_rate_limit_dropped_total{job=~\"$job\"}[$__rate_interval]) * 60)", "legendFormat": "{{job}} {{scope}}", "refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}}]
+    }
+  ]
+}

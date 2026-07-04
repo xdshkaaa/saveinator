@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.22-bookworm AS builder
+
+WORKDIR /src
+COPY go/go.mod go/go.sum ./
+RUN go mod download
+COPY go/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /botd ./cmd/botd
+
+FROM debian:bookworm-slim
+
+# ffmpeg + yt-dlp cover audio-download platforms (spotify); pinterest needs none.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg curl ca-certificates python3 python3-pip unzip \
+    && pip3 install --no-cache-dir --break-system-packages "yt-dlp[default,curl-cffi]" \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /botd /app/botd
+COPY bots.yaml /app/bots.yaml
+
+ENV SAVEINATOR_MODE=all
+ENV USE_POLLING=false
+ENV METRICS_ENABLED=true
+ENV METRICS_PORT=9106
+ENV WEBHOOK_PORT=8005
+ENV BOTS_CONFIG=/app/bots.yaml
+
+EXPOSE 8005 9106
+
+ENTRYPOINT ["/app/botd"]
