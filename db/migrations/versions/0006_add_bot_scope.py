@@ -6,7 +6,6 @@ Create Date: 2026-07-04
 """
 from typing import Sequence, Union
 from alembic import op
-import sqlalchemy as sa
 
 
 revision: str = "0006"
@@ -18,26 +17,29 @@ KNOWN_BOTS = ("saveinator", "pinterest", "pinterest_kz", "spotify")
 
 
 def upgrade() -> None:
-    op.create_table(
-        "bots",
-        sa.Column("slug", sa.String(32), primary_key=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS bots (
+            slug VARCHAR(32) PRIMARY KEY,
+            created_at TIMESTAMP NOT NULL DEFAULT now()
+        )
+    """)
     for slug in KNOWN_BOTS:
         op.execute(f"INSERT INTO bots (slug) VALUES ('{slug}') ON CONFLICT DO NOTHING")
 
-    op.add_column("users", sa.Column("bot_id", sa.String(32), sa.ForeignKey("bots.slug"), nullable=True))
-    op.add_column("downloads", sa.Column("bot_id", sa.String(32), sa.ForeignKey("bots.slug"), nullable=True))
-    op.create_index("ix_downloads_bot_id", "downloads", ["bot_id"])
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS bot_id VARCHAR(32) REFERENCES bots(slug)")
+    op.execute("ALTER TABLE downloads ADD COLUMN IF NOT EXISTS bot_id VARCHAR(32) REFERENCES bots(slug)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_downloads_bot_id ON downloads (bot_id)")
 
     # Per-bot user language / membership. users.language stays as fallback.
-    op.create_table(
-        "user_bot_settings",
-        sa.Column("user_id", sa.BigInteger(), sa.ForeignKey("users.id"), primary_key=True),
-        sa.Column("bot_id", sa.String(32), sa.ForeignKey("bots.slug"), primary_key=True),
-        sa.Column("language", sa.Enum(name="language", create_type=False), nullable=False, server_default="EN"),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS user_bot_settings (
+            user_id BIGINT NOT NULL REFERENCES users(id),
+            bot_id VARCHAR(32) NOT NULL REFERENCES bots(slug),
+            language language NOT NULL DEFAULT 'EN',
+            created_at TIMESTAMP NOT NULL DEFAULT now(),
+            PRIMARY KEY (user_id, bot_id)
+        )
+    """)
 
     # Backfill by download platform; pinterest_kz history is indistinguishable
     # from pinterest and lands in 'pinterest'.
