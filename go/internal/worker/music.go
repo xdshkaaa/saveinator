@@ -149,7 +149,7 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 		query := track.Artists + " - " + track.Title
 
 		sem <- struct{}{}
-		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, h.cfg.SpotifyDLOutputFormat, trackTimeout)
+		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, h.cfg.SpotifyDLOutputFormat, track.DurationMS, trackTimeout)
 		<-sem
 		if dlErr != nil {
 			slog.Warn("spotify track download failed", "title", track.Title, "err", dlErr)
@@ -223,7 +223,7 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		var dlErr error
 		if track.YouTubeFallback {
 			metrics.SoundCloudYouTubeFallbackTotal.Inc()
-			audioPath, dlErr = audio.DownloadFromYouTubeSearch(ctx, query, trackDir, outputFormat, trackTimeout)
+			audioPath, dlErr = audio.DownloadFromYouTubeSearch(ctx, query, trackDir, outputFormat, track.DurationMS, trackTimeout)
 		} else {
 			audioPath, dlErr = audio.DownloadSoundCloudTrack(ctx, trackURL, trackDir, outputFormat, trackTimeout)
 			if dlErr != nil && audio.IsDRMProtectedError(dlErr) {
@@ -234,7 +234,7 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 					"title":   track.Title,
 				})
 				_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, youtubeStatus, cancelKB)
-				audioPath, dlErr = audio.DownloadFromYouTubeSearch(ctx, query, trackDir, outputFormat, trackTimeout)
+				audioPath, dlErr = audio.DownloadFromYouTubeSearch(ctx, query, trackDir, outputFormat, track.DurationMS, trackTimeout)
 			}
 		}
 		<-sem

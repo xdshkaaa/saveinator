@@ -126,7 +126,7 @@ func (h *taskHandler) downloadSpotifyRelease(ctx context.Context, p queue.MusicP
 		query := track.Artists + " - " + track.Title
 
 		sem <- struct{}{}
-		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, d.Cfg.SpotifyDLOutputFormat, trackTimeout)
+		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, d.Cfg.SpotifyDLOutputFormat, track.DurationMS, trackTimeout)
 		<-sem
 		if dlErr != nil {
 			slog.Warn("spotify track download failed", "title", track.Title, "err", dlErr)

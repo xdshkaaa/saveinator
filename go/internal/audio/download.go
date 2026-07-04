@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -35,51 +38,92 @@ func combineErrorText(err error, outputs []string) string {
 	return b.String()
 }
 
-func DownloadFromYouTubeSearch(ctx context.Context, query, outputDir, format string, timeoutSeconds int) (string, error) {
-	videoID, err := resolveYouTubeSearch(ctx, query, timeoutSeconds)
-	if err != nil {
-		return "", err
-	}
-	return downloadYouTubeAudio(ctx, "https://www.youtube.com/watch?v="+videoID, outputDir, format, timeoutSeconds)
-}
+const maxSearchAttempts = 3
 
-func resolveYouTubeSearch(ctx context.Context, query string, timeoutSeconds int) (string, error) {
+// DownloadFromYouTubeSearch finds candidates via a flat ytsearch, ranks them by
+// closeness to durationMS (when > 0), and tries them in order until one
+// downloads. timeoutSeconds bounds search plus all download attempts combined.
+func DownloadFromYouTubeSearch(ctx context.Context, query, outputDir, format string, durationMS, timeoutSeconds int) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "yt-dlp",
-		"--dump-single-json", "--skip-download", "--no-warnings", "--quiet",
-		"ytsearch1:"+query,
-	).Output()
+
+	candidates, err := resolveYouTubeSearch(ctx, query, durationMS)
 	if err != nil {
-		return "", fmt.Errorf("youtube search failed: %w", err)
-	}
-	var info map[string]any
-	if err := json.Unmarshal(out, &info); err != nil {
 		return "", err
 	}
-	if entries, ok := info["entries"].([]any); ok && len(entries) > 0 {
-		if m, ok := entries[0].(map[string]any); ok {
-			if id, _ := m["id"].(string); id != "" {
-				return id, nil
-			}
+
+	var lastErr error
+	for i, c := range candidates {
+		if i >= maxSearchAttempts {
+			break
 		}
+		path, dlErr := downloadYouTubeAudio(ctx, "https://www.youtube.com/watch?v="+c.ID, outputDir, format)
+		if dlErr == nil {
+			return path, nil
+		}
+		lastErr = dlErr
+		if ctx.Err() != nil {
+			break
+		}
+		slog.Debug("youtube candidate failed, trying next", "query", query, "video_id", c.ID, "err", dlErr)
 	}
-	if id, _ := info["id"].(string); id != "" {
-		return id, nil
-	}
-	return "", fmt.Errorf("no youtube match for query")
+	return "", fmt.Errorf("all youtube candidates failed for %q: %w", query, lastErr)
 }
 
-func downloadYouTubeAudio(ctx context.Context, url, outputDir, format string, timeoutSeconds int) (string, error) {
+type searchCandidate struct {
+	ID       string
+	Duration float64
+}
+
+func resolveYouTubeSearch(ctx context.Context, query string, durationMS int) ([]searchCandidate, error) {
+	out, err := exec.CommandContext(ctx, "yt-dlp",
+		"--dump-single-json", "--flat-playlist", "--no-warnings", "--quiet",
+		"ytsearch5:"+query,
+	).Output()
+	if err != nil {
+		return nil, fmt.Errorf("youtube search failed: %s", combineErrorText(err, nil))
+	}
+	candidates := pickSearchCandidates(out, durationMS)
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no youtube match for query")
+	}
+	return candidates, nil
+}
+
+func pickSearchCandidates(jsonBytes []byte, durationMS int) []searchCandidate {
+	var info struct {
+		Entries []*struct {
+			ID       string  `json:"id"`
+			Duration float64 `json:"duration"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(jsonBytes, &info); err != nil {
+		return nil
+	}
+	var candidates []searchCandidate
+	for _, e := range info.Entries {
+		if e == nil || e.ID == "" {
+			continue
+		}
+		candidates = append(candidates, searchCandidate{ID: e.ID, Duration: e.Duration})
+	}
+	if durationMS > 0 {
+		target := float64(durationMS) / 1000
+		sort.SliceStable(candidates, func(i, j int) bool {
+			return math.Abs(candidates[i].Duration-target) < math.Abs(candidates[j].Duration-target)
+		})
+	}
+	return candidates
+}
+
+func downloadYouTubeAudio(ctx context.Context, url, outputDir, format string) (string, error) {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", err
 	}
 	if format == "" {
 		format = "mp3"
 	}
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
-	defer cancel()
-	_, err := exec.CommandContext(ctx, "yt-dlp",
+	out, err := exec.CommandContext(ctx, "yt-dlp",
 		"--no-warnings", "--quiet", "--no-playlist",
 		"-f", "bestaudio/best",
 		"-o", filepath.Join(outputDir, "%(title).100s.%(ext)s"),
@@ -87,7 +131,7 @@ func downloadYouTubeAudio(ctx context.Context, url, outputDir, format string, ti
 		url,
 	).CombinedOutput()
 	if err != nil {
-		return "", err
+		return "", ytdlpCombinedError(out, err)
 	}
 	return findAudioFile(outputDir)
 }
