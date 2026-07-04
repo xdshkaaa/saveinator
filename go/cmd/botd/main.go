@@ -7,6 +7,7 @@ import (
 
 	// Platforms register themselves with botkit by name.
 	_ "saveinator/internal/botkit/platforms/pinterest"
+	_ "saveinator/internal/botkit/platforms/soundcloud"
 	_ "saveinator/internal/botkit/platforms/spotify"
 )
 

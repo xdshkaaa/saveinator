@@ -23,6 +23,16 @@ bots:
     register_api: true
     concurrency: 2
 
+  - slug: soundcloud
+    token_env: SOUNDCLOUD_BOT_TOKEN
+    username: ""
+    languages: [en, ru, kk]
+    default_lang: en
+    welcome_key: onboarding.welcome_soundcloud
+    not_supported_key: soundcloud.not_soundcloud_link
+    platforms: [soundcloud]
+    concurrency: 2
+
   - slug: spotify
     token_env: SPOTIFY_BOT_TOKEN
     username: ""
