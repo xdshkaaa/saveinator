@@ -1,6 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Тілді таңдаңыз:",
+    "welcome": "Қош келдіңіз! Кез келген топта маған YouTube, TikTok, X/Twitter, Spotify немесе SoundCloud сілтемесін жіберіңіз. Мен бейне мен музыканы жүктей аламын.",
     "welcome_pinterest": "👋 Сәлеметсіз бе!!\n📥 Мен Pinterest-тен видео жүктей аламын\n👉 Сілтемені ботқа жіберіңіз, бірнеше секундтан кейін су таңбасынсыз видео аласыз.",
     "welcome_spotify": "🎵 Spotify іздеу ботына қош келдіңіз!\n\nSpotify альбом немесе трек сілтемесін жіберіңіз, мен тректерді жүктеймін.\n\nМысалдар:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nТек сілтемені қойыңыз — қалғанын өзім істеймін.",
     "btn_en": "🇬🇧 English",
@@ -30,6 +31,9 @@
   "clear": {
     "success": "Кезек тазартылды. Жаңа сілтеме жібере аласыз.",
     "empty": "Белсенді жүктеулер жоқ."
+  },
+  "x": {
+    "no_media_in_reply": "❌ Көрсетілген жауапта медиа табылмады."
   },
   "errors": {
     "unsupported": "Қолдау көрсетілмейтін сілтеме.",
@@ -66,6 +70,28 @@
     "api_error": "Spotify релиз ақпаратын ала алмады. Кейінірек қайталап көріңіз.",
     "disabled": "Spotify қолдауы бұл ботта өшірілген.",
     "not_spotify_link": "Бұл бот тек Spotify сілтемелерімен жұмыс істейді. Альбом немесе трек URL жіберіңіз."
+  },
+  "soundcloud": {
+    "card_title": "🎧 {artist} — {name}",
+    "track_card_title": "🎧 {artist} — {title}",
+    "duration": "Ұзақтығы: {duration}",
+    "genre": "Жанры: {genre}",
+    "tracks_count": "Тректер: {count}",
+    "source": "Дереккөз: SoundCloud",
+    "btn_open": "SoundCloud-та ашу",
+    "no_download": "SoundCloud үшін тек трек карточкасы қолжетімді. Бұл ботта аудио жүктеу өшірілген.",
+    "download_starting": "Жүктеу басталды: {total} трек",
+    "download_track": "Жүктелуде {current}/{total}: {title}",
+    "download_track_youtube": "YouTube-тен ізделуде {current}/{total}: {title}",
+    "youtube_fallback_note": "SoundCloud DRM — орнына YouTube-тегі сәйкес нұсқасын жүктейміз.",
+    "send_track": "Жіберілуде {current}/{total}: {title}",
+    "download_done": "Дайын: {count}/{total} трек жіберілді.",
+    "download_failed": "Тректерді жүктеу мүмкін болмады. Кейінірек қайталап көріңіз.",
+    "download_timeout": "Жүктеу тым ұзаққа созылуда. Қысқарақ плейлистпен қайталап көріңіз.",
+    "not_found": "SoundCloud трегі немесе плейлисті табылмады.",
+    "not_configured": "Бұл ботта SoundCloud қолдауы бапталмаған.",
+    "disabled": "Бұл ботта SoundCloud қолдауы өшірілген.",
+    "playlist_too_large": "Бұл плейлистте тректер тым көп. Рұқсат етілген максимум: {limit}."
   },
   "admin": {
     "menu_title": "⚙️ Runtime баптаулар (Redis арқылы). Өзгерістер барлық пайдаланушыларға бірден қолданылады.",
@@ -133,7 +159,6 @@
     "audience_all": "👥 Барлық пайдаланушылар",
     "audience_ru": "🇷🇺 Тек орысша",
     "audience_en": "🇬🇧 Тек ағылшынша",
-    "audience_kk": "🇰🇿 Тек қазақша",
     "audience_active": "⚡ Белсенді пайдаланушылар",
     "audience_test": "🧪 Тест (тек әкімші)",
     "btn_send": "📨 Жіберу",
@@ -153,25 +178,62 @@
     "audience_label_all": "Барлық пайдаланушылар",
     "audience_label_ru": "Орысша",
     "audience_label_en": "Ағылшынша",
-    "audience_label_kk": "Қазақша",
     "audience_label_active": "Белсенді",
     "status_draft": "Жоба",
     "status_queued": "Кезекте",
     "status_running": "Орындалуда",
     "status_completed": "Аяқталды",
     "status_failed": "Сәтсіз",
-    "status_cancelled": "Тоқтатылды"
+    "status_cancelled": "Тоқтатылды",
+    "audience_kk": "🇰🇿 Тек қазақша",
+    "audience_label_kk": "Қазақша"
   },
   "ban": {
     "shadow_reply": "⚠️ Сіздің хабарламаларыңыз жеткізілмейді. Қолдау қызметіне хабарласыңыз.",
     "admin_notice": "🚫 Көлеңкелі бан\nПайдаланушы: {user}\nЧат: {chat}"
   },
+  "youtube": {
+    "choose_quality": "Бейне сапасын таңдаңыз:",
+    "choose_ratio": "Қатынасын таңдаңыз:",
+    "processing": "Бейне өңделуде. Сапасы: {quality}p, форматы: {ratio}",
+    "process_failed": "Бейнені өңдеу мүмкін болмады. Басқа сілтемені немесе басқа сапаны көріңіз.",
+    "session_expired": "Сессияның мерзімі өтті. Сілтемені қайта жіберіңіз."
+  },
   "settings": {
     "title": "⚙️ Баптаулар",
     "lang_line": "Тіл: {language}",
+    "quality_line": "YouTube сапасы: {quality}",
+    "ratio_line": "Бейне форматы: {ratio}",
     "lang_prompt": "Интерфейс тілін таңдаңыз:",
+    "quality_prompt": "Әдепкі YouTube сапасын таңдаңыз:",
+    "ratio_prompt": "Әдепкі бейне қатынасын таңдаңыз:",
+    "quality_ask": "Әр жолы сұрау",
+    "quality_1080": "1080p",
+    "quality_720": "720p",
+    "quality_480": "480p",
+    "ratio_ask": "Әр жолы сұрау",
+    "ratio_16_9": "16:9",
+    "ratio_21_9": "21:9",
+    "ratio_9_16": "9:16",
+    "lang_en": "Ағылшынша",
+    "lang_ru": "Орысша",
     "btn_lang": "🌐 Тіл",
-    "btn_back": "← Артқа"
+    "btn_quality": "🎬 YouTube сапасы",
+    "btn_ratio": "📐 Бейне форматы",
+    "btn_reset": "♻️ Баптауларды қалпына келтіру",
+    "btn_back": "← Артқа",
+    "reset_toast": "Баптаулар әдепкі мәндерге қайтарылды"
+  },
+  "tiktok": {
+    "carousel_downloading": "📸 TikTok каруселі жүктелуде...",
+    "carousel_empty": "❌ Бұл TikTok слайдшоуында суреттер табылмады.",
+    "carousel_audio_only": "🎵 Бұл TikTok жазбасында тек аудио бар.",
+    "carousel_partial": "⚠️ {total} суреттің тек {count} суретін жүктеу мүмкін болды.",
+    "audio_unavailable": "🎵 Бұл жазба үшін аудио жолы қолжетімсіз.",
+    "btn_carousel_images": "📷 Карусель фотоларын жүктеу",
+    "carousel_images_downloading": "📸 Карусель фотолары жүктелуде...",
+    "carousel_images_unavailable": "❌ Сілтеменің мерзімі өтті. TikTok сілтемесін қайта жіберіңіз.",
+    "invalid_link": "❌ Бұл TikTok бейне сілтемесі емес. TikTok қолданбасында Бөлісу → Сілтемені көшіру дегенді пайдаланыңыз."
   },
   "pinterest": {
     "not_pinterest_link": "Мен тек Pinterest сілтемелерімен жұмыс істеймін. Маған pin, board немесе pin.it сілтемесін жіберіңіз.",
@@ -180,5 +242,8 @@
     "all_too_large": "❌ Барлық медиа файлдар өлшем шегінен асып кетті.",
     "invalid": "❌ Жарамсыз немесе қолдау көрсетілмейтін Pinterest URL.",
     "private": "❌ Бұл Pinterest мазмұны жеке немесе авторизацияны қажет етеді."
+  },
+  "lang": {
+    "self_name": "Қазақша"
   }
 }

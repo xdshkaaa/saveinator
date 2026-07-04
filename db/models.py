@@ -40,6 +40,15 @@ class Language(str, enum.Enum):
     KK = "kk"
 
 
+class Bot(Base):
+    """One Telegram bot of the fleet (bots.yaml slug)."""
+
+    __tablename__ = "bots"
+
+    slug: Mapped[str] = mapped_column(String(32), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+
+
 class Chat(Base):
     __tablename__ = "chats"
 
@@ -58,9 +67,21 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(64))
     first_name: Mapped[str | None] = mapped_column(String(128))
     language: Mapped[Language] = mapped_column(Enum(Language), default=Language.EN)
+    bot_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("bots.slug"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
 
     downloads: Mapped[list["Download"]] = relationship(back_populates="user")
+
+
+class UserBotSettings(Base):
+    """Per-bot user state; users.language remains the global fallback."""
+
+    __tablename__ = "user_bot_settings"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)
+    bot_id: Mapped[str] = mapped_column(String(32), ForeignKey("bots.slug"), primary_key=True)
+    language: Mapped[Language] = mapped_column(Enum(Language), default=Language.EN)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
 
 
 class Download(Base):
@@ -75,6 +96,7 @@ class Download(Base):
     quality_label: Mapped[str | None] = mapped_column(String(32))
     file_size: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[DownloadStatus] = mapped_column(Enum(DownloadStatus), default=DownloadStatus.QUEUED)
+    bot_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("bots.slug"), index=True)
     error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
