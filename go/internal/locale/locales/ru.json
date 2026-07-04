@@ -158,6 +158,7 @@
     "audience_prompt": "Выберите аудиторию:",
     "audience_all": "👥 Все пользователи",
     "audience_ru": "🇷🇺 Только RU",
+    "audience_kk": "🇰🇿 Казахоязычным",
     "audience_en": "🇬🇧 Только EN",
     "audience_active": "⚡ Активные пользователи",
     "audience_test": "🧪 Тест (только админу)",
@@ -177,6 +178,7 @@
     "history_line": "#{id} — {status} — {audience} — {sent}/{total} — {created}",
     "audience_label_all": "Все пользователи",
     "audience_label_ru": "Русскоязычные",
+    "audience_label_kk": "Казахоязычные",
     "audience_label_en": "Англоязычные",
     "audience_label_active": "Активные пользователи",
     "status_draft": "Черновик",
@@ -240,5 +242,8 @@
     "all_too_large": "❌ Все файлы превышают допустимый размер.",
     "invalid": "❌ Некорректная или неподдерживаемая ссылка Pinterest.",
     "private": "❌ Этот контент Pinterest приватный или требует авторизованного доступа."
+  },
+  "lang": {
+    "self_name": "Русский"
   }
 }

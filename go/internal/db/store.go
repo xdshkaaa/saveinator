@@ -38,9 +38,15 @@ func (s *Store) Close() {
 	}
 }
 
-func (s *Store) GetUserLanguage(ctx context.Context, userID int64) (string, error) {
+// GetUserLanguage returns the user's language for a given bot, falling back
+// to the global users.language when no per-bot row exists yet.
+func (s *Store) GetUserLanguage(ctx context.Context, userID int64, botID string) (string, error) {
 	var lang string
-	err := s.pool.QueryRow(ctx, `SELECT language::text FROM users WHERE id = $1`, userID).Scan(&lang)
+	err := s.pool.QueryRow(ctx, `SELECT language::text FROM user_bot_settings WHERE user_id = $1 AND bot_id = $2`, userID, botID).Scan(&lang)
+	if err == nil {
+		return fromDBLanguage(lang), nil
+	}
+	err = s.pool.QueryRow(ctx, `SELECT language::text FROM users WHERE id = $1`, userID).Scan(&lang)
 	if err != nil {
 		return "", err
 	}
@@ -53,21 +59,30 @@ func (s *Store) UserExists(ctx context.Context, userID int64) (bool, error) {
 	return exists, err
 }
 
-func (s *Store) CreateUser(ctx context.Context, userID int64, username, firstName, lang string) error {
-	_, err := s.pool.Exec(ctx, `
-		INSERT INTO users (id, username, first_name, language, created_at)
-		VALUES ($1, $2, $3, $4::language, $5)
-		ON CONFLICT (id) DO NOTHING
-	`, userID, nullable(username), nullable(firstName), toDBLanguage(lang), time.Now().UTC())
-	return err
-}
-
-func (s *Store) RecordDownload(ctx context.Context, userID, chatID int64, url, platform, status string, fileSizeMB float64, errMsg string) error {
+func (s *Store) CreateUser(ctx context.Context, userID int64, username, firstName, lang, botID string) error {
 	now := time.Now().UTC()
 	if _, err := s.pool.Exec(ctx, `
-		INSERT INTO users (id, language, created_at) VALUES ($1, 'EN'::language, $2)
+		INSERT INTO users (id, username, first_name, language, bot_id, created_at)
+		VALUES ($1, $2, $3, $4::language, $5, $6)
 		ON CONFLICT (id) DO NOTHING
-	`, userID, now); err != nil {
+	`, userID, nullable(username), nullable(firstName), toDBLanguage(lang), botID, now); err != nil {
+		return err
+	}
+	return s.setUserBotLanguage(ctx, userID, botID, lang)
+}
+
+// RecordDownload records a download attributed to the default "saveinator"
+// bot. Fleet bots (botkit) should use RecordDownloadForBot instead.
+func (s *Store) RecordDownload(ctx context.Context, userID, chatID int64, url, platform, status string, fileSizeMB float64, errMsg string) error {
+	return s.RecordDownloadForBot(ctx, userID, chatID, url, platform, status, fileSizeMB, errMsg, "saveinator")
+}
+
+func (s *Store) RecordDownloadForBot(ctx context.Context, userID, chatID int64, url, platform, status string, fileSizeMB float64, errMsg, botID string) error {
+	now := time.Now().UTC()
+	if _, err := s.pool.Exec(ctx, `
+		INSERT INTO users (id, language, bot_id, created_at) VALUES ($1, 'EN'::language, $2, $3)
+		ON CONFLICT (id) DO NOTHING
+	`, userID, botID, now); err != nil {
 		slog.Warn("record download: ensure user failed", "user_id", userID, "err", err)
 		return err
 	}
@@ -83,9 +98,9 @@ func (s *Store) RecordDownload(ctx context.Context, userID, chatID int64, url, p
 		return err
 	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO downloads (user_id, chat_id, url, platform, status, file_size, error_message, created_at, completed_at)
-		VALUES ($1, $2, $3, $4::platform, $5::downloadstatus, $6, $7, $8, $9)
-	`, userID, chatID, url, toDBPlatform(platform), toDBDownloadStatus(status), int64(fileSizeMB*1024*1024), nullable(errMsg), now, now)
+		INSERT INTO downloads (user_id, chat_id, url, platform, status, bot_id, file_size, error_message, created_at, completed_at)
+		VALUES ($1, $2, $3, $4::platform, $5::downloadstatus, $6, $7, $8, $9, $10)
+	`, userID, chatID, url, toDBPlatform(platform), toDBDownloadStatus(status), botID, int64(fileSizeMB*1024*1024), nullable(errMsg), now, now)
 	if err != nil {
 		slog.Warn("record download failed", "user_id", userID, "platform", platform, "status", status, "err", err)
 	}
@@ -129,12 +144,26 @@ func (s *Store) GetOrCreateUserSettings(ctx context.Context, userID int64) (User
 	return UserSettings{YouTubeQuality: "ask", YouTubeRatio: "ask"}, nil
 }
 
-func (s *Store) SetUserLanguage(ctx context.Context, userID int64, lang string) error {
+// SetUserLanguage sets the user's language for a given bot, and also updates
+// the global fallback in users.language.
+func (s *Store) SetUserLanguage(ctx context.Context, userID int64, lang, botID string) error {
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO users (id, language, created_at)
-		VALUES ($1, $2::language, $3)
+		INSERT INTO users (id, language, bot_id, created_at)
+		VALUES ($1, $2::language, $3, $4)
 		ON CONFLICT (id) DO UPDATE SET language = EXCLUDED.language
-	`, userID, toDBLanguage(lang), time.Now().UTC())
+	`, userID, toDBLanguage(lang), botID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	return s.setUserBotLanguage(ctx, userID, botID, lang)
+}
+
+func (s *Store) setUserBotLanguage(ctx context.Context, userID int64, botID, lang string) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO user_bot_settings (user_id, bot_id, language, created_at)
+		VALUES ($1, $2, $3::language, $4)
+		ON CONFLICT (user_id, bot_id) DO UPDATE SET language = EXCLUDED.language
+	`, userID, botID, toDBLanguage(lang), time.Now().UTC())
 	return err
 }
 
@@ -170,4 +199,3 @@ func (s *Store) upsertSetting(ctx context.Context, userID int64, column, value s
 	_, err = s.pool.Exec(ctx, query, userID, value)
 	return err
 }
-

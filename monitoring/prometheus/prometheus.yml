@@ -45,29 +45,15 @@ scrape_configs:
         labels:
           service: worker
 
-  - job_name: saveinator-pinterest
+  # botd exposes all fleet bots on one endpoint; per-bot series carry the
+  # "bot" label (saveinator_bot_*).
+  - job_name: saveinator-botd
     metrics_path: /metrics
     static_configs:
       - targets:
-          - 127.0.0.1:9103
+          - 127.0.0.1:9106
         labels:
-          service: pinterest
-
-  - job_name: saveinator-pinterest-kz
-    metrics_path: /metrics
-    static_configs:
-      - targets:
-          - 127.0.0.1:9104
-        labels:
-          service: pinterest_kz
-
-  - job_name: saveinator-spotify
-    metrics_path: /metrics
-    static_configs:
-      - targets:
-          - 127.0.0.1:9105
-        labels:
-          service: spotify
+          service: botd
 
   - job_name: postgres
     static_configs:

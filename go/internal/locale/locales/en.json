@@ -158,6 +158,7 @@
     "audience_prompt": "Choose audience:",
     "audience_all": "👥 All users",
     "audience_ru": "🇷🇺 Russian only",
+    "audience_kk": "🇰🇿 Kazakh-speaking",
     "audience_en": "🇬🇧 English only",
     "audience_active": "⚡ Active users",
     "audience_test": "🧪 Test (admin only)",
@@ -177,6 +178,7 @@
     "history_line": "#{id} — {status} — {audience} — {sent}/{total} — {created}",
     "audience_label_all": "All users",
     "audience_label_ru": "Russian",
+    "audience_label_kk": "Kazakh-speaking",
     "audience_label_en": "English",
     "audience_label_active": "Active users",
     "status_draft": "Draft",
@@ -240,5 +242,8 @@
     "all_too_large": "❌ All media files exceeded the size limit.",
     "invalid": "❌ Invalid or unsupported Pinterest URL.",
     "private": "❌ This Pinterest content is private or requires authorized access."
+  },
+  "lang": {
+    "self_name": "English"
   }
 }

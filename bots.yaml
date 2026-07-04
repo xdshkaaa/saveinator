@@ -1,0 +1,34 @@
+# Fleet config for botd: one process runs every bot listed here.
+# New bot = new block + its token env var in .env; no code, no ports.
+bots:
+  - slug: pinterest
+    token_env: PINTEREST_BOT_TOKEN
+    username: ""
+    languages: [en, ru]
+    default_lang: en
+    welcome_key: onboarding.welcome_pinterest
+    not_supported_key: pinterest.not_pinterest_link
+    platforms: [pinterest]
+    register_api: true
+    concurrency: 2
+
+  - slug: pinterest_kz
+    token_env: PINTEREST_KZ_BOT_TOKEN
+    username: ""
+    languages: [kk, ru, en]
+    default_lang: kk
+    welcome_key: onboarding.welcome_pinterest
+    not_supported_key: pinterest.not_pinterest_link
+    platforms: [pinterest]
+    register_api: true
+    concurrency: 2
+
+  - slug: spotify
+    token_env: SPOTIFY_BOT_TOKEN
+    username: ""
+    languages: [en, ru, kk]
+    default_lang: en
+    welcome_key: onboarding.welcome_spotify
+    not_supported_key: spotify.not_spotify_link
+    platforms: [spotify]
+    concurrency: 2

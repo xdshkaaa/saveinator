@@ -46,7 +46,7 @@ func (b *Bot) onSettingsCallback(bot *telego.Bot) func(context.Context, *telego.
 			b.editSettingsMenu(ctx, bot, userID, chat.ID, msgID, lang)
 		case "lang":
 			if len(parts) == 3 {
-				_ = b.db.SetUserLanguage(ctx, userID, parts[2])
+				_ = b.db.SetUserLanguage(ctx, userID, parts[2], "saveinator")
 				lang = parts[2]
 				b.editSettingsMenu(ctx, bot, userID, chat.ID, msgID, lang)
 			} else {
@@ -78,7 +78,7 @@ func (b *Bot) onSettingsCallback(bot *telego.Bot) func(context.Context, *telego.
 
 func (b *Bot) settingsSummary(ctx context.Context, userID int64, lang string) string {
 	settings, _ := b.db.GetOrCreateUserSettings(ctx, userID)
-	userLang, _ := b.db.GetUserLanguage(ctx, userID)
+	userLang, _ := b.db.GetUserLanguage(ctx, userID, "saveinator")
 	if userLang == "" {
 		userLang = lang
 	}

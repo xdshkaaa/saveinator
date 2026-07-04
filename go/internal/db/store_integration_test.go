@@ -72,7 +72,7 @@ func startTestStore(t *testing.T) (*Store, func()) {
 func seedUserAndChat(t *testing.T, store *Store, userID, chatID int64) {
 	t.Helper()
 	ctx := context.Background()
-	if err := store.CreateUser(ctx, userID, "tester", "Test", "ru"); err != nil {
+	if err := store.CreateUser(ctx, userID, "tester", "Test", "ru", "saveinator"); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 	_, err := store.pool.Exec(ctx, `INSERT INTO chats (id, type, created_at) VALUES ($1, 'private', $2)`, chatID, time.Now().UTC())
@@ -87,20 +87,20 @@ func TestIntegration_CreateUserLanguageRoundtrip(t *testing.T) {
 	ctx := context.Background()
 
 	const userID int64 = 1001
-	if err := store.CreateUser(ctx, userID, "alice", "Alice", "ru"); err != nil {
+	if err := store.CreateUser(ctx, userID, "alice", "Alice", "ru", "saveinator"); err != nil {
 		t.Fatal(err)
 	}
-	lang, err := store.GetUserLanguage(ctx, userID)
+	lang, err := store.GetUserLanguage(ctx, userID, "saveinator")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if lang != "ru" {
 		t.Fatalf("language = %q, want ru", lang)
 	}
-	if err := store.SetUserLanguage(ctx, userID, "en"); err != nil {
+	if err := store.SetUserLanguage(ctx, userID, "en", "saveinator"); err != nil {
 		t.Fatal(err)
 	}
-	lang, err = store.GetUserLanguage(ctx, userID)
+	lang, err = store.GetUserLanguage(ctx, userID, "saveinator")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -81,23 +81,26 @@ func (c *Client) EnqueueDownload(p DownloadPayload) error {
 	return err
 }
 
-func (c *Client) EnqueuePinterest(p DownloadPayload) error {
+// EnqueueDownloadTo enqueues a download task with an explicit task type and
+// queue name; used by botkit bots whose queue comes from BotConfig.
+func (c *Client) EnqueueDownloadTo(taskType, queueName string, p DownloadPayload) error {
 	body, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
-	task := asynq.NewTask(TypePinterest, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(PinterestQueueName))
+	task := asynq.NewTask(taskType, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
 	return err
 }
 
-func (c *Client) EnqueuePinterestKZ(p DownloadPayload) error {
+// EnqueueMusicTo is the MusicPayload counterpart of EnqueueDownloadTo.
+func (c *Client) EnqueueMusicTo(taskType, queueName string, p MusicPayload) error {
 	body, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
-	task := asynq.NewTask(TypePinterestKZ, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(PinterestKZQueueName))
+	task := asynq.NewTask(taskType, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(queueName))
 	return err
 }
 
@@ -128,16 +131,6 @@ func (c *Client) EnqueueSpotify(p MusicPayload) error {
 	}
 	task := asynq.NewTask(TypeSpotify, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
-	return err
-}
-
-func (c *Client) EnqueueSpotifyMicroservice(p MusicPayload) error {
-	body, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	task := asynq.NewTask(TypeSpotify, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(SpotifyQueueName))
 	return err
 }
 

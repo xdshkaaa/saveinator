@@ -32,6 +32,19 @@ jobs:
   compose:
     name: Compose config
     runs-on: ubuntu-latest
+    env:
+      DB_PASSWORD: ci
+      BOT_TOKEN: ci
+      PINTEREST_BOT_TOKEN: ci
+      PINTEREST_KZ_BOT_TOKEN: ci
+      SPOTIFY_BOT_TOKEN: ci
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config -q
+
+  locales:
+    name: Locale parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check-parity.sh
