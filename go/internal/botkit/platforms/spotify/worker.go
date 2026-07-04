@@ -27,9 +27,10 @@ type taskHandler struct {
 }
 
 func (h *taskHandler) handle(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
 	var p queue.MusicPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		botworker.RecordTaskFailure(queue.TypeSpotify)
+		botworker.RecordTaskFailure(h.botID, queue.TypeSpotify)
 		slog.Warn("spotify payload decode failed", "err", err)
 		return nil
 	}
@@ -40,7 +41,7 @@ func (h *taskHandler) handle(ctx context.Context, t *asynq.Task) error {
 	slog.Info("spotify worker started", "chat", p.ChatID, "message", p.MessageID, "resource", p.ResourceID)
 	if err := h.runMusicDownload(ctx, p); err != nil {
 		slog.Warn("spotify worker failed", "err", err)
-		botworker.RecordTaskFailure(queue.TypeSpotify)
+		botworker.RecordTaskFailure(h.botID, queue.TypeSpotify)
 		lang := p.Lang
 		if lang == "" {
 			lang = "en"
@@ -48,7 +49,7 @@ func (h *taskHandler) handle(ctx context.Context, t *asynq.Task) error {
 		_ = h.d.Sender.EditMessage(p.ChatID, p.MessageID, locale.Get("spotify.download_failed", lang, nil))
 		return nil
 	}
-	botworker.RecordTaskSuccess(queue.TypeSpotify, "spotify", time.Now(), 0)
+	botworker.RecordTaskSuccess(h.botID, queue.TypeSpotify, "spotify", start, 0)
 	return nil
 }
 

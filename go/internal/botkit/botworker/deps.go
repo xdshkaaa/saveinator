@@ -92,8 +92,12 @@ func (d *Deps) UserFacingError(lang string, userID int64, err error) string {
 	return base + locale.Get("errors.admin_debug", lang, map[string]string{"detail": detail})
 }
 
-func RecordTaskSuccess(taskType, platform string, start time.Time, fileBytes int64) {
+func RecordTaskSuccess(bot, taskType, platform string, start time.Time, fileBytes int64) {
 	metrics.RecordCeleryTask(taskType, "SUCCESS")
+	if bot != "" {
+		metrics.BotTasksTotal.WithLabelValues(bot, "SUCCESS").Inc()
+		metrics.BotTaskDurationSeconds.WithLabelValues(bot).Observe(time.Since(start).Seconds())
+	}
 	if platform != "" {
 		metrics.ObserveDownloadDuration(platform, time.Since(start))
 		if fileBytes > 0 {
@@ -102,6 +106,9 @@ func RecordTaskSuccess(taskType, platform string, start time.Time, fileBytes int
 	}
 }
 
-func RecordTaskFailure(taskType string) {
+func RecordTaskFailure(bot, taskType string) {
 	metrics.RecordCeleryTask(taskType, "FAILURE")
+	if bot != "" {
+		metrics.BotTasksTotal.WithLabelValues(bot, "FAILURE").Inc()
+	}
 }

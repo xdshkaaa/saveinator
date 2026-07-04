@@ -57,14 +57,14 @@ groups:
           summary: Saveinator worker metrics target down
           description: Prometheus cannot scrape the Celery worker metrics endpoint.
 
-      - alert: PinterestTargetDown
-        expr: up{job="saveinator-pinterest"} == 0
+      - alert: BotdTargetDown
+        expr: up{job="saveinator-botd"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: Pinterest bot metrics target down
-          description: Prometheus cannot scrape the Pinterest microservice metrics endpoint on :9103.
+          summary: botd fleet metrics target down
+          description: Prometheus cannot scrape the botd fleet metrics endpoint on :9106 (all fleet bots run in this process).
 
       - alert: PostgresDown
         expr: pg_up == 0
@@ -157,3 +157,32 @@ groups:
         annotations:
           summary: Worker task duration p95 is too high
           description: Download task p95 duration is above 5 minutes.
+
+  - name: saveinator-fleet
+    rules:
+      - alert: BotTaskFailureRateHigh
+        expr: sum by (bot) (rate(saveinator_bot_tasks_total{status="FAILURE"}[10m])) / clamp_min(sum by (bot) (rate(saveinator_bot_tasks_total[10m])), 0.001) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Bot {{ $labels.bot }} task failure rate is high
+          description: More than 30% of worker tasks for bot {{ $labels.bot }} failed over the last 10 minutes.
+
+      - alert: BotNoUpdates
+        expr: increase(saveinator_bot_updates_total[6h]) == 0 and on() up{job="saveinator-botd"} == 1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: Bot {{ $labels.bot }} received no updates for 6 hours
+          description: botd is up but bot {{ $labels.bot }} has not received any Telegram updates in 6 hours.
+
+      - alert: BotTaskDurationTooHigh
+        expr: histogram_quantile(0.95, sum by (bot, le) (rate(saveinator_bot_task_duration_seconds_bucket[15m]))) > 300
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Bot {{ $labels.bot }} task p95 duration above 5 minutes
+          description: Worker tasks for bot {{ $labels.bot }} are taking longer than 5 minutes at p95.

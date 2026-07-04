@@ -205,6 +205,12 @@ func RunFleet(ctx context.Context, cfg *config.Settings, fleet *Fleet) error {
 	mux.HandleFunc("/health", health)
 	apiRegistered := false
 
+	slugs := make([]string, 0, len(fleet.Bots))
+	for i := range fleet.Bots {
+		slugs = append(slugs, fleet.Bots[i].Slug)
+	}
+	metrics.InitBotMetrics(slugs)
+
 	mode := cfg.Mode
 	if mode == "" {
 		mode = "all"

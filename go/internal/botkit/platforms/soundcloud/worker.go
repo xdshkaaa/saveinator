@@ -32,7 +32,7 @@ func (h *taskHandler) handle(ctx context.Context, t *asynq.Task) error {
 	start := time.Now()
 	var p queue.MusicPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		botworker.RecordTaskFailure(queue.TypeSoundCloud)
+		botworker.RecordTaskFailure(h.botID, queue.TypeSoundCloud)
 		slog.Warn("soundcloud payload decode failed", "err", err)
 		return nil
 	}
@@ -43,7 +43,7 @@ func (h *taskHandler) handle(ctx context.Context, t *asynq.Task) error {
 	slog.Info("soundcloud worker started", "chat", p.ChatID, "message", p.MessageID, "url", p.SourceURL)
 	if err := h.runMusicDownload(ctx, p); err != nil {
 		slog.Warn("soundcloud worker failed", "err", err)
-		botworker.RecordTaskFailure(queue.TypeSoundCloud)
+		botworker.RecordTaskFailure(h.botID, queue.TypeSoundCloud)
 		lang := p.Lang
 		if lang == "" {
 			lang = "en"
@@ -51,7 +51,7 @@ func (h *taskHandler) handle(ctx context.Context, t *asynq.Task) error {
 		_ = h.d.Sender.EditMessage(p.ChatID, p.MessageID, locale.Get("soundcloud.download_failed", lang, nil))
 		return nil
 	}
-	botworker.RecordTaskSuccess(queue.TypeSoundCloud, "soundcloud", start, 0)
+	botworker.RecordTaskSuccess(h.botID, queue.TypeSoundCloud, "soundcloud", start, 0)
 	return nil
 }
 

@@ -40,6 +40,8 @@ curl -s http://127.0.0.1:9102/metrics | head
 
 Auto-provisioned from `monitoring/grafana/dashboards/`. Manual import: Grafana → Import → upload JSON.
 
+`bot-fleet.json` is the primary dashboard for the botd fleet (pinterest, pinterest_kz, soundcloud, spotify): per-bot `saveinator_bot_updates_total`, `saveinator_bot_downloads_enqueued_total`, `saveinator_bot_tasks_total{status}`, `saveinator_bot_task_duration_seconds` — all scraped from `:9106` (job `saveinator-botd`).
+
 `worker-celery.json` uses `saveinator_celery_tasks_total` (asynq worker inside Go `saveinator`).
 
 ## Security
