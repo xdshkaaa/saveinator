@@ -4,6 +4,7 @@
     "welcome": "Welcome! Send me a YouTube, TikTok, X/Twitter, Spotify, or SoundCloud link in any group. I can download videos and music.",
     "welcome_pinterest": "👋 Hello!!\n📥 I can download videos from Pinterest\n👉 Send the link to the bot and in a couple of seconds you will receive a video without a watermark.",
     "welcome_spotify": "🎵 Welcome to Spotify Search Tool Bot!\n\nSend me a Spotify album or track link, and I'll download the tracks for you.\n\nExamples:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nJust paste the link — I'll handle the rest.",
+    "welcome_soundcloud": "🎧 Welcome to SoundCloud Downloader Bot!\n\nSend me a SoundCloud track or playlist link, and I'll download the tracks for you.\n\nExamples:\n• https://soundcloud.com/artist/track\n• https://soundcloud.com/artist/sets/playlist\n\nJust paste the link — I'll handle the rest.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский",
     "btn_kk": "🇰🇿 Қазақша",
@@ -91,7 +92,8 @@
     "not_found": "SoundCloud track or playlist not found.",
     "not_configured": "SoundCloud support is not configured on this bot.",
     "disabled": "SoundCloud support is disabled on this bot.",
-    "playlist_too_large": "This playlist has too many tracks. Maximum allowed: {limit}."
+    "playlist_too_large": "This playlist has too many tracks. Maximum allowed: {limit}.",
+    "not_soundcloud_link": "This bot only handles SoundCloud links. Send me a SoundCloud track or playlist URL."
   },
   "admin": {
     "menu_title": "⚙️ Runtime settings (hot-swap via Redis). Changes apply immediately for all users.",

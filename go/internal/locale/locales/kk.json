@@ -4,6 +4,7 @@
     "welcome": "Қош келдіңіз! Кез келген топта маған YouTube, TikTok, X/Twitter, Spotify немесе SoundCloud сілтемесін жіберіңіз. Мен бейне мен музыканы жүктей аламын.",
     "welcome_pinterest": "👋 Сәлеметсіз бе!!\n📥 Мен Pinterest-тен видео жүктей аламын\n👉 Сілтемені ботқа жіберіңіз, бірнеше секундтан кейін су таңбасынсыз видео аласыз.",
     "welcome_spotify": "🎵 Spotify іздеу ботына қош келдіңіз!\n\nSpotify альбом немесе трек сілтемесін жіберіңіз, мен тректерді жүктеймін.\n\nМысалдар:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nТек сілтемені қойыңыз — қалғанын өзім істеймін.",
+    "welcome_soundcloud": "🎧 SoundCloud жүктеу ботына қош келдіңіз!\n\nSoundCloud трек немесе плейлист сілтемесін жіберіңіз, мен тректерді жүктеймін.\n\nМысалдар:\n• https://soundcloud.com/artist/track\n• https://soundcloud.com/artist/sets/playlist\n\nТек сілтемені қойыңыз — қалғанын өзім істеймін.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский",
     "btn_kk": "🇰🇿 Қазақша",
@@ -91,7 +92,8 @@
     "not_found": "SoundCloud трегі немесе плейлисті табылмады.",
     "not_configured": "Бұл ботта SoundCloud қолдауы бапталмаған.",
     "disabled": "Бұл ботта SoundCloud қолдауы өшірілген.",
-    "playlist_too_large": "Бұл плейлистте тректер тым көп. Рұқсат етілген максимум: {limit}."
+    "playlist_too_large": "Бұл плейлистте тректер тым көп. Рұқсат етілген максимум: {limit}.",
+    "not_soundcloud_link": "Бұл бот тек SoundCloud сілтемелерімен жұмыс істейді. Трек немесе плейлист URL жіберіңіз."
   },
   "admin": {
     "menu_title": "⚙️ Runtime баптаулар (Redis арқылы). Өзгерістер барлық пайдаланушыларға бірден қолданылады.",

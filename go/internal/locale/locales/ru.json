@@ -4,6 +4,7 @@
     "welcome": "Добро пожаловать! Отправь ссылку на YouTube, TikTok, X/Twitter, Spotify или SoundCloud в любую группу. Я скачиваю видео и музыку.",
     "welcome_pinterest": "👋 Привет!!\n📥 Я скачиваю видео с Pinterest\n👉 Отправь ссылку боту — через пару секунд получишь видео без водяного знака.",
     "welcome_spotify": "🎵 Добро пожаловать в Spotify Search Tool Bot!\n\nОтправь ссылку на альбом или трек Spotify, и я скачаю треки для тебя.\n\nПримеры:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nПросто вставь ссылку — остальное я сделаю сам.",
+    "welcome_soundcloud": "🎧 Добро пожаловать в SoundCloud Downloader Bot!\n\nОтправь ссылку на трек или плейлист SoundCloud, и я скачаю треки для тебя.\n\nПримеры:\n• https://soundcloud.com/artist/track\n• https://soundcloud.com/artist/sets/playlist\n\nПросто вставь ссылку — остальное я сделаю сам.",
     "btn_en": "🇬🇧 English",
     "btn_ru": "🇷🇺 Русский",
     "btn_kk": "🇰🇿 Қазақша",
@@ -91,7 +92,8 @@
     "not_found": "Трек или плейлист SoundCloud не найден.",
     "not_configured": "Поддержка SoundCloud не настроена на этом боте.",
     "disabled": "Поддержка SoundCloud отключена на этом боте.",
-    "playlist_too_large": "В этом плейлисте слишком много треков. Максимум: {limit}."
+    "playlist_too_large": "В этом плейлисте слишком много треков. Максимум: {limit}.",
+    "not_soundcloud_link": "Этот бот работает только со ссылками SoundCloud. Отправь URL трека или плейлиста."
   },
   "admin": {
     "menu_title": "⚙️ Runtime-настройки (hot-swap через Redis). Меняются сразу для всех пользователей.",
