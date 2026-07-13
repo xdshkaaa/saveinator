@@ -44,7 +44,8 @@
     "send_link": "Файл емес, сілтеме жіберіңіз.",
     "generic": "Бірдеңе дұрыс болмады. Кейінірек қайталап көріңіз.",
     "admin_debug": "\n\n🔧 Debug:\n{detail}",
-    "pinterest_dedicated_bot": "Pinterest қолжетімді емес."
+    "pinterest_dedicated_bot": "Pinterest қолжетімді емес.",
+    "callback_invalid": "Бұл әрекет енді қолжетімді емес."
   },
   "spotify": {
     "card_title": "🎵 {artist} — {name}",

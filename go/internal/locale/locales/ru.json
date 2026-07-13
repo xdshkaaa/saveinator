@@ -44,7 +44,8 @@
     "send_link": "Отправь ссылку, а не файл. Я скачиваю по URL с YouTube, TikTok, X/Twitter, Spotify и SoundCloud.",
     "generic": "Что-то пошло не так. Попробуй позже.",
     "admin_debug": "\n\n🔧 Отладка:\n{detail}",
-    "pinterest_dedicated_bot": "Pinterest недоступен."
+    "pinterest_dedicated_bot": "Pinterest недоступен.",
+    "callback_invalid": "Это действие больше недоступно."
   },
   "spotify": {
     "card_title": "🎵 {artist} — {name}",
