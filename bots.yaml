@@ -10,7 +10,7 @@ bots:
     not_supported_key: pinterest.not_pinterest_link
     platforms: [pinterest]
     register_api: true
-    concurrency: 2
+    concurrency: 1
 
   - slug: pinterest_kz
     token_env: PINTEREST_KZ_BOT_TOKEN
@@ -21,7 +21,7 @@ bots:
     not_supported_key: pinterest.not_pinterest_link
     platforms: [pinterest]
     register_api: true
-    concurrency: 2
+    concurrency: 1
 
   - slug: soundcloud
     token_env: SOUNDCLOUD_BOT_TOKEN
@@ -31,7 +31,7 @@ bots:
     welcome_key: onboarding.welcome_soundcloud
     not_supported_key: soundcloud.not_soundcloud_link
     platforms: [soundcloud]
-    concurrency: 2
+    concurrency: 1
 
   - slug: spotify
     token_env: SPOTIFY_BOT_TOKEN
@@ -41,4 +41,4 @@ bots:
     welcome_key: onboarding.welcome_spotify
     not_supported_key: spotify.not_spotify_link
     platforms: [spotify]
-    concurrency: 2
+    concurrency: 1

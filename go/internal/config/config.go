@@ -78,6 +78,8 @@ type Settings struct {
 	AdminTelegramID int64
 
 	DownloadAPIEnabled bool
+	InternalAPIToken   string
+	InternalAPIRatePerMinute int
 
 	Mode string // bot, worker, all
 }
@@ -143,11 +145,17 @@ func Load() (*Settings, error) {
 		WorkerMetricsPort:      envInt("WORKER_METRICS_PORT", 9102),
 		AdminTelegramID:        envInt64("ADMIN_TELEGRAM_ID", 0),
 		DownloadAPIEnabled:     envBool("DOWNLOAD_API_ENABLED", true),
+		InternalAPIToken:         os.Getenv("INTERNAL_API_TOKEN"),
+		InternalAPIRatePerMinute: envInt("INTERNAL_API_RATE_PER_MINUTE", 10),
 		Mode:                   strings.ToLower(env("SAVEINATOR_MODE", "all")),
 	}
 
 	if s.BotToken == "" {
 		return nil, fmt.Errorf("BOT_TOKEN is required")
+	}
+
+	if s.DownloadAPIEnabled && s.InternalAPIToken == "" {
+		return nil, fmt.Errorf("INTERNAL_API_TOKEN is required when DOWNLOAD_API_ENABLED is true")
 	}
 
 	s.DatabaseURL = normalizePostgresURL(s.DatabaseURL)

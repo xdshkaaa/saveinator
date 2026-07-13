@@ -2,10 +2,13 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"hash/fnv"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -14,14 +17,16 @@ import (
 	"saveinator/internal/config"
 	"saveinator/internal/metrics"
 	"saveinator/internal/pinterest"
+	"saveinator/internal/redisx"
 )
 
 type PinterestHandler struct {
-	cfg *config.Settings
+	cfg   *config.Settings
+	redis *redisx.Client
 }
 
-func NewPinterestHandler(cfg *config.Settings) *PinterestHandler {
-	return &PinterestHandler{cfg: cfg}
+func NewPinterestHandler(cfg *config.Settings, redisClient *redisx.Client) *PinterestHandler {
+	return &PinterestHandler{cfg: cfg, redis: redisClient}
 }
 
 type pinterestRequest struct {
@@ -36,6 +41,20 @@ func (h *PinterestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	if allowed, err := h.redis.AllowRateLimit(r.Context(), "internal_api_ip", clientIPHash(r), h.cfg.InternalAPIRatePerMinute, time.Minute); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal error"})
+		return
+	} else if !allowed {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Rate limit exceeded"})
+		return
+	}
+
+	if !validInternalToken(h.cfg.InternalAPIToken, r.Header.Get("X-Internal-Token")) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+		return
+	}
+
 	if !h.cfg.PinterestEnabled {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Pinterest downloads are disabled"})
 		return
@@ -112,9 +131,28 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func RegisterDownloadRoutes(mux *http.ServeMux, cfg *config.Settings) {
+func validInternalToken(want, got string) bool {
+	if want == "" || got == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(want), []byte(got)) == 1
+}
+
+// clientIPHash maps the request's remote IP to an int64 so it can reuse the
+// existing AllowRateLimit(scope, id) limiter, which is keyed by int64 id.
+func clientIPHash(r *http.Request) int64 {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(host))
+	return int64(h.Sum64())
+}
+
+func RegisterDownloadRoutes(mux *http.ServeMux, cfg *config.Settings, redisClient *redisx.Client) {
 	if !cfg.DownloadAPIEnabled {
 		return
 	}
-	mux.Handle("/download/pinterest", metrics.HTTPMiddleware("/download/pinterest", NewPinterestHandler(cfg)))
+	mux.Handle("/download/pinterest", metrics.HTTPMiddleware("/download/pinterest", NewPinterestHandler(cfg, redisClient)))
 }

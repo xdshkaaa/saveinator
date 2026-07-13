@@ -121,7 +121,7 @@ func runBot(ctx context.Context, bot *telego.Bot, store *db.Store, redisClient *
 			return err
 		}
 	} else {
-		updates, err = setupWebhook(ctx, bot, cfg, bc)
+		updates, err = setupWebhook(ctx, bot, cfg, bc, redisClient)
 		if err != nil {
 			return err
 		}
@@ -150,7 +150,7 @@ func runBot(ctx context.Context, bot *telego.Bot, store *db.Store, redisClient *
 	return bot.StartWebhook(addr)
 }
 
-func setupWebhook(ctx context.Context, bot *telego.Bot, cfg *config.Settings, bc *BotConfig) (<-chan telego.Update, error) {
+func setupWebhook(ctx context.Context, bot *telego.Bot, cfg *config.Settings, bc *BotConfig, redisClient *redisx.Client) (<-chan telego.Update, error) {
 	path := cfg.WebhookPath
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -160,7 +160,7 @@ func setupWebhook(ctx context.Context, bot *telego.Bot, cfg *config.Settings, bc
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/", health)
 	if bc.RegisterAPI {
-		api.RegisterDownloadRoutes(mux, cfg)
+		api.RegisterDownloadRoutes(mux, cfg, redisClient)
 	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.WebhookListen, cfg.WebhookPort)
@@ -205,7 +205,7 @@ func runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, redisClien
 	}
 
 	srv := asynq.NewServer(opt, asynq.Config{
-		Concurrency: 2,
+		Concurrency: 1,
 		Queues: map[string]int{
 			bc.Queue: 1,
 		},

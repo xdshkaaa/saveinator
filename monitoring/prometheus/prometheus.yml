@@ -24,11 +24,6 @@ scrape_configs:
         labels:
           instance: saveinator-vps
 
-  - job_name: cadvisor
-    static_configs:
-      - targets:
-          - 127.0.0.1:8180
-
   - job_name: saveinator-bot
     metrics_path: /metrics
     static_configs:
@@ -64,13 +59,3 @@ scrape_configs:
     static_configs:
       - targets:
           - 127.0.0.1:9121
-
-  - job_name: loki
-    static_configs:
-      - targets:
-          - 127.0.0.1:3100
-
-  - job_name: promtail
-    static_configs:
-      - targets:
-          - 127.0.0.1:9080

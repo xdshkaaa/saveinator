@@ -233,7 +233,7 @@ func RunFleet(ctx context.Context, cfg *config.Settings, fleet *Fleet) error {
 		botRedis := baseRedis.WithPrefix(bc.Slug)
 
 		if bc.RegisterAPI && !apiRegistered {
-			api.RegisterDownloadRoutes(mux, cfg)
+			api.RegisterDownloadRoutes(mux, cfg, baseRedis)
 			apiRegistered = true
 		}
 
@@ -346,7 +346,7 @@ func runFleetWorker(ctx context.Context, cfg *config.Settings, bc *BotConfig, tg
 	}
 
 	if concurrency <= 0 {
-		concurrency = 2
+		concurrency = 1
 	}
 	srv := asynq.NewServer(opt, asynq.Config{
 		Concurrency: concurrency,
