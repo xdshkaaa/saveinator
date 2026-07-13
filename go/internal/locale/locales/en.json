@@ -44,7 +44,8 @@
     "send_link": "Send a link instead of a file. I download from YouTube, TikTok, X/Twitter, Spotify, and SoundCloud URLs.",
     "generic": "Something went wrong. Please try again later.",
     "admin_debug": "\n\n🔧 Debug:\n{detail}",
-    "pinterest_dedicated_bot": "Pinterest is not available."
+    "pinterest_dedicated_bot": "Pinterest is not available.",
+    "callback_invalid": "This action is no longer available."
   },
   "spotify": {
     "card_title": "🎵 {artist} — {name}",

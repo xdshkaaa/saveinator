@@ -71,6 +71,10 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onAdminCallback(bot), th.CallbackDataPrefix("admin|"))
 	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
 	h.HandleCallbackQueryCtx(b.onTikTokCarousel(bot), th.CallbackDataPrefix("ttk:img:"))
+	// Fallback for callback data matching no prefix above (stale/forged buttons).
+	// Telego dispatches to the first handler whose predicates match, so this MUST
+	// stay registered last or it will shadow every handler above it.
+	h.HandleCallbackQueryCtx(b.onUnknownCallback(bot))
 	h.HandleMessageCtx(b.onDirectMedia(bot), th.And(
 		th.AnyMessage(),
 		th.Not(th.Or(th.AnyMessageWithText(), th.AnyMessageWithCaption())),
@@ -136,6 +140,21 @@ func (b *Bot) onLanguageChosen(bot *telego.Bot) func(context.Context, *telego.Bo
 			Text:      locale.Get("onboarding.welcome", lang, nil),
 		})
 		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
+	}
+}
+
+func (b *Bot) onUnknownCallback(bot *telego.Bot) func(context.Context, *telego.Bot, telego.CallbackQuery) {
+	return func(ctx context.Context, _ *telego.Bot, query telego.CallbackQuery) {
+		lang := "en"
+		var userID int64
+		if query.From.ID != 0 {
+			userID = query.From.ID
+			lang = b.userLang(ctx, userID)
+		}
+		slog.Warn("unmatched callback query", "query_id", query.ID, "user_id", userID, "data", query.Data)
+		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).
+			WithText(locale.Get("errors.callback_invalid", lang, nil)).
+			WithShowAlert())
 	}
 }
 
