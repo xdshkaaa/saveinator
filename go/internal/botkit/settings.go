@@ -20,7 +20,7 @@ func (b *Bot) onSettings(bot *telego.Bot) func(context.Context, *telego.Bot, tel
 		metrics.RecordCommand("settings")
 		lang := b.userLang(ctx, msg.From.ID)
 		text := b.settingsSummary(ctx, msg.From.ID, lang)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithReplyMarkup(b.settingsMenuKeyboard(lang)))
+		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithParseMode(telego.ModeHTML).WithReplyMarkup(b.settingsMenuKeyboard(lang)))
 	}
 }
 
@@ -74,6 +74,7 @@ func (b *Bot) editSettingsMenu(ctx context.Context, bot *telego.Bot, userID, cha
 		ChatID:      tu.ID(chatID),
 		MessageID:   messageID,
 		Text:        b.settingsSummary(ctx, userID, lang),
+		ParseMode:   telego.ModeHTML,
 		ReplyMarkup: b.settingsMenuKeyboard(lang),
 	})
 }

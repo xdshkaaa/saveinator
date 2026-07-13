@@ -251,7 +251,7 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 		}
 	}
 
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil))
+	statusMsg := tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)).WithParseMode(telego.ModeHTML)
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, scene, msg.From.ID, token))
 	}
