@@ -12,7 +12,7 @@
     "lang_changed": "Язык изменён."
   },
   "download": {
-    "downloading": "⏳ Скачиваю...",
+    "downloading": "<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Скачиваю...",
     "cancel": "Отмена",
     "cancelled": "Скачивание отменено.",
     "cancel_done": "Отменено",
@@ -96,7 +96,7 @@
     "not_soundcloud_link": "Этот бот работает только со ссылками SoundCloud. Отправь URL трека или плейлиста."
   },
   "admin": {
-    "menu_title": "⚙️ Runtime-настройки (hot-swap через Redis). Меняются сразу для всех пользователей.",
+    "menu_title": "<tg-emoji emoji-id=\"5870982283724328568\">⚙</tg-emoji> Runtime-настройки (hot-swap через Redis). Меняются сразу для всех пользователей.",
     "service_title": "Настройки: {service}",
     "setting_line": "• {label}: {value}",
     "hot_swap_hint": "Изменения применяются без деплоя.",
@@ -114,7 +114,7 @@
     "btn_bans": "🚫 Баны",
     "btn_ban_add": "➕ Забанить ID",
     "btn_unban_user": "✅ Разбанить {user_id}",
-    "bans_title": "🚫 Теневой бан пользователей",
+    "bans_title": "<tg-emoji emoji-id=\"5893192487324880883\">👤</tg-emoji> Теневой бан пользователей",
     "bans_empty": "Список пуст.",
     "ban_user_line": "• {user_id}",
     "bans_hint": "Забаненному на каждое сообщение приходит предупреждение, ссылка не обрабатывается.",
@@ -126,7 +126,7 @@
     "unban_not_found": "Пользователь {user_id} не был в списке.",
     "btn_broadcasts": "📨 Рассылки",
     "btn_users": "📊 Пользователи",
-    "stats_title": "📊 Статистика пользователей",
+    "stats_title": "<tg-emoji emoji-id=\"5870921681735781843\">📊</tg-emoji> Статистика пользователей",
     "stats_body": "🕐 Обновлено: {updated} UTC\n\n👥 Всего: {total}\n\n📈 Рост\n• Сегодня: {new_today}{growth_delta}\n• 7 дней: {new_7d}\n• 30 дней: {new_30d}\n\n⚡ Активность\n• Сейчас (30м): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n• Stickiness (DAU/MAU): {stickiness}\n\n⬇️ Загрузки (completed)\n• {downloads_line}\n• Успех (30д): {success_rate}\n\n🎯 Вовлечённость\n• С загрузками: {with_downloads} ({with_downloads_pct})\n• Возвращающиеся (2+): {returning} ({returning_pct})\n\n🌐 Языки: {lang_line}\n\n📱 Топ платформ (7д, пользователи)\n{platform_lines}\n\n🚫 В теневом бане: {banned}\n\n{download_note}",
     "stats_growth_delta": " ({diff}, {pct})",
     "stats_platform_line": "• {platform}: {count}",
@@ -146,14 +146,14 @@
     "stats_returning_pct_suffix": "{pct} от скачавших"
   },
   "broadcast": {
-    "menu_title": "📨 Рассылки — отправка сообщений всем пользователям бота.",
+    "menu_title": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Рассылки — отправка сообщений всем пользователям бота.",
     "btn_create": "📝 Создать рассылку",
     "btn_history": "📋 История",
     "btn_status": "📊 Статус активной",
     "btn_back": "← Назад",
     "enter_text": "Отправьте текст сообщения для рассылки.\n\nОн будет отправлен как есть всем выбранным пользователям.",
     "text_received": "✅ Текст получен.",
-    "preview_title": "📨 Предпросмотр рассылки:\n\n{text}",
+    "preview_title": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Предпросмотр рассылки:\n\n{text}",
     "preview_audience": "Аудитория: {audience}",
     "preview_recipients": "Оценочно получателей: {count}",
     "preview_confirm": "Отправить?",
@@ -168,14 +168,14 @@
     "btn_edit_text": "✏️ Изменить текст",
     "btn_test": "🧪 Тест админу",
     "btn_cancel": "❌ Отмена",
-    "starting": "📨 Рассылка запущена.\n\nАудитория: {audience}\nПолучателей: {recipients}\n\nОтправка в фоне...",
+    "starting": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Рассылка запущена.\n\nАудитория: {audience}\nПолучателей: {recipients}\n\nОтправка в фоне...",
     "progress": "📨 Рассылка в процессе: {sent}/{total} отправлено, {failed} ошибок, {blocked} заблокировали",
     "report_title": "📨 Рассылка завершена.\n\nВсего получателей: {total}\nУспешно отправлено: {sent}\nОшибки: {failed}\nПользователь заблокировал бота: {blocked}\nВремя выполнения: {duration_min} мин",
     "test_sent": "✅ Тестовое сообщение отправлено админу.",
     "cancelled": "Рассылка отменена.",
     "no_active": "Нет активных рассылок.",
     "active_title": "Активная рассылка #{id}\nСтатус: {status}\nАудитория: {audience}\nОтправлено: {sent}/{total}\nОшибок: {failed}\nЗаблокировали: {blocked}",
-    "history_title": "📋 История рассылок",
+    "history_title": "<tg-emoji emoji-id=\"5870528606328852614\">📁</tg-emoji> История рассылок",
     "history_empty": "Рассылок ещё не было.",
     "history_line": "#{id} — {status} — {audience} — {sent}/{total} — {created}",
     "audience_label_all": "Все пользователи",
@@ -202,7 +202,7 @@
     "session_expired": "Сессия истекла. Отправьте ссылку снова."
   },
   "settings": {
-    "title": "⚙️ Настройки",
+    "title": "<tg-emoji emoji-id=\"5870982283724328568\">⚙</tg-emoji> Настройки",
     "lang_line": "Язык: {language}",
     "quality_line": "Качество YouTube: {quality}",
     "ratio_line": "Формат видео: {ratio}",
