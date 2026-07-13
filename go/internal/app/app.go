@@ -186,7 +186,7 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 	}
 
 	srv := asynq.NewServer(opt, asynq.Config{
-		Concurrency: 2,
+		Concurrency: 1,
 		Queues: map[string]int{
 			"default": 1,
 		},
