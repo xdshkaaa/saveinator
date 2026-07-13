@@ -12,7 +12,7 @@
     "lang_changed": "Language updated."
   },
   "download": {
-    "downloading": "⏳ Downloading...",
+    "downloading": "<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Downloading...",
     "cancel": "Cancel",
     "cancelled": "Download cancelled.",
     "cancel_done": "Cancelled",
@@ -96,7 +96,7 @@
     "not_soundcloud_link": "This bot only handles SoundCloud links. Send me a SoundCloud track or playlist URL."
   },
   "admin": {
-    "menu_title": "⚙️ Runtime settings (hot-swap via Redis). Changes apply immediately for all users.",
+    "menu_title": "<tg-emoji emoji-id=\"5870982283724328568\">⚙</tg-emoji> Runtime settings (hot-swap via Redis). Changes apply immediately for all users.",
     "service_title": "Settings: {service}",
     "setting_line": "• {label}: {value}",
     "hot_swap_hint": "Changes apply without deploy.",
@@ -114,7 +114,7 @@
     "btn_bans": "🚫 Bans",
     "btn_ban_add": "➕ Ban user ID",
     "btn_unban_user": "✅ Unban {user_id}",
-    "bans_title": "🚫 Shadow-banned users",
+    "bans_title": "<tg-emoji emoji-id=\"5893192487324880883\">👤</tg-emoji> Shadow-banned users",
     "bans_empty": "No banned users.",
     "ban_user_line": "• {user_id}",
     "bans_hint": "Banned users get a warning on every message; links are not processed.",
@@ -126,7 +126,7 @@
     "unban_not_found": "User {user_id} was not in the ban list.",
     "btn_broadcasts": "📨 Broadcasts",
     "btn_users": "📊 Users",
-    "stats_title": "📊 User statistics",
+    "stats_title": "<tg-emoji emoji-id=\"5870921681735781843\">📊</tg-emoji> User statistics",
     "stats_body": "🕐 Updated: {updated} UTC\n\n👥 Registered: {total}\n\n📈 Growth\n• Today: {new_today}{growth_delta}\n• 7 days: {new_7d}\n• 30 days: {new_30d}\n\n⚡ Active\n• Now (30m): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n• Stickiness (DAU/MAU): {stickiness}\n\n⬇️ Downloads (completed)\n• {downloads_line}\n• Success (30d): {success_rate}\n\n🎯 Engagement\n• With downloads: {with_downloads} ({with_downloads_pct})\n• Returning (2+): {returning} ({returning_pct})\n\n🌐 Languages: {lang_line}\n\n📱 Top platforms (7d, users)\n{platform_lines}\n\n🚫 Shadow-banned: {banned}\n\n{download_note}",
     "stats_growth_delta": " ({diff}, {pct})",
     "stats_platform_line": "• {platform}: {count}",
@@ -146,14 +146,14 @@
     "stats_returning_pct_suffix": "{pct} of downloaders"
   },
   "broadcast": {
-    "menu_title": "📨 Broadcasts — send messages to all bot users.",
+    "menu_title": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Broadcasts — send messages to all bot users.",
     "btn_create": "📝 Create broadcast",
     "btn_history": "📋 History",
     "btn_status": "📊 Active status",
     "btn_back": "← Back",
     "enter_text": "Send the message text for the broadcast.\n\nIt will be sent as-is to all selected users.",
     "text_received": "✅ Text received.",
-    "preview_title": "📨 Broadcast preview:\n\n{text}",
+    "preview_title": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Broadcast preview:\n\n{text}",
     "preview_audience": "Audience: {audience}",
     "preview_recipients": "Estimated recipients: {count}",
     "preview_confirm": "Send?",
@@ -168,14 +168,14 @@
     "btn_edit_text": "✏️ Edit text",
     "btn_test": "🧪 Test to admin",
     "btn_cancel": "❌ Cancel",
-    "starting": "📨 Broadcast started.\n\nAudience: {audience}\nRecipients: {recipients}\n\nSending in background...",
+    "starting": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Broadcast started.\n\nAudience: {audience}\nRecipients: {recipients}\n\nSending in background...",
     "progress": "📨 Broadcast in progress: {sent}/{total} sent, {failed} failed, {blocked} blocked",
     "report_title": "📨 Broadcast completed.\n\nTotal recipients: {total}\nSent: {sent}\nFailed: {failed}\nBlocked: {blocked}\nDuration: {duration_min} min",
     "test_sent": "✅ Test message sent to admin.",
     "cancelled": "Broadcast cancelled.",
     "no_active": "No active broadcast.",
     "active_title": "Active broadcast #{id}\nStatus: {status}\nAudience: {audience}\nSent: {sent}/{total}\nFailed: {failed}\nBlocked: {blocked}",
-    "history_title": "📋 Broadcast history",
+    "history_title": "<tg-emoji emoji-id=\"5870528606328852614\">📁</tg-emoji> Broadcast history",
     "history_empty": "No broadcasts yet.",
     "history_line": "#{id} — {status} — {audience} — {sent}/{total} — {created}",
     "audience_label_all": "All users",
@@ -202,7 +202,7 @@
     "session_expired": "Session expired. Send the link again."
   },
   "settings": {
-    "title": "⚙️ Settings",
+    "title": "<tg-emoji emoji-id=\"5870982283724328568\">⚙</tg-emoji> Settings",
     "lang_line": "Language: {language}",
     "quality_line": "YouTube quality: {quality}",
     "ratio_line": "Video format: {ratio}",
