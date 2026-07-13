@@ -26,6 +26,7 @@ func (b *Bot) onAdmin(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.menu_title", lang, nil)).
+			WithParseMode(telego.ModeHTML).
 			WithReplyMarkup(b.adminMainKeyboard(lang)))
 	}
 }
@@ -39,7 +40,7 @@ func (b *Bot) onStats(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		text, _ := b.renderStats(ctx, lang)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithReplyMarkup(b.statsKeyboard(lang)))
+		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithParseMode(telego.ModeHTML).WithReplyMarkup(b.statsKeyboard(lang)))
 	}
 }
 
@@ -504,6 +505,7 @@ func (b *Bot) editAdminText(bot *telego.Bot, chatID int64, msgID int, text strin
 		ChatID:      tu.ID(chatID),
 		MessageID:   msgID,
 		Text:        text,
+		ParseMode:   telego.ModeHTML,
 		ReplyMarkup: kb,
 	})
 	if err != nil {

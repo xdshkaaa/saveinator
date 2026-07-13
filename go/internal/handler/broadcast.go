@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"html"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ func (b *Bot) onBroadcast(bot *telego.Bot) func(context.Context, *telego.Bot, te
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("broadcast.menu_title", lang, nil)).
+			WithParseMode(telego.ModeHTML).
 			WithReplyMarkup(b.broadcastMenuKeyboard(lang)))
 	}
 }
@@ -165,7 +167,7 @@ func (b *Bot) showBroadcastPreview(ctx context.Context, bot *telego.Bot, query t
 		return
 	}
 	total, _ := b.db.CountBroadcastRecipients(ctx, audience)
-	preview := locale.Get("broadcast.preview_title", lang, map[string]string{"text": bc.Text}) + "\n\n" +
+	preview := locale.Get("broadcast.preview_title", lang, map[string]string{"text": html.EscapeString(bc.Text)}) + "\n\n" +
 		locale.Get("broadcast.preview_audience", lang, map[string]string{"audience": broadcastAudienceLabel(audience, lang)}) + "\n" +
 		locale.Get("broadcast.preview_recipients", lang, map[string]string{"count": strconv.Itoa(total)}) + "\n\n" +
 		locale.Get("broadcast.preview_confirm", lang, nil)
