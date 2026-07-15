@@ -23,7 +23,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		lang = "en"
 	}
 
-	_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
+	_ = h.sender.EditMessageHTML(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
 
 	taskDir, err := os.MkdirTemp("", "saveinator-tiktok-*")
 	if err != nil {

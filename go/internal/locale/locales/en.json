@@ -12,7 +12,7 @@
     "lang_changed": "Language updated."
   },
   "download": {
-    "downloading": "<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Downloading...",
+    "downloading": "```<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Downloading...```",
     "cancel": "Cancel",
     "cancelled": "Download cancelled.",
     "cancel_done": "Cancelled",
