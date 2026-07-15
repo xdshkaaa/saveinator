@@ -21,10 +21,13 @@ var (
 	ErrDownload = errors.New("x photo download failed")
 )
 
-const (
+const userAgent = "Mozilla/5.0 (compatible; Saveinator/1.0)"
+
+// fxTwitterAPI and vxTwitterAPI are vars (not consts) so tests can point
+// them at an httptest server instead of the real public mirrors.
+var (
 	fxTwitterAPI = "https://api.fxtwitter.com/status"
 	vxTwitterAPI = "https://api.vxtwitter.com/status"
-	userAgent    = "Mozilla/5.0 (compatible; Saveinator/1.0)"
 )
 
 type Result struct {
@@ -38,9 +41,10 @@ type TweetMeta struct {
 }
 
 type parsedTweet struct {
-	text   string
-	author string
-	photos []string
+	text    string
+	author  string
+	photos  []string
+	replyTo string // status ID of the tweet this one replies to, if any
 }
 
 func ExtractStatusID(url string) string {
@@ -100,6 +104,14 @@ func fetchPhotoURLs(ctx context.Context, statusID string) (string, []string, err
 	tweet, err := fetchTweet(ctx, statusID)
 	if err != nil {
 		return "", nil, err
+	}
+	// A reply often carries no media of its own; the media lives on the
+	// tweet it replies to. Fall back to the parent tweet's photos in that
+	// case (one hop only, to avoid chasing an entire thread).
+	if len(tweet.photos) == 0 && tweet.replyTo != "" {
+		if parent, err := fetchTweet(ctx, tweet.replyTo); err == nil && len(parent.photos) > 0 {
+			tweet.photos = parent.photos
+		}
 	}
 	if len(tweet.photos) == 0 {
 		return "", nil, fmt.Errorf("%w: empty photo list", ErrNotFound)
@@ -167,8 +179,9 @@ func parseFxTwitter(body []byte) (parsedTweet, error) {
 		Code    *int   `json:"code"`
 		Message string `json:"message"`
 		Tweet   struct {
-			Text   string `json:"text"`
-			Author struct {
+			Text             string `json:"text"`
+			ReplyingToStatus string `json:"replying_to_status"`
+			Author           struct {
 				Name string `json:"name"`
 			} `json:"author"`
 			Media struct {
@@ -202,9 +215,10 @@ func parseFxTwitter(body []byte) (parsedTweet, error) {
 		}
 	}
 	return parsedTweet{
-		text:   strings.TrimSpace(data.Tweet.Text),
-		author: strings.TrimSpace(data.Tweet.Author.Name),
-		photos: urls,
+		text:    strings.TrimSpace(data.Tweet.Text),
+		author:  strings.TrimSpace(data.Tweet.Author.Name),
+		photos:  urls,
+		replyTo: strings.TrimSpace(data.Tweet.ReplyingToStatus),
 	}, nil
 }
 
@@ -215,6 +229,7 @@ func parseVxTwitter(body []byte) (parsedTweet, error) {
 			Name string `json:"name"`
 		} `json:"author"`
 		MediaURLs     []string `json:"mediaURLs"`
+		ReplyingToID  string   `json:"replyingToID"`
 		MediaExtended []struct {
 			Type string `json:"type"`
 			URL  string `json:"url"`
@@ -230,9 +245,10 @@ func parseVxTwitter(body []byte) (parsedTweet, error) {
 		}
 	}
 	return parsedTweet{
-		text:   strings.TrimSpace(data.Text),
-		author: strings.TrimSpace(data.Author.Name),
-		photos: urls,
+		text:    strings.TrimSpace(data.Text),
+		author:  strings.TrimSpace(data.Author.Name),
+		photos:  urls,
+		replyTo: strings.TrimSpace(data.ReplyingToID),
 	}, nil
 }
 
