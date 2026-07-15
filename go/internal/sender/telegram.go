@@ -52,6 +52,22 @@ func (t *Telegram) EditMessage(chatID int64, messageID int, text string) error {
 	})
 }
 
+// EditMessageHTML edits a message with HTML parse mode, so premium
+// <tg-emoji> status strings render the same way they did when first sent.
+// Use only for locale strings that carry a <tg-emoji> tag; plain-text
+// strings (error output, filenames) must keep using EditMessage.
+func (t *Telegram) EditMessageHTML(chatID int64, messageID int, text string) error {
+	return metrics.CallTelegram("EditMessageText", func() error {
+		_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{
+			ChatID:    tu.ID(chatID),
+			MessageID: messageID,
+			Text:      text,
+			ParseMode: telego.ModeHTML,
+		})
+		return err
+	})
+}
+
 func (t *Telegram) EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
 	if markup == nil {
 		return t.EditMessage(chatID, messageID, text)

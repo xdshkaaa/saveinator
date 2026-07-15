@@ -12,7 +12,7 @@
     "lang_changed": "Язык изменён."
   },
   "download": {
-    "downloading": "<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Скачиваю...",
+    "downloading": "```<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Скачиваю...```",
     "cancel": "Отмена",
     "cancelled": "Скачивание отменено.",
     "cancel_done": "Отменено",

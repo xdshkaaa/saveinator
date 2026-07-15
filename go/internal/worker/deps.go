@@ -4,6 +4,7 @@ import "github.com/mymmrac/telego"
 
 type messageSender interface {
 	EditMessage(chatID int64, messageID int, text string) error
+	EditMessageHTML(chatID int64, messageID int, text string) error
 	EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error
 	DeleteMessage(chatID int64, messageID int) error
 	SendPhotoAlbum(chatID int64, paths []string, caption string) error
