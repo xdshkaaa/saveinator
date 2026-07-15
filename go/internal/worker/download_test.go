@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,20 +14,29 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"saveinator/internal/config"
+	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
 )
 
 type recordingSender struct {
-	mu     sync.Mutex
-	edits  []string
-	deletes []int
+	mu        sync.Mutex
+	edits     []string
+	htmlEdits []string
+	deletes   []int
 }
 
 func (s *recordingSender) EditMessage(chatID int64, messageID int, text string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.edits = append(s.edits, text)
+	return nil
+}
+
+func (s *recordingSender) EditMessageHTML(chatID int64, messageID int, text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.htmlEdits = append(s.htmlEdits, text)
 	return nil
 }
 
@@ -107,6 +117,11 @@ func TestCheckCancelled_earlyExit(t *testing.T) {
 	if len(sender.edits) != 1 {
 		t.Fatalf("expected status edit, got %d edits", len(sender.edits))
 	}
+	// download.cancelled is a plain-text string (no <tg-emoji> tag) and MUST
+	// stay on the non-HTML edit path, or unescaped <, >, & would break it.
+	if len(sender.htmlEdits) != 0 {
+		t.Fatalf("cancelled edit must be plain, got %d HTML edits", len(sender.htmlEdits))
+	}
 }
 
 func TestReleaseLock_onDefer(t *testing.T) {
@@ -158,6 +173,19 @@ func TestHandleDownload_cancelledSkipsWork(t *testing.T) {
 	active, _ := redisClient.GetActiveDownload(ctx, 3)
 	if active != nil {
 		t.Fatal("lock should be released after cancelled handle")
+	}
+}
+
+func TestDownloadingStatusStringNeedsHTML(t *testing.T) {
+	t.Parallel()
+	// The download-status string carries a premium <tg-emoji> tag, which is why
+	// every worker call site that edits a message to it must use the HTML edit
+	// path (EditMessageHTML). If this tag is ever removed, revisit those sites.
+	for _, lang := range []string{"en", "ru"} {
+		got := locale.Get("download.downloading", lang, nil)
+		if !strings.Contains(got, "<tg-emoji") {
+			t.Fatalf("download.downloading [%s] = %q, expected a <tg-emoji> tag requiring HTML parse mode", lang, got)
+		}
 	}
 }
 
