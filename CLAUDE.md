@@ -164,10 +164,10 @@ Key vars: `BOT_TOKEN`, `PINTEREST_BOT_TOKEN`, `DATABASE_URL`, `REDIS_URL`, `SAVE
 
 ## Production VPS
 
-Host: `103.214.69.38`, app dir: `/opt/saveinator`, branch: `main`.
+Host: `YOUR_VPS_IP`, app dir: `/opt/saveinator`, branch: `main`.
 
 Verify after deploy:
 ```bash
-ssh root@103.214.69.38 'curl -fsS http://127.0.0.1:8000/health'
-ssh root@103.214.69.38 'curl -fsS http://127.0.0.1:9101/metrics | head'
+ssh root@YOUR_VPS_IP 'curl -fsS http://127.0.0.1:8000/health'
+ssh root@YOUR_VPS_IP 'curl -fsS http://127.0.0.1:9101/metrics | head'
 ```

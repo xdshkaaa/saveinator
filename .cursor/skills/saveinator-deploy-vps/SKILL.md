@@ -11,7 +11,7 @@ Production VPS defaults (override via env):
 
 | Variable | Default |
 |----------|---------|
-| `VPS_HOST` | `103.214.69.38` |
+| `VPS_HOST` | `YOUR_VPS_IP` |
 | `VPS_USER` | `root` |
 | `APP_DIR` | `/opt/saveinator` |
 | Branch | `main` |
@@ -52,10 +52,10 @@ Compares `.env` `BOT_TOKEN` length vs container env; force-recreates `saveinator
 ## Verify after deploy
 
 ```bash
-ssh root@103.214.69.38 'curl -fsS http://127.0.0.1:8000/health'
-ssh root@103.214.69.38 'curl -fsS http://127.0.0.1:9101/metrics | head'
-ssh root@103.214.69.38 'curl -fsS http://127.0.0.1:9102/metrics | head'
-ssh root@103.214.69.38 'docker compose -f /opt/saveinator/docker-compose.yml ps'
+ssh root@YOUR_VPS_IP 'curl -fsS http://127.0.0.1:8000/health'
+ssh root@YOUR_VPS_IP 'curl -fsS http://127.0.0.1:9101/metrics | head'
+ssh root@YOUR_VPS_IP 'curl -fsS http://127.0.0.1:9102/metrics | head'
+ssh root@YOUR_VPS_IP 'docker compose -f /opt/saveinator/docker-compose.yml ps'
 ```
 
 Public endpoints:

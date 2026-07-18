@@ -8,7 +8,7 @@ description: >-
 
 # Saveinator Monitoring
 
-Production monitoring on VPS (`103.214.69.38`). See also [`MONITORING.md`](MONITORING.md) for human ops reference.
+Production monitoring on VPS (`YOUR_VPS_IP`). See also [`MONITORING.md`](MONITORING.md) for human ops reference.
 
 ## Prerequisites
 

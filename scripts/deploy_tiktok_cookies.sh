@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VPS_HOST="${VPS_HOST:-103.214.69.38}"
+VPS_HOST="${VPS_HOST:?set VPS_HOST env var}"
 VPS_USER="${VPS_USER:-root}"
 APP_DIR="${APP_DIR:-/opt/saveinator}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

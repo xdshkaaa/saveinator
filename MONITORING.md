@@ -2,7 +2,7 @@
 
 Human ops reference. For agent workflows see `.cursor/skills/saveinator-monitoring/SKILL.md`.
 
-Production monitoring on VPS (`103.214.69.38`).
+Production monitoring on VPS (`YOUR_VPS_IP`).
 
 ## Quick start
 
