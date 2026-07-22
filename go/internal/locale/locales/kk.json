@@ -12,7 +12,7 @@
     "lang_changed": "Тіл өзгертілді."
   },
   "download": {
-    "downloading": "⏳ Жүктелуде...",
+    "downloading": "<tg-emoji emoji-id=\"5345906554510012647\">🔄</tg-emoji> Жүктелуде...",
     "cancel": "Бас тарту",
     "cancelled": "Жүктеу тоқтатылды.",
     "cancel_done": "Тоқтатылды",
@@ -44,6 +44,9 @@
     "busy": "Ағымдағы жүктеу аяқталғанша күтіңіз.",
     "send_link": "Файл емес, сілтеме жіберіңіз.",
     "generic": "Бірдеңе дұрыс болмады. Кейінірек қайталап көріңіз.",
+    "not_found": "❌ Бұл мазмұн қолжетімсіз немесе жойылған.",
+    "rate_limited": "❌ Дереккөз қазір сұрауларды шектеп жатыр. Бірнеше минуттан кейін қайталап көріңіз.",
+    "network": "❌ Мазмұнды алу кезінде желі қатесі орын алды. Қайталап көріңіз.",
     "admin_debug": "\n\n🔧 Debug:\n{detail}",
     "pinterest_dedicated_bot": "Pinterest қолжетімді емес.",
     "callback_invalid": "Бұл әрекет енді қолжетімді емес."
@@ -98,7 +101,7 @@
     "not_soundcloud_link": "Бұл бот тек SoundCloud сілтемелерімен жұмыс істейді. Трек немесе плейлист URL жіберіңіз."
   },
   "admin": {
-    "menu_title": "⚙️ Runtime баптаулар (Redis арқылы). Өзгерістер барлық пайдаланушыларға бірден қолданылады.",
+    "menu_title": "<tg-emoji emoji-id=\"5870982283724328568\">⚙</tg-emoji> Runtime баптаулар (Redis арқылы). Өзгерістер барлық пайдаланушыларға бірден қолданылады.",
     "service_title": "Баптаулар: {service}",
     "setting_line": "• {label}: {value}",
     "hot_swap_hint": "Өзгерістер деплойсыз қолданылады.",
@@ -116,7 +119,7 @@
     "btn_bans": "🚫 Бандар",
     "btn_ban_add": "➕ Пайдаланушы ID бан",
     "btn_unban_user": "✅ {user_id} баннан шығару",
-    "bans_title": "🚫 Көлеңкелі бандағы пайдаланушылар",
+    "bans_title": "<tg-emoji emoji-id=\"5893192487324880883\">👤</tg-emoji> Көлеңкелі бандағы пайдаланушылар",
     "bans_empty": "Бандалған пайдаланушылар жоқ.",
     "ban_user_line": "• {user_id}",
     "bans_hint": "Бандалған пайдаланушылар әр хабарламада ескерту алады; сілтемелер өңделмейді.",
@@ -128,7 +131,7 @@
     "unban_not_found": "{user_id} пайдаланушысы бан тізімінде жоқ.",
     "btn_broadcasts": "📨 Хабарландырулар",
     "btn_users": "📊 Пайдаланушылар",
-    "stats_title": "📊 Пайдаланушы статистикасы",
+    "stats_title": "<tg-emoji emoji-id=\"5870921681735781843\">📊</tg-emoji> Пайдаланушы статистикасы",
     "stats_body": "🕐 Жаңартылды: {updated} UTC\n\n👥 Тіркелген: {total}\n\n📈 Өсім\n• Бүгін: {new_today}{growth_delta}\n• 7 күн: {new_7d}\n• 30 күн: {new_30d}\n\n⚡ Белсенді\n• Қазір (30м): {active_now}\n• DAU: {dau} · WAU: {wau} · MAU: {mau}\n• Жабысқақтық (DAU/MAU): {stickiness}\n\n⬇️ Жүктеулер (аяқталған)\n• {downloads_line}\n• Сәттілік (30к): {success_rate}\n\n🎯 Қатысу\n• Жүктеулері бар: {with_downloads} ({with_downloads_pct})\n• Қайталама (2+): {returning} ({returning_pct})\n\n🌐 Тілдер: {lang_line}\n\n📱 Топ платформалар (7к, пайдаланушылар)\n{platform_lines}\n\n🚫 Көлеңкелі бан: {banned}\n\n{download_note}",
     "stats_growth_delta": " ({diff}, {pct})",
     "stats_platform_line": "• {platform}: {count}",
@@ -148,14 +151,14 @@
     "stats_returning_pct_suffix": "жүктеушілердің {pct}"
   },
   "broadcast": {
-    "menu_title": "📨 Хабарландырулар — барлық бот пайдаланушыларына хабарлама жіберу.",
+    "menu_title": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Хабарландырулар — барлық бот пайдаланушыларына хабарлама жіберу.",
     "btn_create": "📝 Хабарландыру жасау",
     "btn_history": "📋 Тарих",
     "btn_status": "📊 Белсенді күйі",
     "btn_back": "← Артқа",
     "enter_text": "Хабарландыру мәтінін жіберіңіз.\n\nОл таңдалған барлық пайдаланушыларға сол күйінде жіберіледі.",
     "text_received": "✅ Мәтін қабылданды.",
-    "preview_title": "📨 Хабарландыруды алдын ала қарау:\n\n{text}",
+    "preview_title": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Хабарландыруды алдын ала қарау:\n\n{text}",
     "preview_audience": "Аудитория: {audience}",
     "preview_recipients": "Болжамды алушылар: {count}",
     "preview_confirm": "Жіберу?",
@@ -169,14 +172,14 @@
     "btn_edit_text": "✏️ Мәтінді өзгерту",
     "btn_test": "🧪 Әкімшіге тест",
     "btn_cancel": "❌ Бас тарту",
-    "starting": "📨 Хабарландыру басталды.\n\nАудитория: {audience}\nАлушылар: {recipients}\n\nФондық режимде жіберілуде...",
+    "starting": "<tg-emoji emoji-id=\"6039422865189638057\">📣</tg-emoji> Хабарландыру басталды.\n\nАудитория: {audience}\nАлушылар: {recipients}\n\nФондық режимде жіберілуде...",
     "progress": "📨 Хабарландыру орындалуда: {sent}/{total} жіберілді, {failed} сәтсіз, {blocked} блокталған",
     "report_title": "📨 Хабарландыру аяқталды.\n\nБарлық алушылар: {total}\nЖіберілді: {sent}\nСәтсіз: {failed}\nБлокталған: {blocked}\nҰзақтығы: {duration_min} мин",
     "test_sent": "✅ Тест хабарламасы әкімшіге жіберілді.",
     "cancelled": "Хабарландыру тоқтатылды.",
     "no_active": "Белсенді хабарландыру жоқ.",
     "active_title": "Белсенді хабарландыру #{id}\nКүйі: {status}\nАудитория: {audience}\nЖіберілді: {sent}/{total}\nСәтсіз: {failed}\nБлокталған: {blocked}",
-    "history_title": "📋 Хабарландыру тарихы",
+    "history_title": "<tg-emoji emoji-id=\"5870528606328852614\">📁</tg-emoji> Хабарландыру тарихы",
     "history_empty": "Хабарландырулар әлі жоқ.",
     "history_line": "#{id} — {status} — {audience} — {sent}/{total} — {created}",
     "audience_label_all": "Барлық пайдаланушылар",
@@ -204,7 +207,7 @@
     "session_expired": "Сессияның мерзімі өтті. Сілтемені қайта жіберіңіз."
   },
   "settings": {
-    "title": "⚙️ Баптаулар",
+    "title": "<tg-emoji emoji-id=\"5870982283724328568\">⚙</tg-emoji> Баптаулар",
     "lang_line": "Тіл: {language}",
     "quality_line": "YouTube сапасы: {quality}",
     "ratio_line": "Бейне форматы: {ratio}",
