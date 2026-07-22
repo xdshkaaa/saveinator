@@ -43,6 +43,9 @@
     "busy": "Please wait until your current download finishes before sending another link.",
     "send_link": "Send a link instead of a file. I download from YouTube, TikTok, X/Twitter, Spotify, and SoundCloud URLs.",
     "generic": "Something went wrong. Please try again later.",
+    "not_found": "❌ This content is unavailable or has been removed.",
+    "rate_limited": "❌ The source is rate-limiting requests right now. Please try again in a few minutes.",
+    "network": "❌ Network error while fetching this content. Please try again.",
     "admin_debug": "\n\n🔧 Debug:\n{detail}",
     "pinterest_dedicated_bot": "Pinterest is not available.",
     "callback_invalid": "This action is no longer available."

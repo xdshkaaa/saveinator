@@ -109,7 +109,7 @@ func refreshTikTokCookies(ctx context.Context, cfg *config.Settings) {
 	if strings.TrimSpace(cfg.TikTokCookiesFromBrowser) == "" {
 		tikTokCookies = cookies.SyncFromMount(cfg.TikTokCookiesPath, cookies.TikTokWritablePath)
 	}
-	err = ytdlp.Download(probeCtx, probeURL, taskDir, ytdlp.Options{
+	err = ytdlp.Probe(probeCtx, probeURL, taskDir, ytdlp.Options{
 		FormatID:                 "best",
 		Platform:                 "tiktok",
 		TikTokCookies:            tikTokCookies,
