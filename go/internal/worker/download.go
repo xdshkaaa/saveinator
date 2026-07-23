@@ -426,6 +426,10 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		return nil
 	}
 
+	if len(result.Items) > 1 {
+		return h.sendPinterestItems(ctx, p, result.Items, lang, start)
+	}
+
 	item := pickPinterestItem(result.Items)
 	sizeMB := float64(item.FileSize) / (1024 * 1024)
 	limit := float64(h.runtime.PlatformMaxFileMB(ctx, "pinterest"))
@@ -458,6 +462,68 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "completed", sizeMB, "")
 	recordTaskSuccess(queue.TypePinterest, "pinterest", start, item.FileSize)
+	return nil
+}
+
+// sendPinterestItems delivers every item from a board/multi-media pin instead
+// of picking a single one: images are grouped into an album and videos are
+// sent individually, skipping any item that exceeds its size limit.
+func (h *Handler) sendPinterestItems(ctx context.Context, p queue.DownloadPayload, items []pinterest.MediaItem, lang string, start time.Time) error {
+	imageLimit := float64(h.runtime.CurrentInt(ctx, "global.document_limit_mb", h.cfg.SendDocumentLimitMB))
+	videoLimit := float64(h.runtime.PlatformMaxFileMB(ctx, "pinterest"))
+
+	var imagePaths []string
+	var totalSize int64
+	sentAny := false
+
+	for _, item := range items {
+		if _, err := os.Stat(item.FilePath); err != nil {
+			slog.Warn("pinterest media file missing", "path", item.FilePath, "err", err)
+			continue
+		}
+		sizeMB := float64(item.FileSize) / (1024 * 1024)
+		if item.MediaType == "video" {
+			if sizeMB > videoLimit {
+				continue
+			}
+			title := item.Title
+			if title == "" {
+				title = pinterest.DisplayTitle(item.FilePath)
+			}
+			if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
+				slog.Warn("pinterest send failed", "err", err)
+				continue
+			}
+			totalSize += item.FileSize
+			sentAny = true
+			continue
+		}
+		if sizeMB > imageLimit {
+			continue
+		}
+		imagePaths = append(imagePaths, item.FilePath)
+		totalSize += item.FileSize
+	}
+
+	if len(imagePaths) > 0 {
+		caption := buildMediaCaption("", lang)
+		if err := h.sender.SendPhotoAlbum(p.ChatID, imagePaths, caption); err != nil {
+			slog.Warn("pinterest album send failed", "err", err)
+		} else {
+			sentAny = true
+		}
+	}
+
+	if !sentAny {
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("pinterest.all_too_large", lang, nil))
+		recordTaskFailure(queue.TypePinterest)
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, "all items too large or missing")
+		return nil
+	}
+
+	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
+	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "completed", float64(totalSize)/(1024*1024), "")
+	recordTaskSuccess(queue.TypePinterest, "pinterest", start, totalSize)
 	return nil
 }
 

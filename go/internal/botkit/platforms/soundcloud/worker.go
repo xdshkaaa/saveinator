@@ -171,7 +171,7 @@ func (h *taskHandler) downloadSoundCloudRelease(ctx context.Context, p queue.Mus
 		_ = d.Sender.EditMessageMarkup(p.ChatID, p.MessageID, sendStatus, cancelKB)
 
 		performer := firstNonEmpty(track.Artist, release.Artist)
-		if err := d.Sender.SendAudio(p.ChatID, audioPath, track.Title, performer, track.DurationMS/1000); err != nil {
+		if err := d.Sender.SendAudio(p.ChatID, audioPath, track.Title, performer, track.DurationMS/1000, ""); err != nil {
 			slog.Warn("soundcloud send audio failed", "title", track.Title, "err", err)
 			metrics.SoundCloudDownloadFailuresTotal.Inc()
 			continue

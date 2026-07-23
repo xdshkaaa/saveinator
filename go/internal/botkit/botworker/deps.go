@@ -24,7 +24,7 @@ type MessageSender interface {
 	EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error
 	DeleteMessage(chatID int64, messageID int) error
 	SendFile(chatID int64, path, title, lang, platform string, animation bool) error
-	SendAudio(chatID int64, path, title, performer string, durationSec int) error
+	SendAudio(chatID int64, path, title, performer string, durationSec int, thumbnailPath string) error
 }
 
 // Deps carries everything a platform worker handler needs.

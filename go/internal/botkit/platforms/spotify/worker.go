@@ -141,7 +141,7 @@ func (h *taskHandler) downloadSpotifyRelease(ctx context.Context, p queue.MusicP
 		})
 		_ = d.Sender.EditMessageMarkup(p.ChatID, p.MessageID, sendStatus, cancelKB)
 
-		if err := d.Sender.SendAudio(p.ChatID, audioPath, track.Title, track.Artists, track.DurationMS/1000); err != nil {
+		if err := d.Sender.SendAudio(p.ChatID, audioPath, track.Title, track.Artists, track.DurationMS/1000, ""); err != nil {
 			slog.Warn("spotify send audio failed", "title", track.Title, "err", err)
 			continue
 		}

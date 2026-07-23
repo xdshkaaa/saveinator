@@ -258,7 +258,7 @@ func openInputFile(path string) (*inputFileHandle, error) {
 	}, nil
 }
 
-func (t *Telegram) SendAudio(chatID int64, path, title, performer string, duration int) error {
+func (t *Telegram) SendAudio(chatID int64, path, title, performer string, duration int, thumbnailPath string) error {
 	file, err := openInputFile(path)
 	if err != nil {
 		return err
@@ -275,6 +275,13 @@ func (t *Telegram) SendAudio(chatID int64, path, title, performer string, durati
 	}
 	if duration > 0 {
 		params.Duration = duration
+	}
+	if thumbnailPath != "" {
+		thumb, thumbErr := openInputFile(thumbnailPath)
+		if thumbErr == nil {
+			defer thumb.close()
+			params.Thumbnail = thumb.input
+		}
 	}
 	return metrics.CallTelegram("SendAudio", func() error {
 		_, err := t.bot.SendAudio(params)

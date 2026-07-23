@@ -63,8 +63,14 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, err.Error())
 			return nil
 		}
+		if result.CarouselImagesAvailable && result.CarouselImageCount > 0 && len(result.Images) < result.CarouselImageCount {
+			_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_partial", lang, map[string]string{
+				"count": fmt.Sprintf("%d", len(result.Images)),
+				"total": fmt.Sprintf("%d", result.CarouselImageCount),
+			})))
+		}
 		if result.AudioPath != "" {
-			if err := h.sender.SendAudio(p.ChatID, result.AudioPath, result.Title, result.Author, 0); err != nil {
+			if err := h.sender.SendAudio(p.ChatID, result.AudioPath, result.Title, result.Author, 0, ""); err != nil {
 				slog.Warn("tiktok audio send failed", "err", err)
 			}
 		}

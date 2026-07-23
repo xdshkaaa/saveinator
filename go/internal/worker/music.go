@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -22,6 +24,39 @@ import (
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
 )
+
+func downloadCoverArt(ctx context.Context, url, destDir string) string {
+	if url == "" {
+		return ""
+	}
+	reqCtx, cancelReq := context.WithTimeout(ctx, 10*time.Second)
+	defer cancelReq()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return ""
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return ""
+	}
+	destPath := filepath.Join(destDir, "cover.jpg")
+	f, err := os.Create(destPath)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		return ""
+	}
+	return destPath
+}
 
 func (h *Handler) handleSpotify(ctx context.Context, t *asynq.Task) error {
 	var p queue.MusicPayload
@@ -125,6 +160,8 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 	}
 	defer os.RemoveAll(taskDir)
 
+	coverPath := downloadCoverArt(ctx, release.CoverURL, taskDir)
+
 	sent := 0
 	total := len(release.Tracks)
 	concurrency := h.runtime.CurrentInt(ctx, "spotify.download_concurrency", h.cfg.SpotifyDownloadConcurrency)
@@ -163,7 +200,7 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 		})
 		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, sendStatus, cancelKB)
 
-		if err := h.sender.SendAudio(p.ChatID, audioPath, track.Title, track.Artists, track.DurationMS/1000); err != nil {
+		if err := h.sender.SendAudio(p.ChatID, audioPath, track.Title, track.Artists, track.DurationMS/1000, coverPath); err != nil {
 			slog.Warn("spotify send audio failed", "title", track.Title, "err", err)
 			continue
 		}
@@ -184,6 +221,8 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		return err
 	}
 	defer os.RemoveAll(taskDir)
+
+	releaseCoverPath := downloadCoverArt(ctx, release.ArtworkURL, taskDir)
 
 	sent := 0
 	total := len(release.Tracks)
@@ -256,7 +295,11 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, sendStatus, cancelKB)
 
 		performer := firstNonEmpty(track.Artist, release.Artist)
-		if err := h.sender.SendAudio(p.ChatID, audioPath, track.Title, performer, track.DurationMS/1000); err != nil {
+		trackCoverPath := releaseCoverPath
+		if track.ArtworkURL != "" && track.ArtworkURL != release.ArtworkURL {
+			trackCoverPath = downloadCoverArt(ctx, track.ArtworkURL, trackDir)
+		}
+		if err := h.sender.SendAudio(p.ChatID, audioPath, track.Title, performer, track.DurationMS/1000, trackCoverPath); err != nil {
 			slog.Warn("soundcloud send audio failed", "title", track.Title, "err", err)
 			metrics.SoundCloudDownloadFailuresTotal.Inc()
 			continue

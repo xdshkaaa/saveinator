@@ -60,7 +60,7 @@ func (s *recordingSender) SendFile(chatID int64, path, title, lang, platform str
 func (s *recordingSender) SendFileWithMarkup(chatID int64, path, title, lang, platform string, animation bool, markup *telego.InlineKeyboardMarkup) error {
 	return nil
 }
-func (s *recordingSender) SendAudio(chatID int64, path, title, performer string, durationSec int) error {
+func (s *recordingSender) SendAudio(chatID int64, path, title, performer string, durationSec int, thumbnailPath string) error {
 	return nil
 }
 
