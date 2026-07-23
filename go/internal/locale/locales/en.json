@@ -34,7 +34,8 @@
     "empty": "No active downloads."
   },
   "x": {
-    "no_media_in_reply": "❌ No media found in the specified reply."
+    "no_media_in_reply": "❌ No media found in the specified reply.",
+    "text_only": "❌ This post has no downloadable photo or video."
   },
   "errors": {
     "unsupported": "Unsupported link. I work with YouTube, TikTok, X/Twitter, Spotify, and SoundCloud links.",

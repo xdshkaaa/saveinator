@@ -160,7 +160,7 @@ Max 64 bytes (Telegram limit). Registered prefixes: `lang|`, `quality:`, `ratio:
 | `.env.example` | Template |
 | `.env.monitoring.example` | Monitoring stack template |
 
-Key vars: `BOT_TOKEN`, `PINTEREST_BOT_TOKEN`, `DATABASE_URL`, `REDIS_URL`, `SAVEINATOR_MODE`, `USE_POLLING`, `METRICS_PORT`/`WORKER_METRICS_PORT`.
+Key vars: `BOT_TOKEN`, `PINTEREST_BOT_TOKEN`, `DATABASE_URL`, `REDIS_URL`, `SAVEINATOR_MODE`, `USE_POLLING`, `METRICS_PORT`/`WORKER_METRICS_PORT`, `FXEMBED_BASE_URL` (optional self-hosted FxEmbed instance for X media resolution, see `go/internal/xphotos`).
 
 ## Production VPS
 

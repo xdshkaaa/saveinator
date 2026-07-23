@@ -207,6 +207,12 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	dlCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	if p.Platform == "x" {
+		if handled, err := h.runXFxEmbed(ctx, p, lang, taskDir, queue.TypeDownload, start); handled {
+			return err
+		}
+	}
+
 	format := p.FormatID
 	if format == "" {
 		format = "best"
@@ -214,28 +220,30 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 
 	err = ytdlp.Download(dlCtx, p.URL, taskDir, h.ytdlpOpts(p.Platform, format, timeout))
 	if err != nil {
-		if p.Platform == "x" {
-			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
-		}
 		slog.Warn("download failed", "url", p.URL, "platform", p.Platform, "err", err)
 		metrics.RecordYtdlpError(p.Platform)
 		recordTaskFailure(queue.TypeDownload)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		msg := h.userFacingError(lang, p.UserID, err)
+		if p.Platform == "x" && xphotos.IsNoVideoError(err) {
+			msg = locale.Get("x.text_only", lang, nil)
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, msg)
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, err.Error())
 		return nil
 	}
 
 	files, err := ytdlp.FindMediaFiles(taskDir)
 	if err != nil || len(files) == 0 {
-		if p.Platform == "x" {
-			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
-		}
 		recordTaskFailure(queue.TypeDownload)
 		failErr := err
 		if failErr == nil {
 			failErr = errors.New("no media files found")
 		}
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, failErr))
+		msg := h.userFacingError(lang, p.UserID, failErr)
+		if p.Platform == "x" {
+			msg = locale.Get("x.text_only", lang, nil)
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, msg)
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, failErr.Error())
 		return nil
 	}
@@ -257,11 +265,12 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	}
 
 	if sourceVideo == "" {
-		if p.Platform == "x" {
-			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
-		}
 		recordTaskFailure(queue.TypeDownload)
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, errors.New("no video file found")))
+		msg := h.userFacingError(lang, p.UserID, errors.New("no video file found"))
+		if p.Platform == "x" {
+			msg = locale.Get("x.text_only", lang, nil)
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, msg)
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, p.Platform, "failed", 0, "no video file found")
 		return nil
 	}
@@ -269,38 +278,65 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	return h.sendVideoResult(ctx, p, sourceVideo, lang, queue.TypeDownload, start)
 }
 
-func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang, taskDir string, taskType string, start time.Time) error {
+// runXFxEmbed resolves X/Twitter media via the FxTwitter/VxTwitter APIs first,
+// since they cover video, gif, and photo posts without relying on yt-dlp.
+// handled=false means no media was found and the caller should fall back to yt-dlp.
+func (h *Handler) runXFxEmbed(ctx context.Context, p queue.DownloadPayload, lang, taskDir string, taskType string, start time.Time) (bool, error) {
 	maxItems := h.runtime.CurrentInt(ctx, "x.max_items_per_post", 4)
 	statusID := p.XStatusID
 	if statusID == "" {
 		statusID = xphotos.ExtractStatusID(p.URL)
 	}
 
-	result, paths, err := xphotos.DownloadPhotos(ctx, p.URL, taskDir, statusID, maxItems)
+	fxDir := filepath.Join(taskDir, "fx")
+	if err := os.MkdirAll(fxDir, 0o755); err != nil {
+		return false, nil
+	}
+
+	result, items, err := xphotos.DownloadMedia(ctx, p.URL, fxDir, statusID, maxItems)
 	if err != nil {
-		slog.Warn("x photo download failed", "url", p.URL, "status_id", statusID, "err", err)
-		recordTaskFailure(taskType)
-		msg := h.userFacingError(lang, p.UserID, err)
 		if errors.Is(err, xphotos.ErrNotFound) {
-			msg = locale.Get("x.text_only", lang, nil)
+			return false, nil
 		}
-		_ = h.sender.EditMessage(p.ChatID, p.MessageID, msg)
+		slog.Warn("x fxembed download failed", "url", p.URL, "status_id", statusID, "err", err)
+		recordTaskFailure(taskType)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "x", "failed", 0, err.Error())
-		return nil
+		return true, nil
+	}
+
+	var videoPath string
+	var photoPaths []string
+	for _, item := range items {
+		if item.Type == "video" || item.Type == "gif" {
+			if videoPath == "" {
+				videoPath = item.Path
+			}
+			continue
+		}
+		photoPaths = append(photoPaths, item.Path)
+	}
+
+	if videoPath != "" {
+		return true, h.sendVideoResult(ctx, p, videoPath, lang, taskType, start)
+	}
+
+	if len(photoPaths) == 0 {
+		return false, nil
 	}
 
 	caption := buildXPhotoCaption(ctx, statusID, result, lang)
-	if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
+	if err := h.sender.SendPhotoAlbum(p.ChatID, photoPaths, caption); err != nil {
 		slog.Warn("x photo album send failed", "err", err)
 		recordTaskFailure(taskType)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "x", "failed", 0, err.Error())
-		return nil
+		return true, nil
 	}
 	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "x", "completed", 0, "")
 	recordTaskSuccess(taskType, "x", start, 0)
-	return nil
+	return true, nil
 }
 
 func buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string) string {

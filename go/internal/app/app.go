@@ -24,6 +24,7 @@ import (
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
 	"saveinator/internal/worker"
+	"saveinator/internal/xphotos"
 )
 
 type App struct {
@@ -31,6 +32,7 @@ type App struct {
 }
 
 func New(cfg *config.Settings) *App {
+	xphotos.Configure(cfg.FxEmbedBaseURL)
 	return &App{cfg: cfg}
 }
 

@@ -81,6 +81,8 @@ type Settings struct {
 	InternalAPIToken   string
 	InternalAPIRatePerMinute int
 
+	FxEmbedBaseURL string
+
 	Mode string // bot, worker, all
 }
 
@@ -147,6 +149,7 @@ func Load() (*Settings, error) {
 		DownloadAPIEnabled:     envBool("DOWNLOAD_API_ENABLED", true),
 		InternalAPIToken:         os.Getenv("INTERNAL_API_TOKEN"),
 		InternalAPIRatePerMinute: envInt("INTERNAL_API_RATE_PER_MINUTE", 10),
+		FxEmbedBaseURL:         strings.TrimRight(strings.TrimSpace(os.Getenv("FXEMBED_BASE_URL")), "/"),
 		Mode:                   strings.ToLower(env("SAVEINATOR_MODE", "all")),
 	}
 
