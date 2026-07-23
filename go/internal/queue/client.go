@@ -17,7 +17,22 @@ const (
 	TypeSoundCloud  = "download:soundcloud"
 	TypeBroadcast       = "broadcast:execute"
 	TypeTikTokCarousel  = "download:tiktok_carousel"
+
+	// QueueDownload holds network-bound jobs (fetch + upload, no ffmpeg
+	// transcode): safe to run with higher concurrency on a single CPU.
+	QueueDownload = "download"
+	// QueueTranscode holds the one CPU-bound path (YouTube quality/ratio
+	// re-encode via ffmpeg) and stays single-concurrency to avoid CPU
+	// contention with itself or with QueueDownload uploads.
+	QueueTranscode = "transcode"
 )
+
+// isTranscodePayload reports whether a download payload will hit the ffmpeg
+// transcode path (runYouTubeDownload with an explicit quality + aspect
+// ratio), matching the routing check in worker.handleDownload.
+func isTranscodePayload(p DownloadPayload) bool {
+	return p.Platform == "youtube" && p.Quality > 0 && p.AspectRatio != ""
+}
 
 type DownloadPayload struct {
 	URL        string `json:"url"`
@@ -76,8 +91,12 @@ func (c *Client) EnqueueDownload(p DownloadPayload) error {
 	if err != nil {
 		return err
 	}
+	queueName := QueueDownload
+	if isTranscodePayload(p) {
+		queueName = QueueTranscode
+	}
 	task := asynq.NewTask(TypeDownload, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
 	return err
 }
 
@@ -110,7 +129,7 @@ func (c *Client) EnqueuePinterestDefault(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypePinterest, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -120,7 +139,7 @@ func (c *Client) EnqueueTikTok(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeTikTok, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -130,7 +149,7 @@ func (c *Client) EnqueueSpotify(p MusicPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeSpotify, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -140,7 +159,7 @@ func (c *Client) EnqueueSoundCloud(p MusicPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeSoundCloud, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -150,7 +169,7 @@ func (c *Client) EnqueueTikTokCarousel(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeTikTokCarousel, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 

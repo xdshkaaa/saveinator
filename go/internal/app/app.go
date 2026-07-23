@@ -181,14 +181,21 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 		return err
 	}
 
-	if err := queue.RecoverOrphanedActiveTasks(a.cfg.RedisURL); err != nil {
+	if err := queue.RecoverOrphanedActiveTasks(a.cfg.RedisURL, queue.QueueDownload, queue.QueueTranscode, "default"); err != nil {
 		slog.Warn("asynq queue recovery failed", "err", err)
 	}
 
 	srv := asynq.NewServer(opt, asynq.Config{
-		Concurrency: 1,
+		// download jobs are network-bound (fetch + Telegram upload) and
+		// don't load the CPU, so they get most of the concurrency budget.
+		// transcode is the one ffmpeg-heavy path (YouTube quality/ratio
+		// re-encode) and stays serialized to avoid CPU contention on a
+		// single-core VPS. default carries broadcast and anything unrouted.
+		Concurrency: 5,
 		Queues: map[string]int{
-			"default": 1,
+			queue.QueueDownload:  3,
+			queue.QueueTranscode: 1,
+			"default":            1,
 		},
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 			slog.Warn("asynq task failed", "type", task.Type(), "err", err)
