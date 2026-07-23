@@ -280,7 +280,7 @@ func (t *Telegram) SendAudio(chatID int64, path, title, performer string, durati
 		thumb, thumbErr := openInputFile(thumbnailPath)
 		if thumbErr == nil {
 			defer thumb.close()
-			params.Thumbnail = thumb.input
+			params.Thumbnail = &thumb.input
 		}
 	}
 	return metrics.CallTelegram("SendAudio", func() error {
