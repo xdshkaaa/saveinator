@@ -95,7 +95,12 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 		}
 	}
 
-	if err := d.runYTDLP(ctx, resolved, outputDir, "best"); err != nil {
+	// Prefer h264: TikTok's hevc/bytevc1 renditions are mislabeled by yt-dlp
+	// as having audio when they're actually video-only, and hevc also risks
+	// Telegram re-transcoding it server-side for playback compatibility,
+	// which has been observed to mangle the aspect ratio. h264 renditions
+	// are reliably muxed with real audio and need no server-side transcode.
+	if err := d.runYTDLP(ctx, resolved, outputDir, "best[vcodec=h264]/best[acodec!=none]/download/best"); err != nil {
 		return nil, err
 	}
 
