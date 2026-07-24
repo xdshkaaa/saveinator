@@ -26,11 +26,7 @@ func Probe(ctx context.Context, url string, outputDir string, opts Options) erro
 	return run(ctx, url, outputDir, opts, true)
 }
 
-func run(ctx context.Context, url string, outputDir string, opts Options, skipDownload bool) error {
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
-		return err
-	}
-
+func buildArgs(url string, outputDir string, opts Options, skipDownload bool) []string {
 	args := []string{
 		"--quiet",
 		"--no-warnings",
@@ -43,13 +39,27 @@ func run(ctx context.Context, url string, outputDir string, opts Options, skipDo
 	} else if !skipDownload {
 		args = append(args, "-f", "best")
 	}
+	if opts.Platform == "youtube" && !skipDownload {
+		// At a given resolution YouTube also serves vp9/av01 encodes that are
+		// 30-50% smaller than avc1 for the same visual quality; prefer them,
+		// then break ties toward the smaller file among equally-ranked formats.
+		args = append(args, "-S", "codec:vp9:av01:h264,+size,+br")
+	}
 	if skipDownload {
 		args = append(args, "--skip-download")
 	}
 
 	args = appendPlatformCookies(args, prepareCookieOptions(outputDir, opts))
 
-	args = append(args, url)
+	return append(args, url)
+}
+
+func run(ctx context.Context, url string, outputDir string, opts Options, skipDownload bool) error {
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return err
+	}
+
+	args := buildArgs(url, outputDir, opts, skipDownload)
 
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	cmd.Env = append(os.Environ(),

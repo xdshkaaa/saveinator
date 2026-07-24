@@ -182,6 +182,13 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		}
 	}
 
+	if h.runtime.CurrentBool(ctx, "youtube.compress_long_enabled", h.cfg.YouTubeCompressLongEnabled) {
+		minDuration := h.runtime.CurrentInt(ctx, "youtube.compress_min_duration_sec", h.cfg.YouTubeCompressMinDurationSec)
+		if compressed, compressErr := video.CompressIfOversized(dlCtx, processed, minDuration); compressErr == nil {
+			processed = compressed
+		}
+	}
+
 	return h.sendVideoResult(ctx, p, processed, lang, queue.TypeDownload, start)
 }
 

@@ -50,6 +50,8 @@ var settings = []Setting{
 	intSetting("youtube.timeout_sec", "YouTubeDownloadTimeoutSeconds", "youtube", "Timeout", "Таймаут", "sec", 30, 3600, 600),
 	boolSetting("youtube.transcode_enabled", "YouTubeTranscodeEnabled", "youtube", "Transcode enabled", "Транскодинг", true),
 	intSetting("youtube.max_duration_sec", "YouTubeMaxDurationSec", "youtube", "Max duration", "Макс. длительность", "sec", 0, 86400, 0),
+	boolSetting("youtube.compress_long_enabled", "YouTubeCompressLongEnabled", "youtube", "Compress long videos", "Сжатие длинных видео", true),
+	intSetting("youtube.compress_min_duration_sec", "YouTubeCompressMinDurationSec", "youtube", "Compress min duration", "Мин. длительность сжатия", "sec", 60, 86400, 600),
 	{RedisKey: "youtube.allowed_qualities", Service: "youtube", ValueType: TypeList, DefaultStr: "1080,720,480", Allowed: []string{"1080", "720", "480"}, LabelEN: "Allowed qualities", LabelRU: "Доступные качества"},
 	{RedisKey: "youtube.default_quality", Service: "youtube", ValueType: TypeEnum, DefaultStr: "ask", Allowed: []string{"1080", "720", "480", "ask"}, LabelEN: "Default quality", LabelRU: "Качество по умолчанию"},
 	{RedisKey: "youtube.allowed_ratios", Service: "youtube", ValueType: TypeList, DefaultStr: "16_9,21_9,9_16", Allowed: []string{"16_9", "21_9", "9_16"}, LabelEN: "Allowed ratios", LabelRU: "Доступные соотношения"},

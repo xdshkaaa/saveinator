@@ -67,6 +67,110 @@ func ApplyAspectRatio(ctx context.Context, sourcePath, aspectRatio string, quali
 	return outputPath, nil
 }
 
+// bitrateLadderKbps gives a reasonable target video bitrate (kbps) per
+// resolution height, above which a source is considered over-encoded for
+// its resolution (common for long YouTube uploads with high source bitrate).
+var bitrateLadderKbps = map[int]int{
+	2160: 12000,
+	1440: 8000,
+	1080: 4500,
+	720:  2500,
+	480:  1200,
+	360:  700,
+}
+
+func targetBitrateKbps(height int) int {
+	best := 0
+	bestDiff := -1
+	for h, kbps := range bitrateLadderKbps {
+		diff := h - height
+		if diff < 0 {
+			diff = -diff
+		}
+		if bestDiff == -1 || diff < bestDiff {
+			bestDiff = diff
+			best = kbps
+		}
+	}
+	return best
+}
+
+// CompressIfOversized re-encodes long/high-bitrate videos down toward a
+// resolution-appropriate target bitrate using a slower x264 preset, which
+// yields meaningfully smaller files at visually equivalent quality compared
+// to the source's original encode. Videos already within the target
+// bitrate (e.g. already-efficient vp9/av01 downloads) are left untouched.
+func CompressIfOversized(ctx context.Context, sourcePath string, minDurationSec int) (string, error) {
+	duration, err := probeDurationSeconds(ctx, sourcePath)
+	if err != nil || duration < float64(minDurationSec) {
+		return sourcePath, nil
+	}
+
+	dims, err := probeDimensions(ctx, sourcePath)
+	if err != nil {
+		return sourcePath, nil
+	}
+
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return sourcePath, nil
+	}
+
+	currentKbps := float64(info.Size()*8) / duration / 1000
+	target := targetBitrateKbps(dims[1])
+
+	// Only re-encode when the source is meaningfully above target; avoids
+	// wasted CPU/time on files that are already efficiently encoded.
+	if currentKbps <= float64(target)*1.2 {
+		return sourcePath, nil
+	}
+
+	ext := filepath.Ext(sourcePath)
+	base := strings.TrimSuffix(sourcePath, ext)
+	tmpPath := base + "_compressed_tmp.mp4"
+	finalPath := base + ".mp4"
+
+	maxrate := target * 12 / 10
+	bufsize := target * 2
+	err = runFFmpegWithTimeout(ctx, []string{
+		"ffmpeg", "-y", "-i", sourcePath,
+		"-c:v", "libx264", "-preset", "slow", "-crf", "23",
+		"-maxrate", fmt.Sprintf("%dk", maxrate), "-bufsize", fmt.Sprintf("%dk", bufsize),
+		"-c:a", "copy", "-movflags", "+faststart", tmpPath,
+	}, 20*time.Minute)
+	if err != nil {
+		_ = os.Remove(tmpPath)
+		return sourcePath, nil
+	}
+
+	// Swap the compressed file into the source's filename (title/metadata
+	// parsing elsewhere keys off the filename, so it must not gain a
+	// distinguishing suffix like the temp name above).
+	if finalPath != sourcePath {
+		if err := os.Remove(sourcePath); err != nil {
+			_ = os.Remove(tmpPath)
+			return sourcePath, nil
+		}
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		return sourcePath, nil
+	}
+	return finalPath, nil
+}
+
+func probeDurationSeconds(ctx context.Context, path string) (float64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ffprobe",
+		"-v", "error", "-show_entries", "format=duration",
+		"-of", "csv=p=0", path,
+	).Output()
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+}
+
 func probeDimensions(ctx context.Context, path string) ([2]int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -91,7 +195,11 @@ func probeDimensions(ctx context.Context, path string) ([2]int, error) {
 }
 
 func runFFmpeg(ctx context.Context, args []string) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	return runFFmpegWithTimeout(ctx, args, 5*time.Minute)
+}
+
+func runFFmpegWithTimeout(ctx context.Context, args []string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	out, err := cmd.CombinedOutput()

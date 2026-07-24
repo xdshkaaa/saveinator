@@ -45,3 +45,57 @@ func TestAppendPlatformCookiesTikTokBrowser(t *testing.T) {
 		t.Fatalf("expected tiktok browser cookies, got %v", args)
 	}
 }
+
+func TestBuildArgsYouTubePrefersEfficientCodecs(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	args := buildArgs("https://youtube.com/watch?v=abc", dir, Options{
+		Platform: "youtube",
+		FormatID: "best[height<=1080]",
+	}, false)
+
+	idx := indexOf(args, "-S")
+	if idx == -1 || idx+1 >= len(args) {
+		t.Fatalf("expected -S format-sort flag, got %v", args)
+	}
+	if args[idx+1] != "codec:vp9:av01:h264,+size,+br" {
+		t.Fatalf("unexpected format-sort value: %s", args[idx+1])
+	}
+}
+
+func TestBuildArgsNonYouTubeSkipsCodecSort(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	args := buildArgs("https://tiktok.com/@u/video/1", dir, Options{
+		Platform: "tiktok",
+		FormatID: "best",
+	}, false)
+
+	if indexOf(args, "-S") != -1 {
+		t.Fatalf("did not expect -S flag for non-youtube platform, got %v", args)
+	}
+}
+
+func TestBuildArgsProbeSkipsCodecSort(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	args := buildArgs("https://youtube.com/watch?v=abc", dir, Options{
+		Platform: "youtube",
+	}, true)
+
+	if indexOf(args, "-S") != -1 {
+		t.Fatalf("did not expect -S flag when skipping download, got %v", args)
+	}
+	if indexOf(args, "--skip-download") == -1 {
+		t.Fatalf("expected --skip-download flag, got %v", args)
+	}
+}
+
+func indexOf(args []string, target string) int {
+	for i, a := range args {
+		if a == target {
+			return i
+		}
+	}
+	return -1
+}

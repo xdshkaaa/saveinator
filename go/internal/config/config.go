@@ -34,6 +34,8 @@ type Settings struct {
 	YouTubeDownloadTimeoutSeconds int
 	YouTubeEnabled                bool
 	YouTubeTranscodeEnabled       bool
+	YouTubeCompressLongEnabled    bool
+	YouTubeCompressMinDurationSec int
 
 	BroadcastDelayMS   int
 	BroadcastBatchSize  int
@@ -110,6 +112,8 @@ func Load() (*Settings, error) {
 		YouTubeDownloadTimeoutSeconds: envInt("YOUTUBE_DOWNLOAD_TIMEOUT_SECONDS", 600),
 		YouTubeEnabled:                envBool("YOUTUBE_ENABLED", true),
 		YouTubeTranscodeEnabled:       envBool("YOUTUBE_TRANSCODE_ENABLED", true),
+		YouTubeCompressLongEnabled:    envBool("YOUTUBE_COMPRESS_LONG_ENABLED", true),
+		YouTubeCompressMinDurationSec: envInt("YOUTUBE_COMPRESS_MIN_DURATION_SEC", 600),
 		BroadcastDelayMS:    envInt("BROADCAST_DELAY_MS", 50),
 		BroadcastBatchSize:  envInt("BROADCAST_BATCH_SIZE", 20),
 		TikTokCookiesPath:              env("TIKTOK_COOKIES_PATH", "/secrets/tiktok_cookies.txt"),
