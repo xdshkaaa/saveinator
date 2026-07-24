@@ -171,6 +171,50 @@ func probeDurationSeconds(ctx context.Context, path string) (float64, error) {
 	return strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
 }
 
+// HasAudioStream reports whether the file has at least one audio stream.
+func HasAudioStream(ctx context.Context, path string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ffprobe",
+		"-v", "error", "-select_streams", "a",
+		"-show_entries", "stream=codec_type",
+		"-of", "csv=p=0", path,
+	).Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) != "", nil
+}
+
+// MuxAudioFrom replaces videoPath's audio track (or adds one if missing)
+// with the audio from audioSourcePath, keeping videoPath's video stream
+// untouched. Used when a preferred (e.g. unwatermarked) video rendition
+// lacks audio but another rendition of the same source has it.
+func MuxAudioFrom(ctx context.Context, videoPath, audioSourcePath string) (string, error) {
+	ext := filepath.Ext(videoPath)
+	outputPath := strings.TrimSuffix(videoPath, ext) + "_muxed.mp4"
+
+	err := runFFmpegWithTimeout(ctx, []string{
+		"ffmpeg", "-y", "-i", videoPath, "-i", audioSourcePath,
+		"-map", "0:v:0", "-map", "1:a:0",
+		"-c:v", "copy", "-c:a", "copy", "-shortest",
+		"-movflags", "+faststart", outputPath,
+	}, 3*time.Minute)
+	if err != nil {
+		return videoPath, err
+	}
+
+	if rmErr := os.Remove(videoPath); rmErr != nil {
+		_ = os.Remove(outputPath)
+		return videoPath, rmErr
+	}
+	finalPath := strings.TrimSuffix(videoPath, ext) + ".mp4"
+	if renErr := os.Rename(outputPath, finalPath); renErr != nil {
+		return videoPath, renErr
+	}
+	return finalPath, nil
+}
+
 func probeDimensions(ctx context.Context, path string) ([2]int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

@@ -101,6 +101,9 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 
 	images, videoPath, audio := findMediaFiles(outputDir)
 	if videoPath != "" {
+		if fixed, err := d.ensureAudio(ctx, videoPath, resolved, outputDir); err == nil {
+			videoPath = fixed
+		}
 		if fixed, err := video.NormalizeSAR(ctx, videoPath); err == nil {
 			videoPath = fixed
 		}
@@ -175,6 +178,38 @@ func (d *Downloader) runYTDLP(ctx context.Context, url, outputDir, format string
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// ensureAudio detects TikTok renditions that yt-dlp's format metadata
+// falsely advertises as having audio but which actually contain a video
+// track only (a known TikTok extractor quirk). When that happens it falls
+// back to the watermarked "download" rendition, which reliably carries
+// real audio, and mixes that audio into the original (unwatermarked)
+// video rather than settling for the lower-quality watermarked copy.
+func (d *Downloader) ensureAudio(ctx context.Context, videoPath, url, outputDir string) (string, error) {
+	hasAudio, err := video.HasAudioStream(ctx, videoPath)
+	if err != nil || hasAudio {
+		return videoPath, nil
+	}
+
+	wmDir := filepath.Join(outputDir, "wm_audio_src")
+	if err := os.MkdirAll(wmDir, 0o755); err != nil {
+		return videoPath, err
+	}
+	defer os.RemoveAll(wmDir)
+
+	if err := d.runYTDLP(ctx, url, wmDir, "download"); err != nil {
+		return videoPath, err
+	}
+	_, wmVideo, _ := findMediaFiles(wmDir)
+	if wmVideo == "" {
+		return videoPath, fmt.Errorf("no audio source found")
+	}
+	if wmHasAudio, err := video.HasAudioStream(ctx, wmVideo); err != nil || !wmHasAudio {
+		return videoPath, fmt.Errorf("fallback source has no audio")
+	}
+
+	return video.MuxAudioFrom(ctx, videoPath, wmVideo)
 }
 
 func (d *Downloader) downloadAudio(ctx context.Context, url, outputDir string) (string, error) {
