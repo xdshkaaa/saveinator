@@ -171,6 +171,43 @@ func probeDurationSeconds(ctx context.Context, path string) (float64, error) {
 	return strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
 }
 
+// Probe returns the video's pixel width, height, and duration in seconds.
+func Probe(ctx context.Context, path string) (width, height int, durationSec float64, err error) {
+	dims, err := probeDimensions(ctx, path)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	duration, err := probeDurationSeconds(ctx, path)
+	if err != nil {
+		duration = 0
+	}
+	return dims[0], dims[1], duration, nil
+}
+
+// GenerateThumbnail extracts a representative frame and scales it to fit
+// Telegram's thumbnail constraints (JPEG, <=320px per side). Telegram will
+// generate its own preview when none is supplied, but that server-side
+// generation has been observed to produce a visibly stretched preview for
+// some TikTok renditions even though the underlying video itself plays
+// back with the correct aspect ratio — supplying a correct thumbnail
+// ourselves avoids relying on it.
+func GenerateThumbnail(ctx context.Context, videoPath string) (string, error) {
+	ext := filepath.Ext(videoPath)
+	thumbPath := strings.TrimSuffix(videoPath, ext) + "_thumb.jpg"
+
+	err := runFFmpegWithTimeout(ctx, []string{
+		"ffmpeg", "-y", "-ss", "00:00:00.1", "-i", videoPath,
+		"-frames:v", "1",
+		"-vf", "scale='min(320,iw)':'min(320,ih)':force_original_aspect_ratio=decrease",
+		"-q:v", "4",
+		thumbPath,
+	}, 30*time.Second)
+	if err != nil {
+		return "", err
+	}
+	return thumbPath, nil
+}
+
 // HasAudioStream reports whether the file has at least one audio stream.
 func HasAudioStream(ctx context.Context, path string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)

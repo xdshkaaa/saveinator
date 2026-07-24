@@ -1,17 +1,52 @@
 package sender
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
+	"saveinator/internal/video"
 )
+
+// videoMeta holds probed dimensions/duration and an explicit thumbnail for
+// a video file, so Telegram doesn't have to auto-generate its own preview
+// (which has produced visibly stretched previews for some renditions even
+// though the video itself plays back correctly).
+type videoMeta struct {
+	width, height, duration int
+	thumb                   *inputFileHandle
+}
+
+func (m *videoMeta) close() {
+	if m != nil && m.thumb != nil {
+		m.thumb.close()
+	}
+}
+
+func probeVideoMeta(path string) *videoMeta {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	m := &videoMeta{}
+	if w, h, d, err := video.Probe(ctx, path); err == nil {
+		m.width, m.height, m.duration = w, h, int(d)
+	}
+	if thumbPath, err := video.GenerateThumbnail(ctx, path); err == nil {
+		defer os.Remove(thumbPath)
+		if tf, err := openInputFile(thumbPath); err == nil {
+			m.thumb = tf
+		}
+	}
+	return m
+}
 
 type Telegram struct {
 	bot         *telego.Bot
@@ -126,12 +161,22 @@ func (t *Telegram) SendFile(chatID int64, path, title, lang, platform string, an
 		})
 	case ".mp4", ".webm", ".mov", ".mkv", ".m4v":
 		if sizeMB <= 50 {
+			meta := probeVideoMeta(path)
+			defer meta.close()
+			params := &telego.SendVideoParams{
+				ChatID:            tu.ID(chatID),
+				Video:             file.input,
+				Caption:           caption,
+				Width:             meta.width,
+				Height:            meta.height,
+				Duration:          meta.duration,
+				SupportsStreaming: true,
+			}
+			if meta.thumb != nil {
+				params.Thumbnail = &meta.thumb.input
+			}
 			return metrics.CallTelegram("SendVideo", func() error {
-				_, err := t.bot.SendVideo(&telego.SendVideoParams{
-					ChatID:  tu.ID(chatID),
-					Video:   file.input,
-					Caption: caption,
-				})
+				_, err := t.bot.SendVideo(params)
 				return err
 			})
 		}
@@ -178,8 +223,15 @@ func (t *Telegram) SendFileWithMarkup(chatID int64, path, title, lang, platform 
 		})
 	case ".mp4", ".webm", ".mov", ".mkv", ".m4v":
 		if sizeMB <= 50 {
+			meta := probeVideoMeta(path)
+			defer meta.close()
+			vidParams := tu.Video(chat, file.input).WithCaption(caption).WithReplyMarkup(markup).
+				WithWidth(meta.width).WithHeight(meta.height).WithDuration(meta.duration).WithSupportsStreaming()
+			if meta.thumb != nil {
+				vidParams = vidParams.WithThumbnail(&meta.thumb.input)
+			}
 			return metrics.CallTelegram("SendVideo", func() error {
-				_, err := t.bot.SendVideo(tu.Video(chat, file.input).WithCaption(caption).WithReplyMarkup(markup))
+				_, err := t.bot.SendVideo(vidParams)
 				return err
 			})
 		}
