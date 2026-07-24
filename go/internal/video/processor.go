@@ -194,6 +194,56 @@ func probeDimensions(ctx context.Context, path string) ([2]int, error) {
 	return [2]int{w, h}, nil
 }
 
+// NormalizeSAR fixes videos whose container declares a non-square sample
+// aspect ratio (SAR != 1:1). Telegram's clients render raw pixel dimensions
+// as square pixels and ignore the SAR tag, so a source that relies on SAR
+// to reach its intended display ratio (common with TikTok's h264 renditions)
+// plays back visibly stretched/squashed. Baking the SAR into actual pixel
+// width via scale+setsar makes the file correct regardless of SAR support.
+func NormalizeSAR(ctx context.Context, sourcePath string) (string, error) {
+	sar, err := probeSAR(ctx, sourcePath)
+	if err != nil || sar == "" || sar == "0:1" || sar == "1:1" || sar == "N/A" {
+		return sourcePath, nil
+	}
+
+	ext := filepath.Ext(sourcePath)
+	outputPath := strings.TrimSuffix(sourcePath, ext) + "_sar1.mp4"
+
+	err = runFFmpegWithTimeout(ctx, []string{
+		"ffmpeg", "-y", "-i", sourcePath,
+		"-vf", "scale=trunc(iw*sar/2)*2:ih,setsar=1",
+		"-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+		"-c:a", "copy", "-movflags", "+faststart", outputPath,
+	}, 3*time.Minute)
+	if err != nil {
+		return sourcePath, nil
+	}
+
+	if rmErr := os.Remove(sourcePath); rmErr != nil {
+		_ = os.Remove(outputPath)
+		return sourcePath, nil
+	}
+	finalPath := strings.TrimSuffix(sourcePath, ext) + ".mp4"
+	if renErr := os.Rename(outputPath, finalPath); renErr != nil {
+		return sourcePath, nil
+	}
+	return finalPath, nil
+}
+
+func probeSAR(ctx context.Context, path string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ffprobe",
+		"-v", "error", "-select_streams", "v:0",
+		"-show_entries", "stream=sample_aspect_ratio",
+		"-of", "csv=p=0", path,
+	).Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func runFFmpeg(ctx context.Context, args []string) error {
 	return runFFmpegWithTimeout(ctx, args, 5*time.Minute)
 }

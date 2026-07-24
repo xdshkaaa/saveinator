@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"saveinator/internal/cookies"
+	"saveinator/internal/video"
 )
 
 type PostType string
@@ -98,11 +99,16 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 		return nil, err
 	}
 
-	images, video, audio := findMediaFiles(outputDir)
+	images, videoPath, audio := findMediaFiles(outputDir)
+	if videoPath != "" {
+		if fixed, err := video.NormalizeSAR(ctx, videoPath); err == nil {
+			videoPath = fixed
+		}
+	}
 	result.Images = images
-	result.VideoPath = video
+	result.VideoPath = videoPath
 	result.AudioPath = audio
-	result.PostType = detectPostType(images, video, audio)
+	result.PostType = detectPostType(images, videoPath, audio)
 
 	if len(imageURLs) >= 2 {
 		result.CarouselImagesAvailable = true
@@ -140,7 +146,7 @@ func (d *Downloader) DownloadCarouselImages(ctx context.Context, url, outputDir 
 
 func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]any, string, error) {
 	resolved := resolvePageURL(url)
-	args := []string{"--dump-single-json", "--skip-download", "--no-warnings", "--quiet"}
+	args := []string{"--dump-single-json", "--skip-download", "--no-warnings", "--quiet", "--impersonate", "chrome"}
 	args = append(args, d.cookieArgs()...)
 	args = append(args, resolved)
 
@@ -158,6 +164,7 @@ func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]an
 func (d *Downloader) runYTDLP(ctx context.Context, url, outputDir, format string) error {
 	args := []string{
 		"--no-warnings", "--quiet",
+		"--impersonate", "chrome",
 		"-o", filepath.Join(outputDir, "%(title).100s_%(id)s.%(ext)s"),
 		"-f", format,
 	}
@@ -173,6 +180,7 @@ func (d *Downloader) runYTDLP(ctx context.Context, url, outputDir, format string
 func (d *Downloader) downloadAudio(ctx context.Context, url, outputDir string) (string, error) {
 	args := []string{
 		"--no-warnings", "--quiet",
+		"--impersonate", "chrome",
 		"-f", "bestaudio/best",
 		"-o", filepath.Join(outputDir, "audio.%(ext)s"),
 		"--extract-audio", "--audio-format", "mp3",
