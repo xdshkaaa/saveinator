@@ -16,6 +16,10 @@ type Options struct {
 	TikTokCookies            string
 	TikTokCookiesFromBrowser string
 	Timeout                  time.Duration
+	// DownloadSections limits the fetch to a fragment ("*12.00-45.00").
+	// Only that part is pulled from the network, so trimming a clip out of a
+	// long video costs neither the full download nor a second ffmpeg pass.
+	DownloadSections string
 }
 
 func Download(ctx context.Context, url string, outputDir string, opts Options) error {
@@ -40,10 +44,11 @@ func buildArgs(url string, outputDir string, opts Options, skipDownload bool) []
 		args = append(args, "-f", "best")
 	}
 	if opts.Platform == "youtube" && !skipDownload {
-		// At a given resolution YouTube also serves vp9/av01 encodes that are
-		// 30-50% smaller than avc1 for the same visual quality; prefer them,
-		// then break ties toward the smaller file among equally-ranked formats.
+
 		args = append(args, "-S", "codec:vp9:av01:h264,+size,+br")
+	}
+	if opts.DownloadSections != "" && !skipDownload {
+		args = append(args, "--download-sections", opts.DownloadSections, "--force-keyframes-at-cuts")
 	}
 	if skipDownload {
 		args = append(args, "--skip-download")

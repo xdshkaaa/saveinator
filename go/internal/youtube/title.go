@@ -24,6 +24,25 @@ func DisplayTitle(path string) string {
 	return strings.TrimRight(strings.TrimSpace(base), "_")
 }
 
+// VideoID pulls the 11-character id out of a watch, shorts or youtu.be link.
+// It is only used as a cache key, so an empty result just means "don't cache".
+func VideoID(url string) string {
+	for _, marker := range []string{"watch?v=", "/shorts/", "youtu.be/", "/embed/", "&v=", "/live/"} {
+		idx := strings.Index(url, marker)
+		if idx < 0 {
+			continue
+		}
+		rest := url[idx+len(marker):]
+		if len(rest) < 11 {
+			continue
+		}
+		if candidate := rest[:11]; isVideoID(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
 func isVideoID(s string) bool {
 	if len(s) != 11 {
 		return false

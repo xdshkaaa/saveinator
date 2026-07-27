@@ -57,7 +57,7 @@ func DownloadFromYouTubeSearch(ctx context.Context, query, outputDir, format str
 		if i >= maxSearchAttempts {
 			break
 		}
-		path, dlErr := downloadYouTubeAudio(ctx, "https://www.youtube.com/watch?v="+c.ID, outputDir, format)
+		path, dlErr := DownloadYouTubeAudio(ctx, "https://www.youtube.com/watch?v="+c.ID, outputDir, format, "")
 		if dlErr == nil {
 			return path, nil
 		}
@@ -116,20 +116,26 @@ func pickSearchCandidates(jsonBytes []byte, durationMS int) []searchCandidate {
 	return candidates
 }
 
-func downloadYouTubeAudio(ctx context.Context, url, outputDir, format string) (string, error) {
+// DownloadYouTubeAudio extracts the soundtrack of a YouTube video. section, when
+// set, is a yt-dlp --download-sections range ("*12.00-45.00") limiting the fetch
+// to a fragment.
+func DownloadYouTubeAudio(ctx context.Context, url, outputDir, format, section string) (string, error) {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", err
 	}
 	if format == "" {
 		format = "mp3"
 	}
-	out, err := exec.CommandContext(ctx, "yt-dlp",
+	args := []string{
 		"--no-warnings", "--quiet", "--no-playlist",
 		"-f", "bestaudio/best",
 		"-o", filepath.Join(outputDir, "%(title).100s.%(ext)s"),
 		"--extract-audio", "--audio-format", format,
-		url,
-	).CombinedOutput()
+	}
+	if section != "" {
+		args = append(args, "--download-sections", section, "--force-keyframes-at-cuts")
+	}
+	out, err := exec.CommandContext(ctx, "yt-dlp", append(args, url)...).CombinedOutput()
 	if err != nil {
 		return "", ytdlpCombinedError(out, err)
 	}

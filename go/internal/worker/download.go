@@ -14,6 +14,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/mymmrac/telego"
 
+	"saveinator/internal/audio"
 	"saveinator/internal/config"
 	"saveinator/internal/db"
 	"saveinator/internal/locale"
@@ -72,7 +73,7 @@ func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
 	if h.checkCancelled(ctx, p) {
 		return nil
 	}
-	if p.Platform == "youtube" && p.Quality > 0 && p.AspectRatio != "" {
+	if p.Platform == "youtube" && (p.Quality > 0 || p.AudioOnly) {
 		return h.runYouTubeDownload(ctx, p)
 	}
 	return h.runDownload(ctx, p)
@@ -143,12 +144,20 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 	dlCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	if p.AudioOnly {
+		return h.runYouTubeAudio(ctx, dlCtx, p, lang, taskDir, start)
+	}
+
 	format := p.FormatID
 	if format == "" {
 		format = youtube.BuildFormat(p.Quality, p.AspectRatio)
 	}
 
-	if err := ytdlp.Download(dlCtx, p.URL, taskDir, h.ytdlpOpts("youtube", format, timeout)); err != nil {
+	opts := h.ytdlpOpts("youtube", format, timeout)
+	if p.IsTrimmed() {
+		opts.DownloadSections = youtube.DownloadSection(p.TrimStart, p.TrimEnd)
+	}
+	if err := ytdlp.Download(dlCtx, p.URL, taskDir, opts); err != nil {
 		slog.Warn("youtube download failed", "url", p.URL, "err", err)
 		metrics.RecordYtdlpError("youtube")
 		recordTaskFailure(queue.TypeDownload)
@@ -171,7 +180,9 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 	}
 
 	processed := sourceVideo
-	if h.runtime.CurrentBool(ctx, "youtube.transcode_enabled", h.cfg.YouTubeTranscodeEnabled) {
+	// An empty aspect ratio means "keep the original frame", which skips the
+	// re-encode entirely — the common path now that the ratio is opt-in.
+	if p.AspectRatio != "" && h.runtime.CurrentBool(ctx, "youtube.transcode_enabled", h.cfg.YouTubeTranscodeEnabled) {
 		var transcodeErr error
 		processed, transcodeErr = video.ApplyAspectRatio(dlCtx, sourceVideo, p.AspectRatio, p.Quality)
 		if transcodeErr != nil {
@@ -190,6 +201,53 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 	}
 
 	return h.sendVideoResult(ctx, p, processed, lang, queue.TypeDownload, start)
+}
+
+// runYouTubeAudio serves the Mp3 button: the soundtrack only, trimmed to the
+// selected fragment when there is one.
+func (h *Handler) runYouTubeAudio(ctx, dlCtx context.Context, p queue.DownloadPayload, lang, taskDir string, start time.Time) error {
+	section := ""
+	if p.IsTrimmed() {
+		section = youtube.DownloadSection(p.TrimStart, p.TrimEnd)
+	}
+
+	path, err := audio.DownloadYouTubeAudio(dlCtx, p.URL, taskDir, "mp3", section)
+	if err != nil {
+		slog.Warn("youtube audio download failed", "url", p.URL, "err", err)
+		metrics.RecordYtdlpError("youtube")
+		recordTaskFailure(queue.TypeDownload)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", 0, err.Error())
+		return nil
+	}
+
+	sizeMB := float64(fileSize(path)) / (1024 * 1024)
+	if limit := float64(h.maxFileMB(ctx, "youtube")); sizeMB > limit {
+		msg := locale.Get("download.too_large", lang, map[string]string{
+			"size":  fmt.Sprintf("%.1f", sizeMB),
+			"limit": fmt.Sprintf("%.0f", limit),
+		})
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, msg)
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", sizeMB, "too large")
+		return nil
+	}
+
+	title := p.Title
+	if title == "" {
+		title = youtube.DisplayTitle(path)
+	}
+	if err := h.sender.SendAudio(p.ChatID, path, title, p.Author, 0, ""); err != nil {
+		slog.Warn("send audio failed", "err", err)
+		recordTaskFailure(queue.TypeDownload)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
+		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "failed", sizeMB, err.Error())
+		return nil
+	}
+
+	_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
+	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "youtube", "completed", sizeMB, "")
+	recordTaskSuccess(queue.TypeDownload, "youtube", start, fileSize(path))
+	return nil
 }
 
 func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) error {

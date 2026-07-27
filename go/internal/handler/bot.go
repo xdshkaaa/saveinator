@@ -64,7 +64,7 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleMessageCtx(b.onBroadcast(bot), th.CommandEqual("broadcast"))
 	h.HandleCallbackQueryCtx(b.onLanguageChosen(bot), th.CallbackDataPrefix("lang|"))
 	h.HandleCallbackQueryCtx(b.onQualityChoice(bot), th.CallbackDataPrefix("quality:"))
-	h.HandleCallbackQueryCtx(b.onRatioChoice(bot), th.CallbackDataPrefix("ratio:"))
+	h.HandleCallbackQueryCtx(b.onYouTubeAction(bot), th.CallbackDataPrefix("yt:"))
 	h.HandleCallbackQueryCtx(b.onSettingsCallback(bot), th.CallbackDataPrefix("settings|"))
 	h.HandleCallbackQueryCtx(b.onCancelDownload(bot), th.CallbackDataPrefix("dlc:"))
 	h.HandleCallbackQueryCtx(b.onDownloadQueue(bot), th.CallbackDataPrefix("dlq:"))
@@ -189,6 +189,9 @@ func (b *Bot) onText(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 			return
 		}
 		if b.handleAdminFSM(ctx, bot, msg, lang) {
+			return
+		}
+		if b.handleYouTubeTrimInput(ctx, bot, msg, lang) {
 			return
 		}
 

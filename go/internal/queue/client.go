@@ -27,11 +27,15 @@ const (
 	QueueTranscode = "transcode"
 )
 
-// isTranscodePayload reports whether a download payload will hit the ffmpeg
-// transcode path (runYouTubeDownload with an explicit quality + aspect
-// ratio), matching the routing check in worker.handleDownload.
-func isTranscodePayload(p DownloadPayload) bool {
-	return p.Platform == "youtube" && p.Quality > 0 && p.AspectRatio != ""
+// QueueFor routes a download payload. Only jobs that will hit the ffmpeg
+// transcode path (runYouTubeDownload re-encoding to an explicit aspect ratio)
+// belong on the single-concurrency transcode queue; plain downloads and
+// audio-only jobs never re-encode video and stay on the parallel queue.
+func QueueFor(p DownloadPayload) string {
+	if p.Platform == "youtube" && !p.AudioOnly && p.Quality > 0 && p.AspectRatio != "" {
+		return QueueTranscode
+	}
+	return QueueDownload
 }
 
 type DownloadPayload struct {
@@ -48,6 +52,23 @@ type DownloadPayload struct {
 	Quality     int    `json:"quality,omitempty"`
 	AspectRatio string `json:"aspect_ratio,omitempty"`
 	SessionToken string `json:"session_token,omitempty"`
+
+	// Title and Author carry probed metadata so the worker can label an audio
+	// upload without probing the video a second time.
+	Title  string `json:"title,omitempty"`
+	Author string `json:"author,omitempty"`
+	// AudioOnly requests the soundtrack instead of the video.
+	AudioOnly bool `json:"audio_only,omitempty"`
+	// TrimStart/TrimEnd bound the fragment to fetch, in seconds. Zero means
+	// "whole video".
+	TrimStart float64 `json:"trim_start,omitempty"`
+	TrimEnd   float64 `json:"trim_end,omitempty"`
+}
+
+// IsTrimmed reports whether the payload asks for a fragment rather than the
+// whole video.
+func (p DownloadPayload) IsTrimmed() bool {
+	return p.TrimEnd > p.TrimStart
 }
 
 type MusicPayload struct {
@@ -91,10 +112,7 @@ func (c *Client) EnqueueDownload(p DownloadPayload) error {
 	if err != nil {
 		return err
 	}
-	queueName := QueueDownload
-	if isTranscodePayload(p) {
-		queueName = QueueTranscode
-	}
+	queueName := QueueFor(p)
 	task := asynq.NewTask(TypeDownload, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
 	return err

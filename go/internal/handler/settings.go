@@ -52,13 +52,6 @@ func (b *Bot) onSettingsCallback(bot *telego.Bot) func(context.Context, *telego.
 			} else {
 				b.editSettingsLang(bot, chat.ID, msgID, lang)
 			}
-		case "quality":
-			if len(parts) == 3 {
-				_ = b.db.SetYouTubeQuality(ctx, userID, parts[2])
-				b.editSettingsMenu(ctx, bot, userID, chat.ID, msgID, lang)
-			} else {
-				b.editSettingsQuality(bot, chat.ID, msgID, lang)
-			}
 		case "ratio":
 			if len(parts) == 3 {
 				_ = b.db.SetYouTubeRatio(ctx, userID, parts[2])
@@ -82,10 +75,9 @@ func (b *Bot) settingsSummary(ctx context.Context, userID int64, lang string) st
 	if userLang == "" {
 		userLang = lang
 	}
-	return fmt.Sprintf("%s\n\n%s\n%s\n%s",
+	return fmt.Sprintf("%s\n\n%s\n%s",
 		locale.Get("settings.title", lang, nil),
 		locale.Get("settings.lang_line", lang, map[string]string{"language": languageLabel(userLang, lang)}),
-		locale.Get("settings.quality_line", lang, map[string]string{"quality": qualityLabel(settings.YouTubeQuality, lang)}),
 		locale.Get("settings.ratio_line", lang, map[string]string{"ratio": ratioLabel(settings.YouTubeRatio, lang)}),
 	)
 }
@@ -117,23 +109,6 @@ func (b *Bot) editSettingsLang(bot *telego.Bot, chatID int64, messageID int, lan
 	})
 }
 
-func (b *Bot) editSettingsQuality(bot *telego.Bot, chatID int64, messageID int, lang string) {
-	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
-		ChatID:    tu.ID(chatID),
-		MessageID: messageID,
-		Text:      locale.Get("settings.quality_prompt", lang, nil),
-		ReplyMarkup: tu.InlineKeyboard(
-			tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.quality_ask", lang, nil)).WithCallbackData("settings|quality|ask")),
-			tu.InlineKeyboardRow(
-				tu.InlineKeyboardButton(locale.Get("settings.quality_1080", lang, nil)).WithCallbackData("settings|quality|1080"),
-				tu.InlineKeyboardButton(locale.Get("settings.quality_720", lang, nil)).WithCallbackData("settings|quality|720"),
-			),
-			tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.quality_480", lang, nil)).WithCallbackData("settings|quality|480")),
-			tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_back", lang, nil)).WithCallbackData("settings|menu")),
-		),
-	})
-}
-
 func (b *Bot) editSettingsRatio(bot *telego.Bot, chatID int64, messageID int, lang string) {
 	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 		ChatID:    tu.ID(chatID),
@@ -154,7 +129,6 @@ func (b *Bot) editSettingsRatio(bot *telego.Bot, chatID int64, messageID int, la
 func (b *Bot) settingsMenuKeyboard(lang string) *telego.InlineKeyboardMarkup {
 	return tu.InlineKeyboard(
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_lang", lang, nil)).WithCallbackData("settings|lang")),
-		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_quality", lang, nil)).WithCallbackData("settings|quality")),
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_ratio", lang, nil)).WithCallbackData("settings|ratio")),
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_reset", lang, nil)).WithCallbackData("settings|reset")),
 	)
@@ -165,19 +139,6 @@ func languageLabel(code, lang string) string {
 		return locale.Get("onboarding.btn_ru", lang, nil)
 	}
 	return locale.Get("onboarding.btn_en", lang, nil)
-}
-
-func qualityLabel(value, lang string) string {
-	switch value {
-	case "1080":
-		return locale.Get("settings.quality_1080", lang, nil)
-	case "720":
-		return locale.Get("settings.quality_720", lang, nil)
-	case "480":
-		return locale.Get("settings.quality_480", lang, nil)
-	default:
-		return locale.Get("settings.quality_ask", lang, nil)
-	}
 }
 
 func ratioLabel(value, lang string) string {

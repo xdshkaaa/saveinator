@@ -100,9 +100,8 @@ go/internal/
   spotify/    — Spotify Web API
   soundcloud/ — SoundCloud via yt-dlp metadata
   tiktok/     — TikTok via yt-dlp
-  youtube/    — YouTube quality/ratio session + yt-dlp
+  youtube/    — format card (probe, sizes, trim) + session + yt-dlp
   sender/     — Telegram send helpers (video, audio, photo groups)
-locales/              — canonical EN/RU JSON (copy to go/internal/locale/locales/)
 db/migrations/        — Alembic revision history
 monitoring/           — Prometheus, Grafana, Loki, Alertmanager configs
 ```
@@ -120,12 +119,12 @@ All download tasks use `MaxRetry(0)` — no automatic retry.
 
 ### Adding a new platform
 
-Follow order: `linkparser/parser.go` → `handler/bot.go dispatchLink()` → `handler/<platform>.go` → `queue/client.go` (TypeX constant + EnqueueX + payload) → `worker/<platform>.go` → register in `worker/deps.go` → locales (4 files) → `runtime/registry.go` if admin-tunable → `.env.example` + `config/config.go`.
+Follow order: `linkparser/parser.go` → `handler/bot.go dispatchLink()` → `handler/<platform>.go` → `queue/client.go` (TypeX constant + EnqueueX + payload) → `worker/<platform>.go` → register in `worker/deps.go` → locales (3 files) → `runtime/registry.go` if admin-tunable → `.env.example` + `config/config.go`.
 
-### Locales (4 files must stay in sync)
+### Locales (3 files must stay in sync)
 
-- `locales/en.json` + `locales/ru.json` — canonical
-- `go/internal/locale/locales/en.json` + `ru.json` — Go embed (rebuild required)
+- `go/internal/locale/locales/en.json` + `ru.json` + `kk.json` — Go embed (rebuild required)
+- `en.json` is the parity reference
 
 Use `{var}` placeholders. Run `scripts/check-parity.sh` after any locale change.
 
@@ -141,7 +140,7 @@ Go never creates tables. `DATABASE_URL` with `postgresql+asyncpg://` scheme is n
 
 ### Callback data
 
-Max 64 bytes (Telegram limit). Registered prefixes: `lang|`, `quality:`, `ratio:`, `settings|`, `dlc:`, `dlq:`, `admin|`, `broadcast|`, `ttk:img:`.
+Max 64 bytes (Telegram limit). Registered prefixes: `lang|`, `quality:`, `yt:` (`yt:mp3`, `yt:trim`, `yt:trimoff`), `settings|`, `dlc:`, `dlq:`, `admin|`, `broadcast|`, `ttk:img:`.
 
 ## CI jobs
 

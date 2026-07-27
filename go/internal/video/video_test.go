@@ -31,7 +31,7 @@ func TestApplyAspectRatioUnsupportedRatio(t *testing.T) {
 
 func TestApplyAspectRatioUnsupportedQuality(t *testing.T) {
 	t.Parallel()
-	_, err := ApplyAspectRatio(context.Background(), "/tmp/video.mp4", "16_9", 360)
+	_, err := ApplyAspectRatio(context.Background(), "/tmp/video.mp4", "16_9", 2160)
 	if err == nil {
 		t.Fatal("expected error")
 	}

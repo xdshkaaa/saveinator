@@ -11,25 +11,9 @@ import (
 	"saveinator/internal/locale"
 )
 
-var (
-	ValidQualities = map[int]struct{}{1080: {}, 720: {}, 480: {}}
-	ValidRatios    = map[string]struct{}{"16_9": {}, "21_9": {}, "9_16": {}}
-)
+var ValidRatios = map[string]struct{}{"16_9": {}, "21_9": {}, "9_16": {}}
 
-func QualitySetFromStrings(values []string) map[int]struct{} {
-	out := make(map[int]struct{}, len(values))
-	for _, v := range values {
-		q, err := strconv.Atoi(strings.TrimSpace(v))
-		if err != nil {
-			continue
-		}
-		out[q] = struct{}{}
-	}
-	if len(out) == 0 {
-		return ValidQualities
-	}
-	return out
-}
+const qualitiesPerRow = 3
 
 func RatioSetFromStrings(values []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(values))
@@ -45,55 +29,59 @@ func RatioSetFromStrings(values []string) map[string]struct{} {
 	return out
 }
 
-func QualityKeyboard(lang string) *telego.InlineKeyboardMarkup {
-	return QualityKeyboardFrom(lang, []string{"1080", "720", "480"})
-}
-
-func QualityKeyboardFrom(lang string, allowed []string) *telego.InlineKeyboardMarkup {
+// FormatKeyboard lays out the format card: available qualities three to a row,
+// then the audio-only and trim actions.
+func FormatKeyboard(lang string, opts []Option, mp3Enabled, trimEnabled bool) *telego.InlineKeyboardMarkup {
+	var rows [][]telego.InlineKeyboardButton
 	var row []telego.InlineKeyboardButton
-	for _, q := range allowed {
-		q = strings.TrimSpace(q)
-		if q == "" {
-			continue
+	for _, opt := range opts {
+		row = append(row, tu.InlineKeyboardButton(
+			locale.Get("youtube.btn_quality", lang, map[string]string{"quality": strconv.Itoa(opt.Height)}),
+		).WithCallbackData("quality:"+strconv.Itoa(opt.Height)))
+		if len(row) == qualitiesPerRow {
+			rows = append(rows, tu.InlineKeyboardRow(row...))
+			row = nil
 		}
-		row = append(row, tu.InlineKeyboardButton(q+"p").WithCallbackData("quality:"+q))
 	}
-	if len(row) == 0 {
-		return QualityKeyboard(lang)
+	if len(row) > 0 {
+		rows = append(rows, tu.InlineKeyboardRow(row...))
 	}
-	return tu.InlineKeyboard(tu.InlineKeyboardRow(row...))
+	if mp3Enabled {
+		rows = append(rows, tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(locale.Get("youtube.btn_mp3", lang, nil)).WithCallbackData("yt:mp3"),
+		))
+	}
+	if trimEnabled {
+		rows = append(rows, tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(locale.Get("youtube.btn_trim", lang, nil)).WithCallbackData("yt:trim"),
+		))
+	}
+	return tu.InlineKeyboard(rows...)
 }
 
-func RatioKeyboard(lang string) *telego.InlineKeyboardMarkup {
-	return RatioKeyboardFrom(lang, []string{"16_9", "21_9", "9_16"})
-}
-
-func RatioKeyboardFrom(lang string, allowed []string) *telego.InlineKeyboardMarkup {
-	var row []telego.InlineKeyboardButton
-	for _, ratio := range allowed {
-		ratio = strings.TrimSpace(ratio)
-		if ratio == "" {
-			continue
-		}
-		row = append(row, tu.InlineKeyboardButton(FormatRatioLabel(ratio)).WithCallbackData("ratio:"+ratio))
-	}
-	if len(row) == 0 {
-		return RatioKeyboard(lang)
-	}
-	return tu.InlineKeyboard(tu.InlineKeyboardRow(row...))
+// TrimPromptKeyboard offers a way out of the "send me a range" state.
+func TrimPromptKeyboard(lang string) *telego.InlineKeyboardMarkup {
+	return tu.InlineKeyboard(tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(locale.Get("youtube.btn_trim_cancel", lang, nil)).WithCallbackData("yt:trimoff"),
+	))
 }
 
 func FormatRatioLabel(ratio string) string {
 	return strings.ReplaceAll(ratio, "_", ":")
 }
 
-func ProcessingMessage(lang string, quality int, ratio string) string {
+func ProcessingMessage(lang string, quality int) string {
 	return locale.Get("youtube.processing", lang, map[string]string{
 		"quality": fmt.Sprintf("%d", quality),
-		"ratio":   FormatRatioLabel(ratio),
 	})
 }
 
+func ProcessingAudioMessage(lang string) string {
+	return locale.Get("youtube.processing_audio", lang, nil)
+}
+
+// BuildFormat is the fallback selector used when a probe did not yield an exact
+// format id for the requested quality.
 func BuildFormat(targetHeight int, aspectRatio string) string {
 	limitDim := "height"
 	if aspectRatio == "9_16" {
