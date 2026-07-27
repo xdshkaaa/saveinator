@@ -10,6 +10,7 @@ import (
 
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
+	"saveinator/internal/tgemoji"
 )
 
 func (b *Bot) onSettings(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
@@ -20,7 +21,7 @@ func (b *Bot) onSettings(bot *telego.Bot) func(context.Context, *telego.Bot, tel
 		metrics.RecordCommand("settings")
 		lang := b.userLang(ctx, msg.From.ID)
 		text := b.settingsSummary(ctx, msg.From.ID, lang)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithParseMode(telego.ModeHTML).WithReplyMarkup(b.settingsMenuKeyboard(lang)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), text).WithReplyMarkup(b.settingsMenuKeyboard(lang)))
 	}
 }
 
@@ -86,7 +87,7 @@ func (b *Bot) editSettingsMenu(ctx context.Context, bot *telego.Bot, userID, cha
 	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 		ChatID:      tu.ID(chatID),
 		MessageID:   messageID,
-		Text:        b.settingsSummary(ctx, userID, lang),
+		Text:        tgemoji.Render(b.settingsSummary(ctx, userID, lang)),
 		ParseMode:   telego.ModeHTML,
 		ReplyMarkup: b.settingsMenuKeyboard(lang),
 	})
@@ -96,7 +97,8 @@ func (b *Bot) editSettingsLang(bot *telego.Bot, chatID int64, messageID int, lan
 	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 		ChatID:    tu.ID(chatID),
 		MessageID: messageID,
-		Text:      locale.Get("settings.lang_prompt", lang, nil),
+		Text:      tgemoji.Render(locale.Get("settings.lang_prompt", lang, nil)),
+		ParseMode: telego.ModeHTML,
 		ReplyMarkup: tu.InlineKeyboard(
 			tu.InlineKeyboardRow(
 				tu.InlineKeyboardButton(locale.Get("onboarding.btn_en", lang, nil)).WithCallbackData("settings|lang|en"),
@@ -113,7 +115,8 @@ func (b *Bot) editSettingsRatio(bot *telego.Bot, chatID int64, messageID int, la
 	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 		ChatID:    tu.ID(chatID),
 		MessageID: messageID,
-		Text:      locale.Get("settings.ratio_prompt", lang, nil),
+		Text:      tgemoji.Render(locale.Get("settings.ratio_prompt", lang, nil)),
+		ParseMode: telego.ModeHTML,
 		ReplyMarkup: tu.InlineKeyboard(
 			tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.ratio_ask", lang, nil)).WithCallbackData("settings|ratio|ask")),
 			tu.InlineKeyboardRow(

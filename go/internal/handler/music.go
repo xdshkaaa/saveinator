@@ -17,12 +17,13 @@ import (
 	"saveinator/internal/queue"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
+	"saveinator/internal/tgemoji"
 )
 
 func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink) {
 	metrics.SpotifyRequestsTotal.Inc()
 	if link.SpotifyID == "" || link.SpotifyTyp == "" {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		return
 	}
 
@@ -44,12 +45,12 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 	}
 
 	if !b.cfg.SpotifyEnabled {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
 		releaseLock()
 		return
 	}
 	if !b.spotify.Enabled() {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
 		releaseLock()
 		return
 	}
@@ -58,11 +59,11 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 	if err != nil {
 		switch err {
 		case spotify.ErrNotFound:
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_found", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("spotify.not_found", lang, nil)))
 		case spotify.ErrAuth:
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
 		default:
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.api_error", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("spotify.api_error", lang, nil)))
 		}
 		releaseLock()
 		return
@@ -87,7 +88,7 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 	statusText := locale.Get("spotify.download_starting", lang, map[string]string{
 		"total": fmt.Sprintf("%d", len(release.Tracks)),
 	})
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), statusText)
+	statusMsg := htmlMessage(tu.ID(msg.Chat.ID), statusText)
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, "spotify", msg.From.ID, token))
 	}
@@ -113,7 +114,8 @@ func (b *Bot) handleSpotifyLink(ctx context.Context, bot *telego.Bot, msg telego
 		_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(msg.Chat.ID),
 			MessageID: status.MessageID,
-			Text:      locale.Get("spotify.download_failed", lang, nil),
+			Text:      tgemoji.Render(locale.Get("spotify.download_failed", lang, nil)),
+			ParseMode: telego.ModeHTML,
 		})
 		releaseLock()
 		return
@@ -125,7 +127,7 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 	metrics.SoundCloudRequestsTotal.Inc()
 	scLink, err := soundcloud.ParseLink(rawURL)
 	if err != nil {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		return
 	}
 
@@ -147,7 +149,7 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 	}
 
 	if !b.cfg.SoundCloudEnabled {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
 		releaseLock()
 		return
 	}
@@ -157,14 +159,14 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 	if err != nil {
 		switch {
 		case errors.Is(err, soundcloud.ErrNotFound):
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.not_found", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("soundcloud.not_found", lang, nil)))
 		case errors.Is(err, soundcloud.ErrTooLarge):
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.playlist_too_large", lang, map[string]string{
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("soundcloud.playlist_too_large", lang, map[string]string{
 				"limit": fmt.Sprintf("%d", maxTracks),
 			})))
 		default:
 			metrics.SoundCloudMetadataFailuresTotal.Inc()
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.download_failed", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("soundcloud.download_failed", lang, nil)))
 		}
 		releaseLock()
 		return
@@ -192,7 +194,7 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 	statusText := locale.Get("soundcloud.download_starting", lang, map[string]string{
 		"total": fmt.Sprintf("%d", len(release.Tracks)),
 	})
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), statusText)
+	statusMsg := htmlMessage(tu.ID(msg.Chat.ID), statusText)
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, "soundcloud", msg.From.ID, token))
 	}
@@ -217,7 +219,8 @@ func (b *Bot) handleSoundCloudLink(ctx context.Context, bot *telego.Bot, msg tel
 		_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(msg.Chat.ID),
 			MessageID: status.MessageID,
-			Text:      locale.Get("soundcloud.download_failed", lang, nil),
+			Text:      tgemoji.Render(locale.Get("soundcloud.download_failed", lang, nil)),
+			ParseMode: telego.ModeHTML,
 		})
 		releaseLock()
 		return
@@ -236,11 +239,11 @@ func (b *Bot) sendMusicCard(bot *telego.Bot, chatID int64, coverURL, text string
 		})
 		return
 	}
-	_, _ = bot.SendMessage(tu.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(chatID), text).WithReplyMarkup(kb))
 }
 
 func (b *Bot) replyBusy(_ context.Context, bot messageSender, msg telego.Message, lang, scenario string) {
 	metrics.RecordUserQueueRejected(scenario)
 	kb := cancel.QueueButton(lang, msg.From.ID)
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.busy", lang, nil)).WithReplyMarkup(kb))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.busy", lang, nil)).WithReplyMarkup(kb))
 }

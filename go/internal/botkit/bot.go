@@ -23,6 +23,7 @@ import (
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
 	"saveinator/internal/runtime"
+	"saveinator/internal/tgemoji"
 )
 
 type Bot struct {
@@ -105,11 +106,11 @@ func (b *Bot) onStart(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 			slog.Warn("user lookup failed", "err", err)
 		}
 		if exists {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get(b.bc.WelcomeKey, lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get(b.bc.WelcomeKey, lang, nil)))
 			return
 		}
 
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("onboarding.language_prompt", "en", nil)).WithReplyMarkup(b.languageKeyboard("lang|")))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("onboarding.language_prompt", "en", nil)).WithReplyMarkup(b.languageKeyboard("lang|")))
 	}
 }
 
@@ -120,7 +121,7 @@ func (b *Bot) onLang(bot *telego.Bot) func(context.Context, *telego.Bot, telego.
 		}
 		metrics.RecordCommand("lang")
 		lang := b.userLang(ctx, msg.From.ID)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("onboarding.lang_command_prompt", lang, nil)).WithReplyMarkup(b.languageKeyboard("lang|")))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("onboarding.lang_command_prompt", lang, nil)).WithReplyMarkup(b.languageKeyboard("lang|")))
 	}
 }
 
@@ -162,7 +163,8 @@ func (b *Bot) onLanguageChosen(bot *telego.Bot) func(context.Context, *telego.Bo
 		_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(chat.ID),
 			MessageID: query.Message.GetMessageID(),
-			Text:      locale.Get(b.bc.WelcomeKey, lang, nil),
+			Text:      tgemoji.Render(locale.Get(b.bc.WelcomeKey, lang, nil)),
+			ParseMode: telego.ModeHTML,
 		})
 		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("onboarding.lang_changed", lang, nil)))
 	}
@@ -179,7 +181,7 @@ func (b *Bot) onDirectMedia(bot *telego.Bot) func(context.Context, *telego.Bot, 
 			return
 		}
 		lang := b.userLang(ctx, msg.From.ID)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.send_link", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.send_link", lang, nil)))
 	}
 }
 
@@ -226,13 +228,13 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 			continue
 		}
 		if !b.runtime.PlatformEnabled(ctx, p.Slug()) {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get(p.Slug()+".disabled", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get(p.Slug()+".disabled", lang, nil)))
 			return
 		}
 		p.HandleLink(ctx, b, bot, msg, lang, link, batch)
 		return
 	}
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get(b.bc.NotSupportedKey, lang, nil)))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get(b.bc.NotSupportedKey, lang, nil)))
 }
 
 // EnqueueDownload runs the generic status-message + lock + enqueue flow used
@@ -240,7 +242,7 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 func (b *Bot) EnqueueDownload(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink, scene, taskType string, batch bool) {
 	if err := b.enqueue(ctx, bot, msg, lang, link, scene, taskType, batch); err != nil {
 		slog.Warn("enqueue failed", "platform", link.Platform, "err", err)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
 	}
 }
 
@@ -259,7 +261,7 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 		}
 	}
 
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)).WithParseMode(telego.ModeHTML)
+	statusMsg := htmlMessage(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil))
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, scene, msg.From.ID, token))
 	}
@@ -296,7 +298,7 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 func (b *Bot) ReplyBusy(_ context.Context, bot messageSender, msg telego.Message, lang, scenario string) {
 	metrics.RecordUserQueueRejected(scenario)
 	kb := cancel.QueueButton(lang, msg.From.ID)
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.busy", lang, nil)).WithReplyMarkup(kb))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.busy", lang, nil)).WithReplyMarkup(kb))
 }
 
 // ---- Lock helpers ----
@@ -333,7 +335,7 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot messageSender, msg telego.
 		if !ok {
 			metrics.RateLimitDropped.WithLabelValues("user").Inc()
 			if msg.Chat.Type == "private" {
-				_, _ = bot.SendMessage(tu.Message(
+				_, _ = bot.SendMessage(htmlMessage(
 					tu.ID(msg.Chat.ID),
 					locale.Get("errors.rate_limit", lang, map[string]string{
 						"count":  fmt.Sprintf("%d", b.cfg.RateLimitUserPerMinute),
@@ -351,7 +353,7 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot messageSender, msg telego.
 	if !ok {
 		metrics.RateLimitDropped.WithLabelValues("chat").Inc()
 		if msg.Chat.Type != "private" {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.chat_rate_limit", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.chat_rate_limit", lang, nil)))
 		}
 		return false
 	}

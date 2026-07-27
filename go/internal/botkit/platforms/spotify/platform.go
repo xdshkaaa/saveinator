@@ -21,6 +21,7 @@ import (
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/spotify"
+	"saveinator/internal/tgemoji"
 )
 
 // Platform implements botkit.Platform for Spotify metadata + track downloads.
@@ -52,7 +53,7 @@ func (p *Platform) Match(link linkparser.ParsedLink) bool {
 func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink, batch bool) {
 	metrics.SpotifyRequestsTotal.Inc()
 	if link.SpotifyID == "" || link.SpotifyTyp == "" {
-		_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+		_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		return
 	}
 
@@ -75,12 +76,12 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	}
 
 	if !cfg.SpotifyEnabled {
-		_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
+		_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
 		releaseLock()
 		return
 	}
 	if !p.api(cfg).Enabled() {
-		_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
+		_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
 		releaseLock()
 		return
 	}
@@ -89,11 +90,11 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	if err != nil {
 		switch err {
 		case spotify.ErrNotFound:
-			_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_found", lang, nil)))
+			_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_found", lang, nil)))
 		case spotify.ErrAuth:
-			_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
+			_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.not_configured", lang, nil)))
 		default:
-			_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.api_error", lang, nil)))
+			_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.api_error", lang, nil)))
 		}
 		releaseLock()
 		return
@@ -118,7 +119,7 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	statusText := locale.Get("spotify.download_starting", lang, map[string]string{
 		"total": fmt.Sprintf("%d", len(release.Tracks)),
 	})
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), statusText)
+	statusMsg := tgemoji.Message(tu.ID(msg.Chat.ID), statusText)
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, "spotify", msg.From.ID, token))
 	}
@@ -144,7 +145,8 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 		_, _ = tg.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(msg.Chat.ID),
 			MessageID: status.MessageID,
-			Text:      locale.Get("spotify.download_failed", lang, nil),
+			Text:      tgemoji.Render(locale.Get("spotify.download_failed", lang, nil)),
+			ParseMode: telego.ModeHTML,
 		})
 		releaseLock()
 		return
@@ -162,7 +164,7 @@ func sendMusicCard(tg *telego.Bot, chatID int64, coverURL, text string, kb *tele
 		})
 		return
 	}
-	_, _ = tg.SendMessage(tu.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
+	_, _ = tg.SendMessage(tgemoji.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
 }
 
 func musicLockTTL(cfg *config.Settings, trackCount int) time.Duration {

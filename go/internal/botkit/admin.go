@@ -15,6 +15,7 @@ import (
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
 	"saveinator/internal/runtime"
+	"saveinator/internal/tgemoji"
 )
 
 func (b *Bot) onAdmin(bot *telego.Bot) func(context.Context, *telego.Bot, telego.Message) {
@@ -25,7 +26,7 @@ func (b *Bot) onAdmin(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		metrics.RecordCommand("admin")
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.menu_title", lang, nil)).
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("admin.menu_title", lang, nil)).
 			WithParseMode(telego.ModeHTML).
 			WithReplyMarkup(b.adminMainKeyboard(lang)))
 	}
@@ -40,7 +41,7 @@ func (b *Bot) onStats(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
 		text, _ := b.renderStats(ctx, lang)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text).WithParseMode(telego.ModeHTML).WithReplyMarkup(b.statsKeyboard(lang)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), text).WithReplyMarkup(b.statsKeyboard(lang)))
 	}
 }
 
@@ -283,35 +284,35 @@ func (b *Bot) adminSaveEdit(ctx context.Context, bot *telego.Bot, msg telego.Mes
 		return true
 	}
 	if err := b.runtime.Validate(def, raw); err != nil {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.invalid_value", lang, map[string]string{"error": err.Error()})))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("admin.invalid_value", lang, map[string]string{"error": err.Error()})))
 		return true
 	}
 	parsed := b.runtime.Parse(def, raw)
 	_ = b.runtime.SetValue(ctx, redisKey, parsed)
 	metrics.RecordAdminRuntimeSetting(def.Service)
 	b.fsm.Clear(msg.From.ID)
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.saved", lang, map[string]string{
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("admin.saved", lang, map[string]string{
 		"label": runtime.KindLabel(def, lang),
 		"value": runtime.FormatValue(parsed, def, lang),
 	})))
 	summary, _ := b.serviceSummary(ctx, def.Service, lang)
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), summary).WithReplyMarkup(b.serviceKeyboard(def.Service, lang)))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), summary).WithReplyMarkup(b.serviceKeyboard(def.Service, lang)))
 	return true
 }
 
 func (b *Bot) adminSaveBan(ctx context.Context, bot *telego.Bot, msg telego.Message, lang, raw string) bool {
 	uid, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
 	if err != nil || uid <= 0 {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.invalid_user_id", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("admin.invalid_user_id", lang, nil)))
 		return true
 	}
 	if uid == msg.From.ID {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.cannot_ban_self", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("admin.cannot_ban_self", lang, nil)))
 		return true
 	}
 	_ = b.redis.BanUser(ctx, uid)
 	b.fsm.Clear(msg.From.ID)
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("admin.ban_added", lang, map[string]string{
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("admin.ban_added", lang, map[string]string{
 		"user_id": strconv.FormatInt(uid, 10),
 	})))
 	return true
@@ -472,7 +473,7 @@ func (b *Bot) editAdminText(bot *telego.Bot, chatID int64, msgID int, text strin
 	_, err := bot.EditMessageText(&telego.EditMessageTextParams{
 		ChatID:      tu.ID(chatID),
 		MessageID:   msgID,
-		Text:        text,
+		Text:        tgemoji.Render(text),
 		ParseMode:   telego.ModeHTML,
 		ReplyMarkup: kb,
 	})

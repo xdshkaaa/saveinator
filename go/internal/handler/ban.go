@@ -24,7 +24,7 @@ func (b *Bot) checkBanned(ctx context.Context, bot *telego.Bot, msg telego.Messa
 	if err != nil || !banned {
 		return false
 	}
-	_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("ban.shadow_reply", lang, nil)))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("ban.shadow_reply", lang, nil)))
 	if b.isAdmin(b.cfg.AdminTelegramID) {
 		user := strconv.FormatInt(msg.From.ID, 10)
 		if msg.From.Username != "" {
@@ -34,7 +34,7 @@ func (b *Bot) checkBanned(ctx context.Context, bot *telego.Bot, msg telego.Messa
 			"user": user,
 			"chat": fmt.Sprintf("%d", msg.Chat.ID),
 		})
-		_, _ = bot.SendMessage(tu.Message(tu.ID(b.cfg.AdminTelegramID), notice))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(b.cfg.AdminTelegramID), notice))
 		if msg.Text != "" {
 			_, _ = bot.ForwardMessage(&telego.ForwardMessageParams{
 				ChatID:     tu.ID(b.cfg.AdminTelegramID),

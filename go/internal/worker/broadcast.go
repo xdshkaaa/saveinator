@@ -14,6 +14,7 @@ import (
 
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
+	"saveinator/internal/tgemoji"
 )
 
 func (h *Handler) handleBroadcast(ctx context.Context, t *asynq.Task) error {
@@ -77,7 +78,7 @@ func (h *Handler) handleBroadcast(ctx context.Context, t *asynq.Task) error {
 }
 
 func (h *Handler) sendBroadcastMessage(userID int64, text string) error {
-	_, err := h.bot.SendMessage(tu.Message(tu.ID(userID), text))
+	_, err := h.bot.SendMessage(tgemoji.Message(tu.ID(userID), text))
 	return err
 }
 

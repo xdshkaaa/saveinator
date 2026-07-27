@@ -26,7 +26,7 @@ const probeTimeout = 30 * time.Second
 var defaultQualities = []string{"144", "240", "360", "480", "720", "1080"}
 
 func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink) {
-	status, err := bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("youtube.fetching_info", lang, nil)))
+	status, err := bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("youtube.fetching_info", lang, nil)))
 	if err != nil {
 		return
 	}
@@ -82,17 +82,15 @@ func (b *Bot) youtubeOptions(ctx context.Context, meta *youtube.Meta) []youtube.
 }
 
 func (b *Bot) renderFormatCard(ctx context.Context, bot *telego.Bot, session youtube.PendingSession) {
-	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
-		ChatID:    tu.ID(session.ChatID),
-		MessageID: session.MessageID,
-		Text:      youtube.Card(session.Lang, session.Meta(), session.Options, session.TrimLabel()),
-		ReplyMarkup: youtube.FormatKeyboard(
+	editHTMLText(bot, session.ChatID, session.MessageID,
+		youtube.Card(session.Lang, session.Meta(), session.Options, session.TrimLabel()),
+		youtube.FormatKeyboard(
 			session.Lang,
 			session.Options,
 			b.runtime.CurrentBool(ctx, "youtube.mp3_enabled", true),
 			b.runtime.CurrentBool(ctx, "youtube.trim_enabled", true),
 		),
-	})
+	)
 }
 
 func (b *Bot) onQualityChoice(bot *telego.Bot) func(context.Context, *telego.Bot, telego.CallbackQuery) {
@@ -136,12 +134,9 @@ func (b *Bot) onYouTubeAction(bot *telego.Bot) func(context.Context, *telego.Bot
 			if err != nil || updated == nil {
 				return
 			}
-			_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
-				ChatID:      tu.ID(updated.ChatID),
-				MessageID:   updated.MessageID,
-				Text:        locale.Get("youtube.trim_prompt", updated.Lang, nil),
-				ReplyMarkup: youtube.TrimPromptKeyboard(updated.Lang),
-			})
+			editHTMLText(bot, updated.ChatID, updated.MessageID,
+				locale.Get("youtube.trim_prompt", updated.Lang, nil),
+				youtube.TrimPromptKeyboard(updated.Lang))
 		case "trimoff":
 			updated, err := b.ytSessions.SetTrim(ctx, query.From.ID, 0, 0)
 			if err != nil || updated == nil {
@@ -168,13 +163,13 @@ func (b *Bot) handleYouTubeTrimInput(ctx context.Context, bot *telego.Bot, msg t
 
 	start, end, err := youtube.ParseRange(body, session.DurationSec)
 	if err != nil {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), trimErrorText(err, lang)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), trimErrorText(err, lang)))
 		return true
 	}
 
 	updated, err := b.ytSessions.SetTrim(ctx, msg.From.ID, start, end)
 	if err != nil || updated == nil {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("youtube.session_expired", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("youtube.session_expired", lang, nil)))
 		return true
 	}
 	b.renderFormatCard(ctx, bot, *updated)
@@ -221,11 +216,7 @@ func (b *Bot) startYouTubeDownload(ctx context.Context, bot *telego.Bot, session
 	if !audioOnly {
 		statusText = youtube.ProcessingMessage(session.Lang, option.Height)
 	}
-	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
-		ChatID:    tu.ID(session.ChatID),
-		MessageID: session.MessageID,
-		Text:      statusText,
-	})
+	editHTMLText(bot, session.ChatID, session.MessageID, statusText, nil)
 
 	aspectRatio := ""
 	if !audioOnly {
@@ -234,7 +225,7 @@ func (b *Bot) startYouTubeDownload(ctx context.Context, bot *telego.Bot, session
 
 	if err := b.q.EnqueueDownload(buildYouTubePayload(session, option, audioOnly, aspectRatio)); err != nil {
 		slog.Warn("enqueue youtube failed", "err", err)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(session.ChatID), locale.Get("errors.generic", session.Lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(session.ChatID), locale.Get("errors.generic", session.Lang, nil)))
 		return
 	}
 	metrics.DownloadsEnqueued.WithLabelValues("youtube").Inc()

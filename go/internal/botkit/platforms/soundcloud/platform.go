@@ -22,6 +22,7 @@ import (
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
 	"saveinator/internal/soundcloud"
+	"saveinator/internal/tgemoji"
 )
 
 // Platform implements botkit.Platform for SoundCloud track/playlist downloads.
@@ -54,7 +55,7 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	metrics.SoundCloudRequestsTotal.Inc()
 	scLink, err := soundcloud.ParseLink(link.URL)
 	if err != nil {
-		_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+		_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 		return
 	}
 
@@ -77,7 +78,7 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	}
 
 	if !cfg.SoundCloudEnabled {
-		_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
+		_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
 		releaseLock()
 		return
 	}
@@ -87,14 +88,14 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	if err != nil {
 		switch {
 		case errors.Is(err, soundcloud.ErrNotFound):
-			_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.not_found", lang, nil)))
+			_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.not_found", lang, nil)))
 		case errors.Is(err, soundcloud.ErrTooLarge):
-			_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.playlist_too_large", lang, map[string]string{
+			_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.playlist_too_large", lang, map[string]string{
 				"limit": fmt.Sprintf("%d", maxTracks),
 			})))
 		default:
 			metrics.SoundCloudMetadataFailuresTotal.Inc()
-			_, _ = tg.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.download_failed", lang, nil)))
+			_, _ = tg.SendMessage(tgemoji.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.download_failed", lang, nil)))
 		}
 		releaseLock()
 		return
@@ -122,7 +123,7 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 	statusText := locale.Get("soundcloud.download_starting", lang, map[string]string{
 		"total": fmt.Sprintf("%d", len(release.Tracks)),
 	})
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), statusText)
+	statusMsg := tgemoji.Message(tu.ID(msg.Chat.ID), statusText)
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, "soundcloud", msg.From.ID, token))
 	}
@@ -147,7 +148,8 @@ func (p *Platform) HandleLink(ctx context.Context, b *botkit.Bot, tg *telego.Bot
 		_, _ = tg.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(msg.Chat.ID),
 			MessageID: status.MessageID,
-			Text:      locale.Get("soundcloud.download_failed", lang, nil),
+			Text:      tgemoji.Render(locale.Get("soundcloud.download_failed", lang, nil)),
+			ParseMode: telego.ModeHTML,
 		})
 		releaseLock()
 		return
@@ -166,7 +168,7 @@ func sendMusicCard(tg *telego.Bot, chatID int64, coverURL, text string, kb *tele
 		})
 		return
 	}
-	_, _ = tg.SendMessage(tu.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
+	_, _ = tg.SendMessage(tgemoji.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
 }
 
 func musicLockTTL(cfg *config.Settings, trackCount int) time.Duration {

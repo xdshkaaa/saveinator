@@ -13,6 +13,7 @@ import (
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
 	"saveinator/internal/queue"
+	"saveinator/internal/tgemoji"
 	"saveinator/internal/tiktok"
 )
 
@@ -23,7 +24,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		lang = "en"
 	}
 
-	_ = h.sender.EditMessageHTML(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
+	_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
 
 	taskDir, err := os.MkdirTemp("", "saveinator-tiktok-*")
 	if err != nil {
@@ -64,7 +65,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 			return nil
 		}
 		if result.CarouselImagesAvailable && result.CarouselImageCount > 0 && len(result.Images) < result.CarouselImageCount {
-			_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_partial", lang, map[string]string{
+			_, _ = h.bot.SendMessage(tgemoji.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_partial", lang, map[string]string{
 				"count": fmt.Sprintf("%d", len(result.Images)),
 				"total": fmt.Sprintf("%d", result.CarouselImageCount),
 			})))
@@ -155,7 +156,7 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 	if err != nil || len(result.Images) == 0 {
 		metrics.TikTokCarouselFailuresTotal.WithLabelValues("empty").Inc()
 		recordTaskFailure(queue.TypeTikTokCarousel)
-		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_empty", lang, nil)))
+		_, _ = h.bot.SendMessage(tgemoji.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_empty", lang, nil)))
 		errMsg := "carousel empty"
 		if err != nil {
 			errMsg = err.Error()
@@ -165,7 +166,7 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 	}
 
 	if result.CarouselImageCount > 0 && len(result.Images) < result.CarouselImageCount {
-		_, _ = h.bot.SendMessage(tu.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_partial", lang, map[string]string{
+		_, _ = h.bot.SendMessage(tgemoji.Message(tu.ID(p.ChatID), locale.Get("tiktok.carousel_partial", lang, map[string]string{
 			"count": fmt.Sprintf("%d", len(result.Images)),
 			"total": fmt.Sprintf("%d", result.CarouselImageCount),
 		})))

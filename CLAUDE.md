@@ -94,6 +94,7 @@ go/internal/
   db/         — pgx/v5 store; testdata/schema.sql for integration tests
   linkparser/ — URL detection and platform identification
   locale/     — //go:embed JSON files; rebuild required after edits
+  tgemoji/    — premium emoji pack + HTML render for message bodies
   redisx/     — Redis client + user lock (user_busy:{userID})
   ytdlp/      — yt-dlp subprocess wrapper
   pinterest/  — Pinterest API client (pins, boards, short links)
@@ -127,6 +128,26 @@ Follow order: `linkparser/parser.go` → `handler/bot.go dispatchLink()` → `ha
 - `en.json` is the parity reference
 
 Use `{var}` placeholders. Run `scripts/check-parity.sh` after any locale change.
+
+Locale strings hold **plain text with plain emoji** — never `<tg-emoji>` tags or any
+other HTML.
+
+### Premium emoji
+
+`go/internal/tgemoji` holds the "Telegram iOS Icons" pack (generated from the
+`telegram-ios-icons` skill; regenerate `catalog.go`, don't hand-edit it).
+
+- Send message bodies via `tgemoji.Message` / `tgemoji.EditText` (or the
+  `htmlMessage` / `editHTMLText` aliases in `handler` and `botkit`). They escape
+  the text, then swap every covered emoji for its custom-emoji tag, and set
+  `parse_mode=HTML`. Escaping first is what makes interpolated video titles,
+  yt-dlp output and admin input safe.
+- **Never render inline keyboard labels or `answerCallbackQuery` text** —
+  Telegram carries no entities there, so a tag would show up literally. Button
+  emoji stay plain.
+- Emoji in non-button locale strings must exist in the pack;
+  `TestLocaleEmojiAreCovered` fails otherwise. Pick a covered icon rather than
+  leaving a plain one that renders inconsistently next to premium ones.
 
 ### Schema changes
 

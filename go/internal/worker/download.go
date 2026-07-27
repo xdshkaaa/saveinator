@@ -28,8 +28,8 @@ import (
 	"saveinator/internal/video"
 	"saveinator/internal/x"
 	"saveinator/internal/xphotos"
-	"saveinator/internal/ytdlp"
 	"saveinator/internal/youtube"
+	"saveinator/internal/ytdlp"
 )
 
 type Handler struct {
@@ -257,7 +257,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 		lang = "en"
 	}
 
-	_ = h.sender.EditMessageHTML(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
+	_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
 
 	taskDir, err := os.MkdirTemp("", "saveinator-*")
 	if err != nil {
@@ -459,7 +459,7 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		lang = "en"
 	}
 
-	_ = h.sender.EditMessageHTML(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
+	_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("download.downloading", lang, nil))
 
 	taskDir, err := os.MkdirTemp("", "saveinator-pin-*")
 	if err != nil {

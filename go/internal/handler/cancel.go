@@ -9,6 +9,7 @@ import (
 
 	"saveinator/internal/cancel"
 	"saveinator/internal/locale"
+	"saveinator/internal/tgemoji"
 )
 
 func (b *Bot) onCancelDownload(bot *telego.Bot) func(context.Context, *telego.Bot, telego.CallbackQuery) {
@@ -32,7 +33,8 @@ func (b *Bot) onCancelDownload(bot *telego.Bot) func(context.Context, *telego.Bo
 			_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 				ChatID:    tu.ID(chat.ID),
 				MessageID: query.Message.GetMessageID(),
-				Text:      locale.Get("download.cancelled", lang, nil),
+				Text:      tgemoji.Render(locale.Get("download.cancelled", lang, nil)),
+				ParseMode: telego.ModeHTML,
 			})
 		}
 		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText(locale.Get("download.cancel_done", lang, nil)))
@@ -59,7 +61,8 @@ func (b *Bot) onDownloadQueue(bot *telego.Bot) func(context.Context, *telego.Bot
 				_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 					ChatID:    tu.ID(chat.ID),
 					MessageID: query.Message.GetMessageID(),
-					Text:      locale.Get("download.queue_empty", lang, nil),
+					Text:      tgemoji.Render(locale.Get("download.queue_empty", lang, nil)),
+					ParseMode: telego.ModeHTML,
 				})
 			}
 			_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
@@ -71,7 +74,8 @@ func (b *Bot) onDownloadQueue(bot *telego.Bot) func(context.Context, *telego.Bot
 			_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 				ChatID:      tu.ID(chat.ID),
 				MessageID:   query.Message.GetMessageID(),
-				Text:        locale.Get("download.queue_title", lang, nil),
+				Text:        tgemoji.Render(locale.Get("download.queue_title", lang, nil)),
+				ParseMode:   telego.ModeHTML,
 				ReplyMarkup: cancel.ActiveQueueKeyboard(lang, active.Scenario, active.UserID, active.Token),
 			})
 		}

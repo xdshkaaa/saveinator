@@ -13,6 +13,7 @@ import (
 
 	"saveinator/internal/locale"
 	"saveinator/internal/metrics"
+	"saveinator/internal/tgemoji"
 	"saveinator/internal/video"
 )
 
@@ -76,42 +77,20 @@ func ResolveBotUsername(bot *telego.Bot, fallback string) string {
 	return me.Username
 }
 
+// EditMessage rewrites a status message. The text is rendered as premium-emoji
+// HTML, which also escapes it — status text carries yt-dlp output and media
+// titles, so it must never be trusted as markup.
 func (t *Telegram) EditMessage(chatID int64, messageID int, text string) error {
-	return metrics.CallTelegram("EditMessageText", func() error {
-		_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{
-			ChatID:    tu.ID(chatID),
-			MessageID: messageID,
-			Text:      text,
-		})
-		return err
-	})
-}
-
-// EditMessageHTML edits a message with HTML parse mode, so premium
-// <tg-emoji> status strings render the same way they did when first sent.
-// Use only for locale strings that carry a <tg-emoji> tag; plain-text
-// strings (error output, filenames) must keep using EditMessage.
-func (t *Telegram) EditMessageHTML(chatID int64, messageID int, text string) error {
-	return metrics.CallTelegram("EditMessageText", func() error {
-		_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{
-			ChatID:    tu.ID(chatID),
-			MessageID: messageID,
-			Text:      text,
-			ParseMode: telego.ModeHTML,
-		})
-		return err
-	})
+	return t.EditMessageMarkup(chatID, messageID, text, nil)
 }
 
 func (t *Telegram) EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
-	if markup == nil {
-		return t.EditMessage(chatID, messageID, text)
-	}
 	return metrics.CallTelegram("EditMessageText", func() error {
 		_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:      tu.ID(chatID),
 			MessageID:   messageID,
-			Text:        text,
+			Text:        tgemoji.Render(text),
+			ParseMode:   telego.ModeHTML,
 			ReplyMarkup: markup,
 		})
 		return err

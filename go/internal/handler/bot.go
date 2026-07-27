@@ -22,6 +22,7 @@ import (
 	"saveinator/internal/runtime"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
+	"saveinator/internal/tgemoji"
 	"saveinator/internal/tiktok"
 	"saveinator/internal/youtube"
 )
@@ -94,7 +95,7 @@ func (b *Bot) onStart(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 			slog.Warn("user lookup failed", "err", err)
 		}
 		if exists {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("onboarding.welcome", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("onboarding.welcome", lang, nil)))
 			return
 		}
 
@@ -104,7 +105,7 @@ func (b *Bot) onStart(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 				tu.InlineKeyboardButton(locale.Get("onboarding.btn_ru", "en", nil)).WithCallbackData("lang|ru"),
 			),
 		)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("onboarding.language_prompt", "en", nil)).WithReplyMarkup(kb))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("onboarding.language_prompt", "en", nil)).WithReplyMarkup(kb))
 	}
 }
 
@@ -137,7 +138,8 @@ func (b *Bot) onLanguageChosen(bot *telego.Bot) func(context.Context, *telego.Bo
 		_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
 			ChatID:    tu.ID(chat.ID),
 			MessageID: query.Message.GetMessageID(),
-			Text:      locale.Get("onboarding.welcome", lang, nil),
+			Text:      tgemoji.Render(locale.Get("onboarding.welcome", lang, nil)),
+			ParseMode: telego.ModeHTML,
 		})
 		_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID))
 	}
@@ -167,7 +169,7 @@ func (b *Bot) onDirectMedia(bot *telego.Bot) func(context.Context, *telego.Bot, 
 			return
 		}
 		lang := b.userLang(ctx, msg.From.ID)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.send_link", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.send_link", lang, nil)))
 	}
 }
 
@@ -213,29 +215,29 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 	switch link.Platform {
 	case linkparser.PlatformSpotify:
 		if !b.runtime.PlatformEnabled(ctx, "spotify") {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("spotify.disabled", lang, nil)))
 			return
 		}
 		b.handleSpotifyLink(ctx, bot, msg, lang, link)
 	case linkparser.PlatformSoundCloud:
 		if !b.runtime.PlatformEnabled(ctx, "soundcloud") {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
 			return
 		}
 		b.handleSoundCloudLink(ctx, bot, msg, lang, link.URL)
 	case linkparser.PlatformPinterest:
 		if !b.runtime.PlatformEnabled(ctx, "pinterest") {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("pinterest.disabled", lang, nil)))
 			return
 		}
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "pinterest", queue.TypePinterest, batch)
 	case linkparser.PlatformTikTok:
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "tiktok", queue.TypeTikTok, batch)
 	case linkparser.PlatformUnknown:
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 	case linkparser.PlatformYouTube:
 		if !b.cfg.YouTubeEnabled {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 			return
 		}
 		b.handleYouTubeLink(ctx, bot, msg, lang, link)
@@ -247,7 +249,7 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 func (b *Bot) enqueueOrReplyError(ctx context.Context, bot messageSender, msg telego.Message, lang string, link linkparser.ParsedLink, scene, taskType string, batch bool) {
 	if err := b.enqueue(ctx, bot, msg, lang, link, scene, taskType, batch); err != nil {
 		slog.Warn("enqueue failed", "platform", link.Platform, "err", err)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
 	}
 }
 
@@ -273,7 +275,7 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 		}
 	}
 
-	statusMsg := tu.Message(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)).WithParseMode(telego.ModeHTML)
+	statusMsg := htmlMessage(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil))
 	if token != "" {
 		statusMsg = statusMsg.WithReplyMarkup(cancel.Keyboard(lang, scene, msg.From.ID, token))
 	}
@@ -331,7 +333,7 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot messageSender, msg telego.
 		if !ok {
 			metrics.RateLimitDropped.WithLabelValues("user").Inc()
 			if msg.Chat.Type == "private" {
-				_, _ = bot.SendMessage(tu.Message(
+				_, _ = bot.SendMessage(htmlMessage(
 					tu.ID(msg.Chat.ID),
 					locale.Get("errors.rate_limit", lang, map[string]string{
 						"count":  fmt.Sprintf("%d", b.cfg.RateLimitUserPerMinute),
@@ -349,7 +351,7 @@ func (b *Bot) allowRateLimit(ctx context.Context, bot messageSender, msg telego.
 	if !ok {
 		metrics.RateLimitDropped.WithLabelValues("chat").Inc()
 		if msg.Chat.Type != "private" {
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.chat_rate_limit", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.chat_rate_limit", lang, nil)))
 		}
 		return false
 	}

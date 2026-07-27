@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"fmt"
-	"html"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -24,7 +23,7 @@ func (b *Bot) onBroadcast(bot *telego.Bot) func(context.Context, *telego.Bot, te
 		metrics.RecordCommand("broadcast")
 		b.fsm.Clear(msg.From.ID)
 		lang := b.userLang(ctx, msg.From.ID)
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("broadcast.menu_title", lang, nil)).
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("broadcast.menu_title", lang, nil)).
 			WithParseMode(telego.ModeHTML).
 			WithReplyMarkup(b.broadcastMenuKeyboard(lang)))
 	}
@@ -76,7 +75,7 @@ func (b *Bot) onBroadcastCallback(bot *telego.Bot) func(context.Context, *telego
 					_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText("Broadcast not found."))
 					return
 				}
-				_, err = bot.SendMessage(tu.Message(tu.ID(query.From.ID), bc.Text))
+				_, err = bot.SendMessage(htmlMessage(tu.ID(query.From.ID), bc.Text))
 				if err != nil {
 					_ = bot.AnswerCallbackQuery(tu.CallbackQuery(query.ID).WithText("Failed to send test message."))
 					return
@@ -127,7 +126,7 @@ func (b *Bot) broadcastMenuKeyboard(lang string) *telego.InlineKeyboardMarkup {
 
 func (b *Bot) broadcastSaveText(ctx context.Context, bot *telego.Bot, msg telego.Message, lang, text string, existingID int) bool {
 	if strings.TrimSpace(text) == "" {
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), "Text cannot be empty."))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), "Text cannot be empty."))
 		return true
 	}
 	b.fsm.Clear(msg.From.ID)
@@ -157,7 +156,7 @@ func (b *Bot) showAudienceSelection(bot *telego.Bot, chatID int64, broadcastID i
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("broadcast.audience_test", lang, nil)).WithCallbackData(fmt.Sprintf("broadcast|audience|%d|test", broadcastID))),
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("broadcast.btn_back", lang, nil)).WithCallbackData("broadcast|menu")),
 	)
-	_, _ = bot.SendMessage(tu.Message(tu.ID(chatID), text).WithReplyMarkup(kb))
+	_, _ = bot.SendMessage(htmlMessage(tu.ID(chatID), text).WithReplyMarkup(kb))
 }
 
 func (b *Bot) showBroadcastPreview(ctx context.Context, bot *telego.Bot, query telego.CallbackQuery, broadcastID int, audience, lang string) {
@@ -167,7 +166,7 @@ func (b *Bot) showBroadcastPreview(ctx context.Context, bot *telego.Bot, query t
 		return
 	}
 	total, _ := b.db.CountBroadcastRecipients(ctx, audience)
-	preview := locale.Get("broadcast.preview_title", lang, map[string]string{"text": html.EscapeString(bc.Text)}) + "\n\n" +
+	preview := locale.Get("broadcast.preview_title", lang, map[string]string{"text": bc.Text}) + "\n\n" +
 		locale.Get("broadcast.preview_audience", lang, map[string]string{"audience": broadcastAudienceLabel(audience, lang)}) + "\n" +
 		locale.Get("broadcast.preview_recipients", lang, map[string]string{"count": strconv.Itoa(total)}) + "\n\n" +
 		locale.Get("broadcast.preview_confirm", lang, nil)
@@ -219,12 +218,12 @@ func (b *Bot) showBroadcastHistory(ctx context.Context, bot *telego.Bot, chatID 
 	for _, bc := range list {
 		created := bc.CreatedAt.Format("2006-01-02 15:04")
 		lines = append(lines, locale.Get("broadcast.history_line", lang, map[string]string{
-			"id":      strconv.Itoa(bc.ID),
-			"status":  broadcastStatusLabel(bc.Status, lang),
+			"id":       strconv.Itoa(bc.ID),
+			"status":   broadcastStatusLabel(bc.Status, lang),
 			"audience": broadcastAudienceLabel(strings.ToLower(bc.Audience), lang),
-			"sent":    strconv.Itoa(bc.SentCount),
-			"total":   strconv.Itoa(bc.TotalRecipients),
-			"created": created,
+			"sent":     strconv.Itoa(bc.SentCount),
+			"total":    strconv.Itoa(bc.TotalRecipients),
+			"created":  created,
 		}))
 	}
 	b.editAdminText(bot, chatID, msgID, strings.Join(lines, "\n"), tu.InlineKeyboard(

@@ -38,7 +38,7 @@ func (b *Bot) onClear(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		insp, err := queue.NewInspector(b.cfg.RedisURL)
 		if err != nil {
 			slog.Warn("clear queue inspector failed", "err", err)
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
 			return
 		}
 		defer insp.Close()
@@ -46,7 +46,7 @@ func (b *Bot) onClear(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		result, lockRefs, err := queue.ClearUserTasks(insp, userID, b.bc.Queue)
 		if err != nil {
 			slog.Warn("clear queue tasks failed", "user", userID, "err", err)
-			_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
 			return
 		}
 
@@ -61,6 +61,6 @@ func (b *Bot) onClear(bot *telego.Bot) func(context.Context, *telego.Bot, telego
 		if !cleared {
 			text = locale.Get("clear.empty", lang, nil)
 		}
-		_, _ = bot.SendMessage(tu.Message(tu.ID(msg.Chat.ID), text))
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), text))
 	}
 }
