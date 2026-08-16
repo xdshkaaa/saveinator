@@ -62,6 +62,7 @@ func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypeSoundCloud, h.handleSoundCloud)
 	mux.HandleFunc(queue.TypeBroadcast, h.handleBroadcast)
 	mux.HandleFunc(queue.TypeTikTokCarousel, h.handleTikTokCarousel)
+	mux.HandleFunc(queue.TypeInstagram, h.handleInstagram)
 }
 
 func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {
@@ -148,16 +149,11 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		return h.runYouTubeAudio(ctx, dlCtx, p, lang, taskDir, start)
 	}
 
-	format := p.FormatID
-	if format == "" {
-		format = youtube.BuildFormat(p.Quality, p.AspectRatio)
-	}
-
-	opts := h.ytdlpOpts("youtube", format, timeout)
+	opts := h.ytdlpOpts("youtube", youtube.FormatSelector(p.FormatID, p.Quality, p.AspectRatio), timeout)
 	if p.IsTrimmed() {
 		opts.DownloadSections = youtube.DownloadSection(p.TrimStart, p.TrimEnd)
 	}
-	if err := ytdlp.Download(dlCtx, p.URL, taskDir, opts); err != nil {
+	if err := h.downloadYouTubeVideo(dlCtx, p, taskDir, opts); err != nil {
 		slog.Warn("youtube download failed", "url", p.URL, "err", err)
 		metrics.RecordYtdlpError("youtube")
 		recordTaskFailure(queue.TypeDownload)
@@ -201,6 +197,37 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 	}
 
 	return h.sendVideoResult(ctx, p, processed, lang, queue.TypeDownload, start)
+}
+
+// retryExtractionDelay spaces out the second attempt below. Long enough that
+// the retry is a genuinely new extraction rather than part of the same refused
+// burst, short enough that the user keeps staring at one "downloading" message.
+const retryExtractionDelay = 2 * time.Second
+
+// downloadYouTubeVideo runs the download, and on a format failure retries once
+// with the generic selector.
+//
+// The point of the retry is the fresh extraction, not the different selector:
+// which formats exist at all depends on which player client answered, and the
+// one client that serves them without a PO token is refused intermittently. A
+// second attempt often draws a working answer. When the refusal is not
+// momentary both attempts fail identically and the caller reports it.
+func (h *Handler) downloadYouTubeVideo(dlCtx context.Context, p queue.DownloadPayload, taskDir string, opts ytdlp.Options) error {
+	err := ytdlp.Download(dlCtx, p.URL, taskDir, opts)
+	if err == nil || !ytdlp.IsFormatUnavailableError(err) {
+		return err
+	}
+
+	slog.Warn("youtube formats unavailable, retrying extraction", "url", p.URL, "err", err)
+	select {
+	case <-dlCtx.Done():
+		return err
+	case <-time.After(retryExtractionDelay):
+	}
+
+	retryOpts := opts
+	retryOpts.FormatID = youtube.BuildFormat(p.Quality, p.AspectRatio)
+	return ytdlp.Download(dlCtx, p.URL, taskDir, retryOpts)
 }
 
 // runYouTubeAudio serves the Mp3 button: the soundtrack only, trimmed to the

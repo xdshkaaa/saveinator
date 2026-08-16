@@ -29,15 +29,35 @@ func TestIsYouTubeShorts(t *testing.T) {
 	}
 }
 
-func TestExtractURLsInstagramUnknown(t *testing.T) {
+func TestExtractURLsInstagram(t *testing.T) {
 	t.Parallel()
-	url := "https://www.instagram.com/p/DaBjYIIMEKF/?utm_source=ig_web_copy_link"
-	links := ExtractURLs(url)
-	if len(links) != 1 {
-		t.Fatalf("expected 1 link, got %d", len(links))
+	cases := []struct {
+		name string
+		url  string
+		want string // expected extracted URL
+	}{
+		{"post with utm query", "https://www.instagram.com/p/DaBjYIIMEKF/?utm_source=ig_web_copy_link", "https://www.instagram.com/p/DaBjYIIMEKF/?utm_source=ig_web_copy_link"},
+		{"reel", "https://www.instagram.com/reel/CxAbC12345/", "https://www.instagram.com/reel/CxAbC12345/"},
+		{"mobile", "https://m.instagram.com/p/DaBjYIIMEKF/", "https://m.instagram.com/p/DaBjYIIMEKF/"},
+		{"tv", "https://www.instagram.com/tv/CxAbC12345/", "https://www.instagram.com/tv/CxAbC12345/"},
+		{"stories", "https://www.instagram.com/stories/username/1234567890/", "https://www.instagram.com/stories/username/1234567890/"},
+		{"share", "https://www.instagram.com/share/AbC12345/", "https://www.instagram.com/share/AbC12345/"},
+		{"short", "https://instagr.am/p/DaBjYIIMEKF/", "https://instagr.am/p/DaBjYIIMEKF/"},
+		{"in text with trailing punctuation", "look at https://www.instagram.com/reel/CxAbC12345/, cool", "https://www.instagram.com/reel/CxAbC12345/"},
 	}
-	if links[0].Platform != PlatformUnknown {
-		t.Fatalf("platform = %q, want unknown", links[0].Platform)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			links := ExtractURLs(tc.url)
+			if len(links) != 1 {
+				t.Fatalf("expected 1 link, got %d (%+v)", len(links), links)
+			}
+			if links[0].Platform != PlatformInstagram {
+				t.Fatalf("platform = %q, want %q", links[0].Platform, PlatformInstagram)
+			}
+			if links[0].URL != tc.want {
+				t.Fatalf("url = %q, want %q", links[0].URL, tc.want)
+			}
+		})
 	}
 }
 

@@ -16,11 +16,31 @@ func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) yt
 		}
 	}
 
-	return ytdlp.Options{
-		FormatID:                 formatID,
-		Platform:                 platform,
-		TikTokCookies:            tikTokCookies,
-		TikTokCookiesFromBrowser: h.cfg.TikTokCookiesFromBrowser,
-		Timeout:                  timeout,
+	instagramCookies := h.cfg.InstagramCookiesPath
+	if strings.TrimSpace(h.cfg.InstagramCookiesFromBrowser) == "" {
+		if synced := cookies.SyncFromMount(instagramCookies, cookies.InstagramWritablePath); synced != "" {
+			instagramCookies = synced
+		}
 	}
+
+	return ytdlp.Options{
+		FormatID:                    formatID,
+		Platform:                    platform,
+		TikTokCookies:               tikTokCookies,
+		TikTokCookiesFromBrowser:    h.cfg.TikTokCookiesFromBrowser,
+		InstagramCookies:            instagramCookies,
+		InstagramCookiesFromBrowser: h.cfg.InstagramCookiesFromBrowser,
+		Referer:                     refererForPlatform(platform, h.cfg.TikTokReferer),
+		Timeout:                     timeout,
+	}
+}
+
+// refererForPlatform returns the Referer header value to send for a platform.
+// TikTok's CDN blocks requests without a Referer ("Unexpected response from
+// webpage request"); other platforms need none.
+func refererForPlatform(platform, tiktokReferer string) string {
+	if platform == "tiktok" {
+		return tiktokReferer
+	}
+	return ""
 }

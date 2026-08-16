@@ -233,8 +233,10 @@ func (b *Bot) startYouTubeDownload(ctx context.Context, bot *telego.Bot, session
 
 // buildYouTubePayload turns a tapped card button into a worker job. An
 // audio-only job carries no quality or format so it never reaches the video
-// pipeline; a video job prefers the exact format id the card advertised and
-// falls back to the generic selector when the probe produced none.
+// pipeline; a video job carries the exact format id the card advertised, empty
+// when the probe produced none. Turning that id into a yt-dlp selector is the
+// worker's job (youtube.FormatSelector) — the payload stays a statement of what
+// the user picked.
 func buildYouTubePayload(session youtube.PendingSession, option youtube.Option, audioOnly bool, aspectRatio string) queue.DownloadPayload {
 	payload := queue.DownloadPayload{
 		URL:       session.URL,
@@ -255,9 +257,6 @@ func buildYouTubePayload(session youtube.PendingSession, option youtube.Option, 
 	payload.Quality = option.Height
 	payload.AspectRatio = aspectRatio
 	payload.FormatID = option.FormatID
-	if payload.FormatID == "" {
-		payload.FormatID = youtube.BuildFormat(option.Height, aspectRatio)
-	}
 	return payload
 }
 

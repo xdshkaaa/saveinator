@@ -233,6 +233,12 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "pinterest", queue.TypePinterest, batch)
 	case linkparser.PlatformTikTok:
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "tiktok", queue.TypeTikTok, batch)
+	case linkparser.PlatformInstagram:
+		if !b.runtime.PlatformEnabled(ctx, "instagram") {
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("instagram.disabled", lang, nil)))
+			return
+		}
+		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "instagram", queue.TypeInstagram, batch)
 	case linkparser.PlatformUnknown:
 		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 	case linkparser.PlatformYouTube:
@@ -306,6 +312,8 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 		enqueueErr = b.q.EnqueueTikTok(payload)
 	case queue.TypePinterest:
 		enqueueErr = b.q.EnqueuePinterestDefault(payload)
+	case queue.TypeInstagram:
+		enqueueErr = b.q.EnqueueInstagram(payload)
 	default:
 		enqueueErr = b.q.EnqueueDownload(payload)
 	}

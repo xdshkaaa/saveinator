@@ -23,6 +23,8 @@ func testSession() youtube.PendingSession {
 func TestBuildYouTubePayload_video(t *testing.T) {
 	p := buildYouTubePayload(testSession(), youtube.Option{Height: 1080, FormatID: "137+140"}, false, "")
 
+	// The payload carries the probed id as-is; the worker is what expands it
+	// into a selector with a fallback chain.
 	if p.Quality != 1080 || p.FormatID != "137+140" {
 		t.Fatalf("unexpected video payload: %+v", p)
 	}
@@ -34,10 +36,16 @@ func TestBuildYouTubePayload_video(t *testing.T) {
 	}
 }
 
-func TestBuildYouTubePayload_fallsBackToGenericSelector(t *testing.T) {
+// A probe that yielded no format id leaves the payload's format empty rather
+// than inventing one — the quality and ratio are enough for the worker to build
+// the generic selector.
+func TestBuildYouTubePayload_unprobedQualityCarriesNoFormat(t *testing.T) {
 	p := buildYouTubePayload(testSession(), youtube.Option{Height: 720}, false, "9_16")
-	if p.FormatID != youtube.BuildFormat(720, "9_16") {
-		t.Fatalf("expected generic selector, got %q", p.FormatID)
+	if p.FormatID != "" {
+		t.Fatalf("expected an empty format, got %q", p.FormatID)
+	}
+	if p.Quality != 720 || p.AspectRatio != "9_16" {
+		t.Fatalf("worker needs quality and ratio to build a selector: %+v", p)
 	}
 }
 

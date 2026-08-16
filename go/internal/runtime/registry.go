@@ -26,7 +26,7 @@ type Setting struct {
 }
 
 var ServiceOrder = []string{
-	"youtube", "tiktok", "x", "spotify", "soundcloud", "pinterest",
+	"youtube", "tiktok", "x", "spotify", "soundcloud", "pinterest", "instagram",
 }
 
 func intSetting(key, field, service, en, ru, unit string, min, max, def int) Setting {
@@ -99,6 +99,12 @@ var settings = []Setting{
 	intSetting("pinterest.max_items_per_board", "PinterestMaxItems", "pinterest", "Max items per board", "Элементов на доску", "", 1, 50, 10),
 	boolSetting("pinterest.download_images", "PinterestDownloadImages", "pinterest", "Download images", "Скачивать изображения", true),
 	boolSetting("pinterest.download_videos", "PinterestDownloadVideos", "pinterest", "Download videos", "Скачивать видео", true),
+
+	// instagram
+	boolSetting("instagram.enabled", "InstagramEnabled", "instagram", "Enabled", "Включено", true),
+	intSetting("instagram.timeout_sec", "InstagramTimeoutSeconds", "instagram", "Timeout", "Таймаут", "sec", 10, 600, 60),
+	intSetting("instagram.max_file_mb", "InstagramMaxFileMB", "instagram", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("instagram.carousel_max_items", "InstagramCarouselMaxItems", "instagram", "Max carousel images", "Макс. фото в карусели", "", 1, 50, 20),
 }
 
 var byKey map[string]Setting
@@ -133,6 +139,7 @@ func ServiceLabel(service, lang string) string {
 		"spotify":    {"Spotify", "Spotify"},
 		"soundcloud": {"SoundCloud", "SoundCloud"},
 		"pinterest":  {"Pinterest", "Pinterest"},
+		"instagram":  {"Instagram", "Instagram"},
 		"global":     {"Global", "Глобально"},
 	}
 	if pair, ok := labels[service]; ok {

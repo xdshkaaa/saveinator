@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	TikTokWritablePath = "/tmp/tiktok_cookies.txt"
+	TikTokWritablePath    = "/tmp/tiktok_cookies.txt"
+	InstagramWritablePath = "/tmp/instagram_cookies.txt"
 )
 
 // SyncFromMount copies src to dst when dst is missing or src is newer than dst.

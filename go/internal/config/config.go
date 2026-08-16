@@ -44,6 +44,7 @@ type Settings struct {
 	TikTokCookiesFromBrowser       string
 	TikTokCookiesRefreshEnabled    bool
 	TikTokCookiesRefreshURL        string
+	TikTokReferer                  string
 
 	PinterestEnabled         bool
 	PinterestTimeoutSeconds  int
@@ -51,6 +52,12 @@ type Settings struct {
 	PinterestDownloadImages  bool
 	PinterestDownloadVideos  bool
 	PinterestCookiesPath     string
+
+	InstagramEnabled            bool
+	InstagramTimeoutSeconds     int
+	InstagramMaxFileMB          int
+	InstagramCookiesPath        string
+	InstagramCookiesFromBrowser string
 
 	TikTokCarouselMaxItems    int
 	TikTokCarouselAudioEnabled bool
@@ -120,12 +127,18 @@ func Load() (*Settings, error) {
 		TikTokCookiesFromBrowser:       env("TIKTOK_COOKIES_FROM_BROWSER", ""),
 		TikTokCookiesRefreshEnabled:    envBool("TIKTOK_COOKIES_REFRESH_ENABLED", true),
 		TikTokCookiesRefreshURL:        env("TIKTOK_COOKIES_REFRESH_URL", "https://vt.tiktok.com/ZSCFGyN3g/"),
+		TikTokReferer:                  env("TIKTOK_REFERER", "https://www.tiktok.com/"),
 		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
 		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
 		PinterestMaxItems:        envInt("PINTEREST_MAX_ITEMS", 10),
 		PinterestDownloadImages:  envBool("PINTEREST_DOWNLOAD_IMAGES", true),
 		PinterestDownloadVideos:  envBool("PINTEREST_DOWNLOAD_VIDEOS", true),
 		PinterestCookiesPath:     env("PINTEREST_COOKIES_PATH", ""),
+		InstagramEnabled:            envBool("INSTAGRAM_ENABLED", true),
+		InstagramTimeoutSeconds:     envInt("INSTAGRAM_DOWNLOAD_TIMEOUT_SECONDS", 60),
+		InstagramMaxFileMB:          envInt("INSTAGRAM_MAX_FILE_SIZE_MB", 50),
+		InstagramCookiesPath:        env("INSTAGRAM_COOKIES_PATH", "/secrets/instagram_cookies.txt"),
+		InstagramCookiesFromBrowser: env("INSTAGRAM_COOKIES_FROM_BROWSER", ""),
 		TikTokCarouselMaxItems:    envInt("TIKTOK_CAROUSEL_MAX_ITEMS", 20),
 		TikTokCarouselAudioEnabled: envBool("TIKTOK_CAROUSEL_AUDIO_ENABLED", true),
 		SpotifyEnabled:              envBool("SPOTIFY_ENABLED", false),

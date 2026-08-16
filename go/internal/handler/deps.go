@@ -14,6 +14,7 @@ type taskEnqueuer interface {
 	EnqueueSoundCloud(p queue.MusicPayload) error
 	EnqueueBroadcast(p queue.BroadcastPayload) error
 	EnqueueTikTokCarousel(p queue.DownloadPayload) error
+	EnqueueInstagram(p queue.DownloadPayload) error
 }
 
 type messageSender interface {

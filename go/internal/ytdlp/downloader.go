@@ -11,11 +11,17 @@ import (
 )
 
 type Options struct {
-	FormatID                 string
-	Platform                 string
-	TikTokCookies            string
-	TikTokCookiesFromBrowser string
-	Timeout                  time.Duration
+	FormatID                    string
+	Platform                    string
+	TikTokCookies               string
+	TikTokCookiesFromBrowser    string
+	InstagramCookies            string
+	InstagramCookiesFromBrowser string
+	// Referer is sent as the HTTP Referer header. TikTok's CDN blocks
+	// yt-dlp's requests (bot challenge -> "Unexpected response from webpage
+	// request") unless a Referer is present; https://www.tiktok.com/ works.
+	Referer string
+	Timeout time.Duration
 	// DownloadSections limits the fetch to a fragment ("*12.00-45.00").
 	// Only that part is pulled from the network, so trimming a clip out of a
 	// long video costs neither the full download nor a second ffmpeg pass.
@@ -55,6 +61,10 @@ func buildArgs(url string, outputDir string, opts Options, skipDownload bool) []
 	}
 
 	args = appendPlatformCookies(args, prepareCookieOptions(outputDir, opts))
+
+	if referer := strings.TrimSpace(opts.Referer); referer != "" {
+		args = append(args, "--referer", referer)
+	}
 
 	return append(args, url)
 }
@@ -97,6 +107,11 @@ func prepareCookieOptions(outputDir string, opts Options) Options {
 			prepared.TikTokCookies = dest
 		}
 	}
+	if fileExists(prepared.InstagramCookies) {
+		if dest, err := writableCookiesPath(prepared.InstagramCookies, outputDir); err == nil {
+			prepared.InstagramCookies = dest
+		}
+	}
 	return prepared
 }
 
@@ -118,6 +133,13 @@ func appendPlatformCookies(args []string, opts Options) []string {
 			return append(args, "--cookies", opts.TikTokCookies)
 		}
 		if browser := strings.TrimSpace(opts.TikTokCookiesFromBrowser); browser != "" {
+			return append(args, "--cookies-from-browser", browser)
+		}
+	case "instagram":
+		if fileExists(opts.InstagramCookies) {
+			return append(args, "--cookies", opts.InstagramCookies)
+		}
+		if browser := strings.TrimSpace(opts.InstagramCookiesFromBrowser); browser != "" {
 			return append(args, "--cookies-from-browser", browser)
 		}
 	}

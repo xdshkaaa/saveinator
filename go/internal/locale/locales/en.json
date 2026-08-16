@@ -45,6 +45,7 @@
     "send_link": "Send a link instead of a file. I download from YouTube, TikTok, X/Twitter, Spotify, and SoundCloud URLs.",
     "generic": "Something went wrong. Please try again later.",
     "not_found": "❌ This content is unavailable or has been removed.",
+    "format_unavailable": "❌ Couldn't get a downloadable video stream right now. Please try again in a minute.",
     "rate_limited": "❌ The source is rate-limiting requests right now. Please try again in a few minutes.",
     "network": "❌ Network error while fetching this content. Please try again.",
     "admin_debug": "\n\n🔧 Debug:\n{detail}",
@@ -256,6 +257,13 @@
     "all_too_large": "❌ All media files exceeded the size limit.",
     "invalid": "❌ Invalid or unsupported Pinterest URL.",
     "private": "❌ This Pinterest content is private or requires authorized access."
+  },
+  "instagram": {
+    "disabled": "Instagram support is disabled on this bot.",
+    "no_media": "❌ No media found at this Instagram URL.",
+    "invalid_link": "❌ This is not an Instagram link. Send a reel, post, or story link.",
+    "private": "❌ This Instagram content is private or requires login.",
+    "carousel_partial": "❗️ Could only download {count} out of {total} images."
   },
   "lang": {
     "self_name": "English"

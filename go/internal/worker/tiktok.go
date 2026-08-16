@@ -35,6 +35,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 	dl := tiktok.NewDownloader(
 		h.cfg.TikTokCookiesPath,
 		h.cfg.TikTokCookiesFromBrowser,
+		h.runtime.CurrentString(ctx, "tiktok.referer", h.cfg.TikTokReferer),
 		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
 		h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems),
 		h.runtime.CurrentBool(ctx, "tiktok.carousel_audio_enabled", h.cfg.TikTokCarouselAudioEnabled),
@@ -148,6 +149,7 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 	dl := tiktok.NewDownloader(
 		h.cfg.TikTokCookiesPath,
 		h.cfg.TikTokCookiesFromBrowser,
+		h.runtime.CurrentString(ctx, "tiktok.referer", h.cfg.TikTokReferer),
 		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
 		maxItems,
 		false,

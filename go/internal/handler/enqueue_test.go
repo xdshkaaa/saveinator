@@ -53,6 +53,14 @@ func (q *recordingQueue) EnqueuePinterestDefault(p queue.DownloadPayload) error 
 	return q.err
 }
 
+func (q *recordingQueue) EnqueueInstagram(p queue.DownloadPayload) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.calls = append(q.calls, queue.TypeInstagram)
+	q.last = p
+	return q.err
+}
+
 type stubMessenger struct {
 	messageID int
 }

@@ -3,6 +3,7 @@ package youtube
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
@@ -72,12 +73,28 @@ func Probe(ctx context.Context, url string, timeout time.Duration) (*Meta, error
 	defer cancel()
 
 	out, err := exec.CommandContext(ctx, "yt-dlp",
-		"-J", "--no-playlist", "--no-warnings", "--quiet", url,
+		"-J", "--no-playlist", "--quiet", url,
 	).Output()
 	if err != nil {
-		return nil, fmt.Errorf("yt-dlp probe failed: %w", err)
+		return nil, fmt.Errorf("yt-dlp probe failed: %w", withStderr(err))
 	}
 	return ParseMeta(out)
+}
+
+// withStderr surfaces what yt-dlp printed. Output() parks stderr on the
+// ExitError, where the default formatting shows only "exit status 1" — so a
+// probe that failed on a bot check, a PO token or a captcha reaches the log
+// indistinguishable from any other failure.
+func withStderr(err error) error {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return err
+	}
+	detail := strings.TrimSpace(string(exitErr.Stderr))
+	if detail == "" {
+		return err
+	}
+	return fmt.Errorf("%w: %s", err, detail)
 }
 
 func ParseMeta(data []byte) (*Meta, error) {

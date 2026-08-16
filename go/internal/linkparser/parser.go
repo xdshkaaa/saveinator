@@ -14,6 +14,7 @@ const (
 	PlatformSpotify    Platform = "spotify"
 	PlatformSoundCloud Platform = "soundcloud"
 	PlatformPinterest  Platform = "pinterest"
+	PlatformInstagram  Platform = "instagram"
 	PlatformUnknown    Platform = "unknown"
 )
 
@@ -54,6 +55,11 @@ var (
 		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.[\w.]+/pin/[\w-]+/?(?:[?&]\S*)?`)},
 		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?pin\.it/[\w-]+/?(?:[?&]\S*)?`)},
 		{PlatformPinterest, regexp.MustCompile(`(?i)(?:https?://)?(?:[\w-]+\.)?pinterest\.[\w.]+/[\w-]+/[\w-]+/?(?:[?&]\S*)?`)},
+		// Instagram: reels, posts, IGTV, stories and share links (share URLs
+		// carry a ?utm_source=... query that the pattern keeps), plus the
+		// instagr.am shortener.
+		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.|m\.)?instagram\.com/(?:reel|p|tv|stories|share)/[^\s?#]+(?:[/?#&]\S*)?`)},
+		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?instagr\.am/[^\s?#]+(?:[/?#&]\S*)?`)},
 	}
 )
 

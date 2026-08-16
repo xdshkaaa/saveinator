@@ -17,6 +17,7 @@ const (
 	TypeSoundCloud  = "download:soundcloud"
 	TypeBroadcast       = "broadcast:execute"
 	TypeTikTokCarousel  = "download:tiktok_carousel"
+	TypeInstagram       = "download:instagram"
 
 	// QueueDownload holds network-bound jobs (fetch + upload, no ffmpeg
 	// transcode): safe to run with higher concurrency on a single CPU.
@@ -187,6 +188,16 @@ func (c *Client) EnqueueTikTokCarousel(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeTikTokCarousel, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	return err
+}
+
+func (c *Client) EnqueueInstagram(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeInstagram, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }

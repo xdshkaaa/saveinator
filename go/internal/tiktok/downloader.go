@@ -42,15 +42,21 @@ var (
 	itemIDRE   = regexp.MustCompile(`(?i)/(?:photo|video)/(\d+)`)
 )
 
+// TikTokRefererDefault is sent as the HTTP Referer header on every TikTok
+// request. TikTok's CDN serves a bot-challenge page (yt-dlp then fails with
+// "Unexpected response from webpage request") when the header is missing.
+const TikTokRefererDefault = "https://www.tiktok.com/"
+
 type Downloader struct {
-	cookiesPath          string
-	cookiesFromBrowser   string
-	timeout              time.Duration
-	maxImages            int
-	audioEnabled         bool
+	cookiesPath        string
+	cookiesFromBrowser string
+	referer            string
+	timeout            time.Duration
+	maxImages          int
+	audioEnabled       bool
 }
 
-func NewDownloader(cookiesPath, cookiesFromBrowser string, timeoutSeconds, maxImages int, audioEnabled bool) *Downloader {
+func NewDownloader(cookiesPath, cookiesFromBrowser, referer string, timeoutSeconds, maxImages int, audioEnabled bool) *Downloader {
 	timeout := time.Duration(timeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
@@ -58,6 +64,7 @@ func NewDownloader(cookiesPath, cookiesFromBrowser string, timeoutSeconds, maxIm
 	return &Downloader{
 		cookiesPath:        writableCookies(cookiesPath),
 		cookiesFromBrowser: strings.TrimSpace(cookiesFromBrowser),
+		referer:            strings.TrimSpace(referer),
 		timeout:            timeout,
 		maxImages:          maxImages,
 		audioEnabled:       audioEnabled,
@@ -156,6 +163,7 @@ func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]an
 	resolved := resolvePageURL(url)
 	args := []string{"--dump-single-json", "--skip-download", "--no-warnings", "--quiet", "--impersonate", "chrome"}
 	args = append(args, d.cookieArgs()...)
+	args = append(args, d.refererArgs()...)
 	args = append(args, resolved)
 
 	out, err := d.run(ctx, "yt-dlp", args...)
@@ -177,6 +185,7 @@ func (d *Downloader) runYTDLP(ctx context.Context, url, outputDir, format string
 		"-f", format,
 	}
 	args = append(args, d.cookieArgs()...)
+	args = append(args, d.refererArgs()...)
 	args = append(args, url)
 	out, err := d.run(ctx, "yt-dlp", args...)
 	if err != nil {
@@ -226,6 +235,7 @@ func (d *Downloader) downloadAudio(ctx context.Context, url, outputDir string) (
 		"--extract-audio", "--audio-format", "mp3",
 	}
 	args = append(args, d.cookieArgs()...)
+	args = append(args, d.refererArgs()...)
 	args = append(args, url)
 	out, err := d.run(ctx, "yt-dlp", args...)
 	if err != nil {
@@ -265,6 +275,13 @@ func (d *Downloader) cookieArgs() []string {
 		return []string{"--cookies-from-browser", d.cookiesFromBrowser}
 	}
 	return nil
+}
+
+func (d *Downloader) refererArgs() []string {
+	if d.referer == "" {
+		return nil
+	}
+	return []string{"--referer", d.referer}
 }
 
 func (d *Downloader) run(ctx context.Context, name string, args ...string) ([]byte, error) {

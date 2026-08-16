@@ -98,6 +98,68 @@ func TestUserFacingErrorKey_network(t *testing.T) {
 	}
 }
 
+func TestUserFacingErrorKey_formatUnavailable(t *testing.T) {
+	t.Parallel()
+	tests := []string{
+		"yt-dlp failed: exit status 1: ERROR: [youtube] abc123: Requested format is not available. Use --list-formats for a list of available formats",
+		"WARNING: Only images are available for download. use --list-formats to see them",
+		`WARNING: [youtube] abc123: tv_simply client https formats require a GVS PO Token which was not provided.`,
+		"WARNING: [youtube] abc123: Some tv client https formats have been skipped as they are DRM protected.",
+		// Worded as "Video unavailable", but the video is fine — this must not
+		// be reported to the user as removed content.
+		"ERROR: [youtube] abc123: Video unavailable. YouTube is requiring a captcha challenge before playback",
+	}
+	for _, msg := range tests {
+		t.Run(msg, func(t *testing.T) {
+			t.Parallel()
+			if got := UserFacingErrorKey("youtube", errors.New(msg)); got != "errors.format_unavailable" {
+				t.Fatalf("got %q, want errors.format_unavailable", got)
+			}
+		})
+	}
+}
+
+func TestIsFormatUnavailableError(t *testing.T) {
+	t.Parallel()
+	if !IsFormatUnavailableError(errors.New("ERROR: Requested format is not available")) {
+		t.Fatal("expected true")
+	}
+	if IsFormatUnavailableError(nil) {
+		t.Fatal("expected false for nil")
+	}
+	// A retry costs a full extraction, so only the format failures qualify.
+	for _, msg := range []string{"context deadline exceeded", "connection reset by peer", "ERROR: Private video"} {
+		if IsFormatUnavailableError(errors.New(msg)) {
+			t.Fatalf("expected false for %q", msg)
+		}
+	}
+}
+
+func TestIsUnexpectedWebpageError(t *testing.T) {
+	t.Parallel()
+	if !IsUnexpectedWebpageError(errors.New(`ERROR: [TikTok] 7672477995378019616: Unexpected response from webpage request; please report this issue on https://github.com/yt-dlp/yt-dlp/issues`)) {
+		t.Fatal("expected true")
+	}
+	if IsUnexpectedWebpageError(nil) {
+		t.Fatal("expected false for nil")
+	}
+	for _, msg := range []string{"Requested format is not available", "no video formats found"} {
+		if IsUnexpectedWebpageError(errors.New(msg)) {
+			t.Fatalf("expected false for %q", msg)
+		}
+	}
+}
+
+func TestUserFacingErrorKey_unexpectedWebpage(t *testing.T) {
+	t.Parallel()
+	// The video still exists — TikTok just served a bot challenge, so this
+	// must be the retryable "format unavailable" message, not "removed".
+	msg := `yt-dlp failed: exit status 1: ERROR: [TikTok] 7672477995378019616: Unexpected response from webpage request; please report this issue on https://github.com/yt-dlp/yt-dlp/issues`
+	if got := UserFacingErrorKey("tiktok", errors.New(msg)); got != "errors.format_unavailable" {
+		t.Fatalf("got %q, want errors.format_unavailable", got)
+	}
+}
+
 func TestIsNoVideoFormatsError(t *testing.T) {
 	t.Parallel()
 	if !IsNoVideoFormatsError(errors.New("ERROR: No video formats found!")) {

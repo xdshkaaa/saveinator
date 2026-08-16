@@ -114,6 +114,7 @@ func refreshTikTokCookies(ctx context.Context, cfg *config.Settings) {
 		Platform:                 "tiktok",
 		TikTokCookies:            tikTokCookies,
 		TikTokCookiesFromBrowser: cfg.TikTokCookiesFromBrowser,
+		Referer:                  cfg.TikTokReferer,
 		Timeout:                  timeout,
 	})
 	if err != nil {

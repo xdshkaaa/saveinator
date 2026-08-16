@@ -80,18 +80,42 @@ func ProcessingAudioMessage(lang string) string {
 	return locale.Get("youtube.processing_audio", lang, nil)
 }
 
-// BuildFormat is the fallback selector used when a probe did not yield an exact
-// format id for the requested quality.
+// FormatSelector turns the format the card advertised into a yt-dlp selector.
+//
+// The probed id comes first so the download matches the size the user was
+// shown, but it is only the first branch: yt-dlp re-extracts the video when it
+// downloads, and the format set it sees then does not always match the one the
+// probe saw (different player client, a PO-token-gated rendition, or a probe
+// answer served from cache). Without a fallback that mismatch fails the whole
+// download with "Requested format is not available"; with one it quietly lands
+// on the next best rendition at the requested height.
+func FormatSelector(formatID string, targetHeight int, aspectRatio string) string {
+	fallback := BuildFormat(targetHeight, aspectRatio)
+	if strings.TrimSpace(formatID) == "" {
+		return fallback
+	}
+	return formatID + "/" + fallback
+}
+
+// BuildFormat is the generic height-capped selector, used on its own when a
+// probe yielded no exact format id.
+//
+// Merged video+audio comes first, and only then a self-contained progressive
+// format. The other order looks cheaper — one file, no merge — but YouTube
+// stopped publishing progressive renditions above 360p, so it silently answers
+// every request with 360p no matter which quality was asked for. Codec
+// preference mirrors the probe: h264 + aac merge into a plain mp4 that Telegram
+// plays inline.
 func BuildFormat(targetHeight int, aspectRatio string) string {
 	limitDim := "height"
 	if aspectRatio == "9_16" {
 		limitDim = "width"
 	}
 	return fmt.Sprintf(
-		"best[%s<=%d][vcodec!=none][acodec!=none]/"+
+		"bestvideo[%s<=%d][vcodec^=avc1]+bestaudio[acodec^=mp4a]/"+
+			"bestvideo[%s<=%d]+bestaudio/"+
 			"best[%s<=%d][ext=mp4]/"+
 			"best[%s<=%d]/"+
-			"bestvideo[%s<=%d]+bestaudio/"+
 			"bestvideo+bestaudio/best",
 		limitDim, targetHeight,
 		limitDim, targetHeight,
