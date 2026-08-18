@@ -115,7 +115,6 @@ func (t *Telegram) SendFile(chatID int64, path, title, lang, platform string, an
 
 	sizeMB := float64(fileSize(path)) / (1024 * 1024)
 	caption := t.buildCaption(title, lang, platform)
-
 	if animation {
 		return metrics.CallTelegram("SendAnimation", func() error {
 			_, err := t.bot.SendAnimation(&telego.SendAnimationParams{
@@ -222,12 +221,32 @@ func (t *Telegram) SendFileWithMarkup(chatID int64, path, title, lang, platform 
 	})
 }
 
+// sendPhoto delivers a single image with a ready-made caption. Used by
+// SendPhotoAlbum so a one-photo post keeps its exact caption (the caption is
+// already fully assembled by the caller and must not be wrapped again).
+func (t *Telegram) sendPhoto(chatID int64, path, caption string) error {
+	file, err := openInputFile(path)
+	if err != nil {
+		return err
+	}
+	defer file.close()
+
+	return metrics.CallTelegram("SendPhoto", func() error {
+		_, err := t.bot.SendPhoto(&telego.SendPhotoParams{
+			ChatID:  tu.ID(chatID),
+			Photo:   file.input,
+			Caption: caption,
+		})
+		return err
+	})
+}
+
 func (t *Telegram) SendPhotoAlbum(chatID int64, paths []string, caption string) error {
 	if len(paths) == 0 {
 		return nil
 	}
 	if len(paths) == 1 {
-		return t.SendFile(chatID, paths[0], caption, "", "", false)
+		return t.sendPhoto(chatID, paths[0], caption)
 	}
 
 	const chunk = 10
@@ -257,8 +276,14 @@ func (t *Telegram) SendPhotoAlbum(chatID int64, paths []string, caption string) 
 			return err
 		})
 		if err != nil {
-			for _, p := range paths[i:end] {
-				if sendErr := t.SendFile(chatID, p, "", "", "", false); sendErr != nil {
+			for j, p := range paths[i:end] {
+				var sendErr error
+				if i == 0 && j == 0 && caption != "" {
+					sendErr = t.sendPhoto(chatID, p, caption)
+				} else {
+					sendErr = t.sendPhoto(chatID, p, "")
+				}
+				if sendErr != nil {
 					return sendErr
 				}
 			}
