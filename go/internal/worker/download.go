@@ -25,6 +25,7 @@ import (
 	"saveinator/internal/runtime"
 	"saveinator/internal/sender"
 	"saveinator/internal/tiktok"
+	"saveinator/internal/translate"
 	"saveinator/internal/video"
 	"saveinator/internal/x"
 	"saveinator/internal/xphotos"
@@ -40,6 +41,7 @@ type Handler struct {
 	redis      *redisx.Client
 	runtime    *runtime.Store
 	ttSessions *tiktok.SessionStore
+	translator *translate.Google
 }
 
 func NewHandler(cfg *config.Settings, bot *telego.Bot, store *db.Store, redis *redisx.Client) *Handler {
@@ -51,6 +53,7 @@ func NewHandler(cfg *config.Settings, bot *telego.Bot, store *db.Store, redis *r
 		redis:      redis,
 		runtime:    runtime.NewStore(redis, cfg),
 		ttSessions: tiktok.NewSessionStore(redis.Raw()),
+		translator: translate.NewGoogle(),
 	}
 }
 
@@ -381,7 +384,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 		return nil
 	}
 
-	caption := buildXPhotoCaption(ctx, statusID, result, lang)
+	caption := h.buildXPhotoCaption(ctx, statusID, result, lang)
 	if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
 		slog.Warn("x photo album send failed", "err", err)
 		recordTaskFailure(taskType)
@@ -395,7 +398,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 	return nil
 }
 
-func buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string) string {
+func (h *Handler) buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string) string {
 	title := ""
 	if result != nil {
 		title = x.CleanRawTitle(result.Title)
@@ -403,7 +406,28 @@ func buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Re
 	if title == "" && statusID != "" {
 		title = x.ResolveTitle(ctx, statusID, "")
 	}
-	return buildMediaCaption(title, lang)
+	if title == "" {
+		return buildMediaCaption(title, lang)
+	}
+	return buildMediaCaption(h.translateXTitle(ctx, title, lang), lang)
+}
+
+// translateXTitle appends a Russian auto-translation under the original post
+// text when the runtime switch x.auto_translate is on and the text is not
+// already Russian. Translation failures fall back to the original text.
+func (h *Handler) translateXTitle(ctx context.Context, title, lang string) string {
+	if !h.runtime.CurrentBool(ctx, "x.auto_translate", true) {
+		return title
+	}
+	translated := h.translator.Text(ctx, title)
+	if translated == title {
+		return title
+	}
+	heading := locale.Get("x.translation", lang, nil)
+	if heading == "" {
+		heading = "Перевод"
+	}
+	return title + "\n\n" + heading + "\n" + translated
 }
 
 func buildMediaCaption(title, lang string) string {
@@ -437,7 +461,7 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 		if statusID == "" {
 			statusID = xphotos.ExtractStatusID(p.URL)
 		}
-		title = x.ResolveTitle(ctx, statusID, videoPath)
+		title = h.translateXTitle(ctx, x.ResolveTitle(ctx, statusID, videoPath), lang)
 	}
 	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
 	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {

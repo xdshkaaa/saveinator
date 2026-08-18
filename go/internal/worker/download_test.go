@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -17,7 +19,9 @@ import (
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/redisx"
+	"saveinator/internal/runtime"
 	"saveinator/internal/tgemoji"
+	"saveinator/internal/translate"
 )
 
 type recordingSender struct {
@@ -190,5 +194,75 @@ func TestYouTubeTranscodePath_selected(t *testing.T) {
 	}
 	if queue.QueueFor(p) != queue.QueueTranscode {
 		t.Fatal("expected youtube transcode routing")
+	}
+}
+
+func TestTranslateXTitle_appendsTranslation(t *testing.T) {
+	t.Parallel()
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	redisClient := redisx.NewWithRedis(rdb)
+	h := &Handler{
+		runtime:    runtime.NewStore(redisClient, &config.Settings{}),
+		translator: translate.NewGoogle(),
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[[["Привет мир","Hello world",null,null,10]],null,"en",null,null,null,0.7]`))
+	}))
+	defer srv.Close()
+	orig := translate.GoogleTranslateAPI
+	translate.GoogleTranslateAPI = srv.URL
+	defer func() { translate.GoogleTranslateAPI = orig }()
+
+	got := h.translateXTitle(context.Background(), "Hello world", "ru")
+	if !strings.Contains(got, "Hello world") {
+		t.Fatalf("original text missing: %q", got)
+	}
+	if !strings.Contains(got, "Перевод") {
+		t.Fatalf("translation heading missing: %q", got)
+	}
+	if !strings.Contains(got, "Привет мир") {
+		t.Fatalf("translated text missing: %q", got)
+	}
+	if !strings.Contains(got, "\n\n") {
+		t.Fatalf("expected blank line between original and translation: %q", got)
+	}
+}
+
+func TestTranslateXTitle_skipsRussianText(t *testing.T) {
+	t.Parallel()
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	redisClient := redisx.NewWithRedis(rdb)
+	h := &Handler{
+		runtime:    runtime.NewStore(redisClient, &config.Settings{}),
+		translator: translate.NewGoogle(),
+	}
+
+	got := h.translateXTitle(context.Background(), "Привет, мир!", "ru")
+	if got != "Привет, мир!" {
+		t.Fatalf("Russian text should be untouched, got %q", got)
+	}
+}
+
+func TestTranslateXTitle_disabledByRuntime(t *testing.T) {
+	t.Parallel()
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	redisClient := redisx.NewWithRedis(rdb)
+	h := &Handler{
+		runtime:    runtime.NewStore(redisClient, &config.Settings{}),
+		translator: translate.NewGoogle(),
+	}
+
+	// Runtime override disables translation entirely.
+	if err := h.runtime.SetValue(context.Background(), "x.auto_translate", false); err != nil {
+		t.Fatal(err)
+	}
+
+	got := h.translateXTitle(context.Background(), "Hello world", "ru")
+	if got != "Hello world" {
+		t.Fatalf("translation should be disabled, got %q", got)
 	}
 }

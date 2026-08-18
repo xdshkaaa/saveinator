@@ -73,6 +73,7 @@ var settings = []Setting{
 	boolSetting("x.allow_gif", "XAllowGIF", "x", "Allow GIF", "GIF", true),
 	boolSetting("x.allow_video", "XAllowVideo", "x", "Allow video", "Видео", true),
 	boolSetting("x.fallback_to_document", "XFallbackToDocument", "x", "Fallback to document", "Документ как fallback", true),
+	boolSetting("x.auto_translate", "XAutoTranslate", "x", "Auto-translate post text", "Автоперевод текста поста", true),
 
 	// spotify
 	boolSetting("spotify.enabled", "SpotifyEnabled", "spotify", "Enabled", "Включено", false),

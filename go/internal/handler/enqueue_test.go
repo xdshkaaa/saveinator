@@ -41,9 +41,9 @@ func (q *recordingQueue) EnqueueTikTok(p queue.DownloadPayload) error {
 	return q.err
 }
 
-func (q *recordingQueue) EnqueueSpotify(p queue.MusicPayload) error { return nil }
-func (q *recordingQueue) EnqueueSoundCloud(p queue.MusicPayload) error { return nil }
-func (q *recordingQueue) EnqueueBroadcast(p queue.BroadcastPayload) error { return nil }
+func (q *recordingQueue) EnqueueSpotify(p queue.MusicPayload) error           { return nil }
+func (q *recordingQueue) EnqueueSoundCloud(p queue.MusicPayload) error        { return nil }
+func (q *recordingQueue) EnqueueBroadcast(p queue.BroadcastPayload) error     { return nil }
 func (q *recordingQueue) EnqueueTikTokCarousel(p queue.DownloadPayload) error { return nil }
 func (q *recordingQueue) EnqueuePinterestDefault(p queue.DownloadPayload) error {
 	q.mu.Lock()
@@ -77,10 +77,10 @@ func testHandlerBot(t *testing.T, adminID int64) (*Bot, *recordingQueue, *redisx
 	redisClient := redisx.NewWithRedis(rdb)
 	recQ := &recordingQueue{}
 	cfg := &config.Settings{
-		AdminTelegramID:          adminID,
-		DownloadTimeoutSeconds:   60,
-		RateLimitUserPerMinute:   100,
-		RateLimitChatPerMinute:   100,
+		AdminTelegramID:        adminID,
+		DownloadTimeoutSeconds: 60,
+		RateLimitUserPerMinute: 100,
+		RateLimitChatPerMinute: 100,
 	}
 	bot := &Bot{
 		cfg:     cfg,
@@ -115,6 +115,36 @@ func TestEnqueue_tiktokWithLock(t *testing.T) {
 	}
 	if recQ.last.LockToken == "" || recQ.last.LockScene != "tiktok" {
 		t.Fatalf("payload lock = %+v", recQ.last)
+	}
+}
+
+func TestEnqueue_instagramWithLock(t *testing.T) {
+	b, recQ, _ := testHandlerBot(t, 0)
+	ctx := context.Background()
+	messenger := &stubMessenger{}
+	userID := int64(42)
+	msg := telego.Message{
+		Chat: telego.Chat{ID: 1, Type: "private"},
+		From: &telego.User{ID: userID},
+	}
+	link := linkparser.ParsedLink{
+		Platform: linkparser.PlatformInstagram,
+		URL:      "https://www.instagram.com/reel/CxAbC12345/",
+	}
+
+	if err := b.enqueue(ctx, messenger, msg, "en", link, "instagram", queue.TypeInstagram, false); err != nil {
+		t.Fatal(err)
+	}
+	recQ.mu.Lock()
+	defer recQ.mu.Unlock()
+	if len(recQ.calls) != 1 || recQ.calls[0] != queue.TypeInstagram {
+		t.Fatalf("calls = %v, want instagram enqueue", recQ.calls)
+	}
+	if recQ.last.LockToken == "" || recQ.last.LockScene != "instagram" {
+		t.Fatalf("payload lock = %+v", recQ.last)
+	}
+	if recQ.last.Platform != "instagram" {
+		t.Fatalf("platform = %q, want instagram", recQ.last.Platform)
 	}
 }
 
