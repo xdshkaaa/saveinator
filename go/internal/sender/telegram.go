@@ -227,7 +227,7 @@ func (t *Telegram) SendPhotoAlbum(chatID int64, paths []string, caption string) 
 		return nil
 	}
 	if len(paths) == 1 {
-		return t.SendFile(chatID, paths[0], "", "", "", false)
+		return t.SendFile(chatID, paths[0], caption, "", "", false)
 	}
 
 	const chunk = 10

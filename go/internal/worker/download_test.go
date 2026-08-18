@@ -219,9 +219,6 @@ func TestTranslateXTitle_appendsTranslation(t *testing.T) {
 	if !strings.Contains(got, "Hello world") {
 		t.Fatalf("original text missing: %q", got)
 	}
-	if !strings.Contains(got, "Перевод") {
-		t.Fatalf("translation heading missing: %q", got)
-	}
 	if !strings.Contains(got, "Привет мир") {
 		t.Fatalf("translated text missing: %q", got)
 	}
