@@ -409,13 +409,13 @@ func (h *Handler) buildXPhotoCaption(ctx context.Context, statusID string, resul
 	if title == "" {
 		return buildMediaCaption(title, lang)
 	}
-	return buildMediaCaption(h.translateXTitle(ctx, title, lang), lang)
+	return buildMediaCaption(h.translateXTitle(ctx, title), lang)
 }
 
 // translateXTitle appends a Russian auto-translation under the original post
 // text when the runtime switch x.auto_translate is on and the text is not
 // already Russian. Translation failures fall back to the original text.
-func (h *Handler) translateXTitle(ctx context.Context, title, lang string) string {
+func (h *Handler) translateXTitle(ctx context.Context, title string) string {
 	if !h.runtime.CurrentBool(ctx, "x.auto_translate", true) {
 		return title
 	}
@@ -423,11 +423,7 @@ func (h *Handler) translateXTitle(ctx context.Context, title, lang string) strin
 	if translated == title {
 		return title
 	}
-	heading := locale.Get("x.translation", lang, nil)
-	if heading == "" {
-		heading = "Перевод"
-	}
-	return title + "\n\n" + heading + "\n" + translated
+	return title + "\n\n" + translated
 }
 
 func buildMediaCaption(title, lang string) string {
@@ -461,7 +457,7 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 		if statusID == "" {
 			statusID = xphotos.ExtractStatusID(p.URL)
 		}
-		title = h.translateXTitle(ctx, x.ResolveTitle(ctx, statusID, videoPath), lang)
+		title = h.translateXTitle(ctx, x.ResolveTitle(ctx, statusID, videoPath))
 	}
 	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
 	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {

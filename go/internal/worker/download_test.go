@@ -215,7 +215,7 @@ func TestTranslateXTitle_appendsTranslation(t *testing.T) {
 	translate.GoogleTranslateAPI = srv.URL
 	defer func() { translate.GoogleTranslateAPI = orig }()
 
-	got := h.translateXTitle(context.Background(), "Hello world", "ru")
+	got := h.translateXTitle(context.Background(), "Hello world")
 	if !strings.Contains(got, "Hello world") {
 		t.Fatalf("original text missing: %q", got)
 	}
@@ -237,7 +237,7 @@ func TestTranslateXTitle_skipsRussianText(t *testing.T) {
 		translator: translate.NewGoogle(),
 	}
 
-	got := h.translateXTitle(context.Background(), "Привет, мир!", "ru")
+	got := h.translateXTitle(context.Background(), "Привет, мир!")
 	if got != "Привет, мир!" {
 		t.Fatalf("Russian text should be untouched, got %q", got)
 	}
@@ -258,7 +258,7 @@ func TestTranslateXTitle_disabledByRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := h.translateXTitle(context.Background(), "Hello world", "ru")
+	got := h.translateXTitle(context.Background(), "Hello world")
 	if got != "Hello world" {
 		t.Fatalf("translation should be disabled, got %q", got)
 	}
