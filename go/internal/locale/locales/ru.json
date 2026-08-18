@@ -36,7 +36,7 @@
   "x": {
     "no_media_in_reply": "❌ В указанном ответе не найдено медиа.",
     "text_only": "❌ В этом посте нет фото или видео для скачивания.",
-    "translation": "Перевод"
+    "translation": "\n"
   },
   "errors": {
     "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, X/Twitter, Spotify и SoundCloud.",
