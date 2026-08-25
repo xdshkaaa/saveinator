@@ -13,11 +13,10 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg curl ca-certificates python3 python3-pip unzip \
     && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
-    # yt-dlp is pinned: 2026.7.4 is the last stable release whose TikTok
-    # extractor survives TikTok's bot-challenge (newer versions fail with
-    # "Unexpected response from webpage request"; upstream fix tracked in
-    # https://github.com/yt-dlp/yt-dlp/pull/17437). Bump once a fixed release ships.
-    && pip3 install --no-cache-dir --break-system-packages "yt-dlp[default,curl-cffi]==2026.7.4" \
+    # yt-dlp pinned: 2026.8.19 carries the upstream TikTok bot-challenge fixes
+    # (yt-dlp#17452/#17460) and the YouTube 403 fixes; 2026.7.4 fails both
+    # (YouTube audio downloads return "HTTP Error 403: Forbidden").
+    && pip3 install --no-cache-dir --break-system-packages "yt-dlp[default,curl-cffi]==2026.8.19" \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
