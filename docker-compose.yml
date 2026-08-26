@@ -194,7 +194,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
       REDIS_URL: redis://redis:6379/0
-      DASH_LISTEN: 127.0.0.1
+      # Bind inside the container so docker-proxy can reach it; the host
+      # port is still published on 127.0.0.1 only.
+      DASH_LISTEN: 0.0.0.0
       DASH_PORT: "9000"
       # Service probes: app containers by name on the compose network, the
       # host-network monitoring stack through host.docker.internal.
