@@ -38,6 +38,11 @@ func (c *Client) Close() error {
 	return c.rdb.Close()
 }
 
+// Ping verifies the Redis connection is alive.
+func (c *Client) Ping(ctx context.Context) error {
+	return c.rdb.Ping(ctx).Err()
+}
+
 func (c *Client) Raw() *redis.Client {
 	return c.rdb
 }

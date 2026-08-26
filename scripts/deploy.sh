@@ -50,8 +50,8 @@ ssh "$VPS_USER@$VPS_HOST" "
 echo "[3/6] Building and starting Go stack..."
 ssh "$VPS_USER@$VPS_HOST" "
     cd '$APP_DIR'
-    docker compose build saveinator botd
-    docker compose up -d --force-recreate saveinator botd
+    docker compose build saveinator botd dash
+    docker compose up -d --force-recreate saveinator botd dash
 "
 
 echo "[4/6] Running database migrations..."

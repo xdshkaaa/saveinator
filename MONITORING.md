@@ -21,6 +21,23 @@ docker compose -f docker-compose.monitoring.yml --env-file .env.monitoring up -d
 |-----|---------|
 | https://saveinator.xdshka.party | Grafana |
 | https://saveinator-hooks.xdshka.party/webhook | Telegram webhook |
+| https://dash-saveinator.xdshka.party | Operator dashboard (Basic auth) |
+
+## Operator dashboard (`dash`)
+
+Standalone Go service (`go/cmd/dash`), read-only consumer of Postgres/Redis; serves a static UI + JSON API on `127.0.0.1:9000` (container `dash` in `docker-compose.yml`). Shows per-service status (probes from `DASH_SERVICE_PROBES`), aggregate stats, per-platform/per-bot breakdown and the full user table.
+
+Exposed via Caddy `:8094` (block in `monitoring/caddy-grafana.caddyfile`) with Basic auth — credentials in `/etc/caddy/dash.htpasswd` on the VPS (`DASH_AUTH_USER`/`DASH_AUTH_PASSWORD` env), then Cloudflare Tunnel (`dash-saveinator.xdshka.party` → `http://localhost:8094`).
+
+Deploy: `DASH_AUTH_USER=... DASH_AUTH_PASSWORD=... VPS_HOST=45.128.235.219 ./scripts/deploy-dash.sh` — builds the container, patches (not replaces) the shared `/etc/caddy/Caddyfile` and `/etc/cloudflared/config.yml` with backups, reloads both proxies and verifies 401/200.
+
+Verify:
+
+```bash
+curl -fsS http://127.0.0.1:9000/api/health
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8094/            # 401
+curl -s -o /dev/null -w '%{http_code}\n' -u USER:PASS http://127.0.0.1:8094/  # 200
+```
 
 ## Verify
 

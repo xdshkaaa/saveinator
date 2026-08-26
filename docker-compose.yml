@@ -184,6 +184,36 @@ services:
         limits:
           memory: 768M
 
+  # dash serves the operator dashboard (dash-saveinator.xdshka.party):
+  # stats across every service plus the full user table. Read-only consumer
+  # of Postgres/Redis; exposes a JSON API + embedded static UI on :9000.
+  dash:
+    build:
+      context: .
+      dockerfile: docker/dash/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
+      REDIS_URL: redis://redis:6379/0
+      DASH_LISTEN: 127.0.0.1
+      DASH_PORT: "9000"
+      # Service probes: app containers by name on the compose network, the
+      # host-network monitoring stack through host.docker.internal.
+      DASH_SERVICE_PROBES: "${DASH_SERVICE_PROBES:-saveinator=http://saveinator:8000/health;saveinator_metrics=http://host.docker.internal:9101/metrics;worker_metrics=http://host.docker.internal:9102/metrics;botd=http://host.docker.internal:8005/health;botd_metrics=http://host.docker.internal:9106/metrics;prometheus=http://host.docker.internal:9091/-/healthy;grafana=http://host.docker.internal:3000/api/health;node_exporter=http://host.docker.internal:9100/metrics;postgres_exporter=http://host.docker.internal:9187/metrics;redis_exporter=http://host.docker.internal:9121/metrics;loki=http://host.docker.internal:3100/ready;promtail=http://host.docker.internal:9080/ready;cadvisor=http://host.docker.internal:8180/healthz}"
+    ports:
+      - "127.0.0.1:9000:9000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   migrate:
     build:
       context: .

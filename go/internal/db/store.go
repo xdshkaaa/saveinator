@@ -38,6 +38,11 @@ func (s *Store) Close() {
 	}
 }
 
+// Ping verifies the database connection is alive.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.pool.Ping(ctx)
+}
+
 // GetUserLanguage returns the user's language for a given bot, falling back
 // to the global users.language when no per-bot row exists yet.
 func (s *Store) GetUserLanguage(ctx context.Context, userID int64, botID string) (string, error) {

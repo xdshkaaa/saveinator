@@ -233,3 +233,109 @@ func TestIntegration_FetchUserStats(t *testing.T) {
 		t.Fatalf("failed 30d = %d", stats.Failed30d)
 	}
 }
+
+func TestIntegration_DashStats(t *testing.T) {
+	store, cleanup := startTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Two users, one on the main bot and one on a fleet bot, with downloads
+	// spread across platforms/statuses so every aggregation has data.
+	seedUserAndChat(t, store, 101, 1001)
+	if err := store.CreateUser(ctx, 102, "bob", "Bob", "en", "pinterest"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.pool.Exec(ctx, `INSERT INTO chats (id, type, created_at) VALUES (1002, 'private', now())`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dl := []struct {
+		user, chat int64
+		url, plat  string
+		status     string
+		bot        string
+	}{
+		{101, 1001, "https://youtu.be/a", "youtube", "completed", "saveinator"},
+		{101, 1001, "https://youtu.be/b", "youtube", "completed", "saveinator"},
+		{101, 1001, "https://tiktok.com/@x/v/1", "tiktok", "completed", "saveinator"},
+		{102, 1002, "https://open.spotify.com/track/q", "spotify", "completed", "pinterest"},
+		{102, 1002, "https://open.spotify.com/track/r", "spotify", "failed", "pinterest"},
+	}
+	for _, d := range dl {
+		if err := store.RecordDownloadForBot(ctx, d.user, d.chat, d.url, d.plat, d.status, 1.0, "", d.bot); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	o, err := store.DashOverview(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.TotalUsers < 2 {
+		t.Fatalf("total users = %d, want >= 2", o.TotalUsers)
+	}
+	if o.DownloadsToday < 4 {
+		t.Fatalf("downloads today = %d, want >= 4 completed", o.DownloadsToday)
+	}
+	if o.Completed30d < 4 || o.Failed30d < 1 {
+		t.Fatalf("completed=%d failed=%d, want >=4 / >=1", o.Completed30d, o.Failed30d)
+	}
+	if o.DAU < 2 {
+		t.Fatalf("dau = %d, want >= 2", o.DAU)
+	}
+	found := map[string]bool{}
+	for _, p := range o.Platforms30d {
+		found[p.Platform] = true
+	}
+	if !found["YOUTUBE"] || !found["TIKTOK"] || !found["SPOTIFY"] {
+		t.Fatalf("platforms = %v, want YOUTUBE/TIKTOK/SPOTIFY", found)
+	}
+	botFound := map[string]bool{}
+	for _, b := range o.Bots {
+		botFound[b.Slug] = true
+	}
+	if !botFound["saveinator"] || !botFound["pinterest"] {
+		t.Fatalf("bots = %v, want saveinator and pinterest", botFound)
+	}
+	if len(o.Languages) == 0 {
+		t.Fatal("languages empty")
+	}
+
+	tl, err := store.DownloadTimeline(ctx, 14)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tl) == 0 {
+		t.Fatal("timeline empty")
+	}
+	last := tl[len(tl)-1]
+	if last.Total < 5 || last.Completed < 4 || last.Failed < 1 {
+		t.Fatalf("last day point = %+v", last)
+	}
+
+	pl, err := store.PlatformBreakdown(ctx, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pl) < 3 {
+		t.Fatalf("platform breakdown rows = %d, want >= 3", len(pl))
+	}
+
+	users, err := store.UserTable(ctx, "downloads", "", 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(users) < 2 {
+		t.Fatalf("user table rows = %d, want >= 2", len(users))
+	}
+	if users[0].Downloads < users[1].Downloads {
+		t.Fatalf("users not sorted by downloads: %+v", users)
+	}
+	byQ, err := store.UserTable(ctx, "newest", "bob", 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byQ) != 1 || byQ[0].ID != 102 {
+		t.Fatalf("search 'bob' = %+v, want user 102", byQ)
+	}
+}
