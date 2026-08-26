@@ -60,8 +60,14 @@ echo "[4/6] Setting up basic auth..."
 ssh "$VPS_USER@$VPS_HOST" "
     set -euo pipefail
     HASH=\$(caddy hash-password --plaintext '$DASH_PASS')
-    printf '%s:%s\n' '$DASH_USER' \"\$HASH\" > /etc/caddy/dash.htpasswd
-    chmod 600 /etc/caddy/dash.htpasswd
+    # basic_auth expects 'user <hash>' (space-separated); import splices it.
+    printf '%s %s\n' '$DASH_USER' \"\$HASH\" > /etc/caddy/dash.htpasswd
+    # caddy reload adapts config as the caddy user, so the file must be readable.
+    chown caddy:caddy /etc/caddy/dash.htpasswd
+    chmod 640 /etc/caddy/dash.htpasswd
+    # pre-create the access log with caddy ownership (caddy can't open root-owned files).
+    touch /var/log/caddy/dash-saveinator.xdshka.party.access.log
+    chown caddy:caddy /var/log/caddy/dash-saveinator.xdshka.party.access.log
     echo 'dash.htpasswd written'
 "
 
