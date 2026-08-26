@@ -34,22 +34,25 @@ ssh "$VPS_USER@$VPS_HOST" "
     done
 "
 
-echo "[3/6] Patching Caddy (block :8094 + basic auth)..."
+echo "[3/6] Patching Caddy (block :8098 + basic auth)..."
 # The repo file monitoring/caddy-grafana.caddyfile contains the exact block
 # to insert; pull it out and splice it into the live Caddyfile if missing.
+# The marker comment is what makes the block unique — :PORT numbers on this
+# host are shared with other projects, so we match on the dash comment.
 ssh "$VPS_USER@$VPS_HOST" "
     set -euo pipefail
-    BLOCK=\$(awk '/^:8094 \{/,/^\}/' '$APP_DIR/monitoring/caddy-grafana.caddyfile')
+    MARK='# dash-saveinator.xdshka.party'
+    BLOCK=\$(awk '/^:8098 \{/,/^\}/' '$APP_DIR/monitoring/caddy-grafana.caddyfile')
     if [ -z \"\$BLOCK\" ]; then
-        echo 'ERROR: :8094 block not found in repo caddyfile' >&2
+        echo 'ERROR: :8098 block not found in repo caddyfile' >&2
         exit 1
     fi
-    if ! grep -q '^:8094 {' /etc/caddy/Caddyfile; then
+    if ! grep -qF \"\$MARK\" /etc/caddy/Caddyfile; then
         cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.\$(date +%Y%m%d%H%M%S)
         printf '\n%s\n' \"\$BLOCK\" >> /etc/caddy/Caddyfile
-        echo 'Caddy: block :8094 appended (backup created)'
+        echo 'Caddy: block :8098 appended (backup created)'
     else
-        echo 'Caddy: block :8094 already present, skipping'
+        echo 'Caddy: dash block already present, skipping'
     fi
 "
 
@@ -71,7 +74,7 @@ ssh "$VPS_USER@$VPS_HOST" "
         # insert the dash hostname entry right before the first saveinator entry
         awk '/hostname: saveinator.xdshka.party/ && !done {
             print \"  - hostname: dash-saveinator.xdshka.party\"
-            print \"    service: http://localhost:8094\"
+            print \"    service: http://localhost:8098\"
             done=1
         } { print }' \$CONF > \$CONF.new && mv \$CONF.new \$CONF
         echo 'cloudflared: dash ingress added (backup created)'
@@ -90,9 +93,9 @@ ssh "$VPS_USER@$VPS_HOST" "
     curl -fsS http://127.0.0.1:9000/api/health
     echo
     echo '--- caddy no auth (expect 401) ---'
-    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8094/
+    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8098/
     echo '--- caddy with auth (expect 200) ---'
-    curl -s -o /dev/null -w '%{http_code}\n' -u '$DASH_USER:$DASH_PASS' http://127.0.0.1:8094/
+    curl -s -o /dev/null -w '%{http_code}\n' -u '$DASH_USER:$DASH_PASS' http://127.0.0.1:8098/
     echo '--- public hostname ---'
     curl -s -o /dev/null -w '%{http_code}\n' -u '$DASH_USER:$DASH_PASS' https://dash-saveinator.xdshka.party/
 "

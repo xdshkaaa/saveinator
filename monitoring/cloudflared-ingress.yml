@@ -1,5 +1,5 @@
 - hostname: dash-saveinator.xdshka.party
-  service: http://localhost:8094
+  service: http://localhost:8098
 - hostname: saveinator.xdshka.party
   service: http://localhost:8092
 - hostname: saveinator-hooks.xdshka.party
