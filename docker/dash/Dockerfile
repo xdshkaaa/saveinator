@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 COPY --from=builder /dash /app/dash
 
-ENV DASH_LISTEN=0.0.0.0
+ENV DASH_LISTEN=127.0.0.1
 ENV DASH_PORT=9000
 
 EXPOSE 9000

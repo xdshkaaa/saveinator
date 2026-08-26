@@ -13,6 +13,9 @@ services:
       - work_mem=4MB
       - -c
       - max_connections=50
+    ports:
+      # loopback only: dash (host network) and ops tooling connect here.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -25,6 +28,9 @@ services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      # loopback only: dash (host network) and ops tooling connect here.
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -186,25 +192,22 @@ services:
 
   # dash serves the operator dashboard (dash-saveinator.xdshka.party):
   # stats across every service plus the full user table. Read-only consumer
-  # of Postgres/Redis; exposes a JSON API + embedded static UI on :9000.
+  # of Postgres/Redis. Runs in host network mode so it can probe the
+  # host-network monitoring stack (prometheus, grafana, exporters) on the
+  # loopback; binds 127.0.0.1:9000 only.
   dash:
     build:
       context: .
       dockerfile: docker/dash/Dockerfile
+    network_mode: host
     environment:
-      DATABASE_URL: postgresql+asyncpg://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/saveinator
-      REDIS_URL: redis://redis:6379/0
-      # Bind inside the container so docker-proxy can reach it; the host
-      # port is still published on 127.0.0.1 only.
-      DASH_LISTEN: 0.0.0.0
+      DATABASE_URL: postgres://saveinator:${DB_PASSWORD:?set DB_PASSWORD}@127.0.0.1:5432/saveinator?sslmode=disable
+      REDIS_URL: redis://127.0.0.1:6379/0
+      DASH_LISTEN: 127.0.0.1
       DASH_PORT: "9000"
-      # Service probes: app containers by name on the compose network, the
-      # host-network monitoring stack through host.docker.internal.
-      DASH_SERVICE_PROBES: "${DASH_SERVICE_PROBES:-saveinator=http://saveinator:8000/health;saveinator_metrics=http://host.docker.internal:9101/metrics;worker_metrics=http://host.docker.internal:9102/metrics;botd=http://host.docker.internal:8005/health;botd_metrics=http://host.docker.internal:9106/metrics;prometheus=http://host.docker.internal:9091/-/healthy;grafana=http://host.docker.internal:3000/api/health;node_exporter=http://host.docker.internal:9100/metrics;postgres_exporter=http://host.docker.internal:9187/metrics;redis_exporter=http://host.docker.internal:9121/metrics;loki=http://host.docker.internal:3100/ready;promtail=http://host.docker.internal:9080/ready;cadvisor=http://host.docker.internal:8180/healthz}"
-    ports:
-      - "127.0.0.1:9000:9000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # Service probes: app services and the monitoring stack all live on
+      # the host loopback in host-network mode.
+      DASH_SERVICE_PROBES: "${DASH_SERVICE_PROBES:-saveinator=http://127.0.0.1:8000/health;saveinator_metrics=http://127.0.0.1:9101/metrics;worker_metrics=http://127.0.0.1:9102/metrics;botd=http://127.0.0.1:8005/health;botd_metrics=http://127.0.0.1:9106/metrics;prometheus=http://127.0.0.1:9091/-/healthy;grafana=http://127.0.0.1:3000/api/health;node_exporter=http://127.0.0.1:9100/metrics;postgres_exporter=http://127.0.0.1:9187/metrics;redis_exporter=http://127.0.0.1:9121/metrics;loki=http://127.0.0.1:3100/ready;promtail=http://127.0.0.1:9080/ready;cadvisor=http://127.0.0.1:8180/healthz}"
     depends_on:
       db:
         condition: service_healthy
