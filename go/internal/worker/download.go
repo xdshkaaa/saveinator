@@ -63,6 +63,7 @@ func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypePinterest, h.handlePinterest)
 	mux.HandleFunc(queue.TypeSpotify, h.handleSpotify)
 	mux.HandleFunc(queue.TypeSoundCloud, h.handleSoundCloud)
+	mux.HandleFunc(queue.TypeYandexMusic, h.handleYandexMusic)
 	mux.HandleFunc(queue.TypeBroadcast, h.handleBroadcast)
 	mux.HandleFunc(queue.TypeTikTokCarousel, h.handleTikTokCarousel)
 	mux.HandleFunc(queue.TypeInstagram, h.handleInstagram)
@@ -199,7 +200,38 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		}
 	}
 
+	processed = h.ensureFitsUpload(dlCtx, processed)
+
 	return h.sendVideoResult(ctx, p, processed, lang, queue.TypeDownload, start)
+}
+
+// ensureFitsUpload brings a downloaded YouTube video under the effective send
+// limit with a targeted re-encode. api.telegram.org rejects any bot upload
+// above that limit regardless of method, so without this pass a heavy 1080p
+// download completes and then dies at send time. When even the re-encode
+// cannot fit, the file goes back unchanged and sendVideoResult refuses it as
+// too large against the same effective limit.
+func (h *Handler) ensureFitsUpload(ctx context.Context, path string) string {
+	limitMB := h.maxFileMB(ctx, "youtube")
+	if limitMB <= 0 {
+		return path
+	}
+	sizeMB := float64(fileSize(path)) / (1024 * 1024)
+	if sizeMB <= float64(limitMB) {
+		return path
+	}
+
+	// A small margin keeps multipart framing and mux variance under the cap.
+	maxBytes := int64(float64(limitMB) * 1024 * 1024 * 0.98)
+	fitted, ok := video.CompressToFit(ctx, path, maxBytes)
+	if !ok {
+		slog.Warn("youtube fit-to-limit compression failed", "size_mb", sizeMB, "limit_mb", limitMB)
+		return path
+	}
+	slog.Info("youtube video compressed to fit upload limit",
+		"before_mb", fmt.Sprintf("%.1f", sizeMB),
+		"after_mb", fmt.Sprintf("%.1f", float64(fileSize(fitted))/(1024*1024)))
+	return fitted
 }
 
 // retryExtractionDelay spaces out the second attempt below. Long enough that
@@ -474,8 +506,16 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 	return nil
 }
 
+// maxFileMB is the effective per-platform send ceiling: the platform's own
+// cap clamped by the Telegram bot upload limit, because api.telegram.org
+// refuses anything larger no matter which send method is used.
 func (h *Handler) maxFileMB(ctx context.Context, platform string) int {
-	return h.runtime.PlatformMaxFileMB(ctx, platform)
+	limit := h.runtime.PlatformMaxFileMB(ctx, platform)
+	upload := h.runtime.CurrentInt(ctx, "global.telegram_upload_limit_mb", h.cfg.TelegramUploadLimitMB)
+	if upload > 0 && limit > upload {
+		return upload
+	}
+	return limit
 }
 
 func fileSize(path string) int64 {

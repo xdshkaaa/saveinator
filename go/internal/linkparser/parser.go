@@ -8,22 +8,25 @@ import (
 type Platform string
 
 const (
-	PlatformYouTube    Platform = "youtube"
-	PlatformTikTok     Platform = "tiktok"
-	PlatformX          Platform = "x"
-	PlatformSpotify    Platform = "spotify"
-	PlatformSoundCloud Platform = "soundcloud"
-	PlatformPinterest  Platform = "pinterest"
-	PlatformInstagram  Platform = "instagram"
-	PlatformUnknown    Platform = "unknown"
+	PlatformYouTube      Platform = "youtube"
+	PlatformTikTok       Platform = "tiktok"
+	PlatformX            Platform = "x"
+	PlatformSpotify      Platform = "spotify"
+	PlatformSoundCloud   Platform = "soundcloud"
+	PlatformPinterest    Platform = "pinterest"
+	PlatformInstagram    Platform = "instagram"
+	PlatformYandexMusic  Platform = "yandexmusic"
+	PlatformUnknown      Platform = "unknown"
 )
 
 type ParsedLink struct {
-	Platform   Platform
-	URL        string
-	XStatusID  string
-	SpotifyID  string
-	SpotifyTyp string
+	Platform       Platform
+	URL            string
+	XStatusID      string
+	SpotifyID      string
+	SpotifyTyp     string
+	YandexAlbumID  string
+	YandexTrackID  string
 }
 
 type pattern struct {
@@ -38,6 +41,8 @@ var (
 	spotifyURIRegex  = regexp.MustCompile(`(?i)spotify:(?:album|track):([A-Za-z0-9]{22})`)
 	spotifyIDInURL   = `[A-Za-z0-9]{22}`
 
+	yandexMusicPathRegex = regexp.MustCompile(`(?i)music\.yandex\.[a-z]{2,3}/(?:album/(\d+)(?:/track/(\d+))?|track/(\d+))`)
+
 	patterns = []pattern{
 		{PlatformYouTube, regexp.MustCompile(`(?i)(?:https?://)?(?:(?:www\.|m\.)?youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)[\w-]{11}(?:[?&]\S*)?`)},
 		{PlatformTikTok, regexp.MustCompile(`(?i)(?:https?://)?(?:` +
@@ -48,6 +53,7 @@ var (
 			`)`)},
 		{PlatformX, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?(?:x|twitter)\.com/[\w-]+/status/\d+/?(?:[?&]\S*)?`)},
 		{PlatformSpotify, regexp.MustCompile(`(?i)(?:https?://)?(?:open\.)?spotify\.com/(?:album|track)/` + spotifyIDInURL + `(?:[/?#&]\S*)?`)},
+		{PlatformYandexMusic, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?music\.yandex\.[a-z]{2,3}/(?:album/\d+(?:/track/\d+)?|track/\d+)(?:[/?#&]\S*)?`)},
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?soundcloud\.com/discover/sets/[^\s?#]+(?:[/?#&]\S*)?`)},
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?soundcloud\.com/[\w.-]+/sets/[^\s?#]+(?:[/?#&]\S*)?`)},
 		{PlatformSoundCloud, regexp.MustCompile(`(?i)(?:https?://)?on\.soundcloud\.com/[\w-]+(?:[/?#&]\S*)?`)},
@@ -70,6 +76,7 @@ func IsYouTubeShorts(url string) bool {
 func ExtractURLs(text string) []ParsedLink {
 	var results []ParsedLink
 	seenSpotify := map[string]struct{}{}
+	seenYandex := map[string]struct{}{}
 
 	for _, raw := range urlExtractor.FindAllString(text, -1) {
 		url := strings.TrimRight(raw, ".,;:!?)]}")
@@ -93,6 +100,20 @@ func ExtractURLs(text string) []ParsedLink {
 						link.SpotifyID = id
 						link.SpotifyTyp = typ
 					}
+				}
+				if p.platform == PlatformYandexMusic {
+					albumID, trackID := parseYandexMusicURL(m)
+					key := "album:" + albumID
+					if trackID != "" {
+						key = "track:" + trackID
+					}
+					if _, ok := seenYandex[key]; ok {
+						matched = true
+						break
+					}
+					seenYandex[key] = struct{}{}
+					link.YandexAlbumID = albumID
+					link.YandexTrackID = trackID
 				}
 				results = append(results, link)
 				matched = true
@@ -140,4 +161,15 @@ func parseSpotifyURL(url string) (id, typ string) {
 		return "", ""
 	}
 	return m[2], strings.ToLower(m[1])
+}
+
+func parseYandexMusicURL(url string) (albumID, trackID string) {
+	m := yandexMusicPathRegex.FindStringSubmatch(url)
+	if len(m) < 4 {
+		return "", ""
+	}
+	if m[3] != "" {
+		return m[1], m[3]
+	}
+	return m[1], m[2]
 }

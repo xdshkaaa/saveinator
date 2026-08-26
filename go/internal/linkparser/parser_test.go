@@ -29,6 +29,57 @@ func TestIsYouTubeShorts(t *testing.T) {
 	}
 }
 
+func TestExtractURLsYandexMusic(t *testing.T) {
+	cases := []struct {
+		name     string
+		url      string
+		albumID  string
+		trackID  string
+		wantURL  string
+	}{
+		{"album+track with query", "https://music.yandex.ru/album/43378588/track/154402671?ref_id=AD4D3C1C-A5B3-4AF3-B111-771C728895AC&utm_medium=share_link_tg&utm_source=mobile_ios",
+			"43378588", "154402671", "https://music.yandex.ru/album/43378588/track/154402671?ref_id=AD4D3C1C-A5B3-4AF3-B111-771C728895AC&utm_medium=share_link_tg&utm_source=mobile_ios"},
+		{"bare album+track", "https://music.yandex.ru/album/123456/track/789012",
+			"123456", "789012", "https://music.yandex.ru/album/123456/track/789012"},
+		{"plain track", "https://music.yandex.ru/track/154402671",
+			"", "154402671", "https://music.yandex.ru/track/154402671"},
+		{"whole album", "https://music.yandex.ru/album/43378588",
+			"43378588", "", "https://music.yandex.ru/album/43378588"},
+		{"kz tld", "https://music.yandex.kz/album/1/track/2",
+			"1", "2", "https://music.yandex.kz/album/1/track/2"},
+		{"com tld www", "https://www.music.yandex.com/track/42",
+			"", "42", "https://www.music.yandex.com/track/42"},
+		{"trailing slash and punctuation", "смотри https://music.yandex.ru/album/9/track/8/, круто",
+			"9", "8", "https://music.yandex.ru/album/9/track/8/"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			links := ExtractURLs(tc.url)
+			if len(links) != 1 {
+				t.Fatalf("expected 1 link, got %d (%+v)", len(links), links)
+			}
+			l := links[0]
+			if l.Platform != PlatformYandexMusic {
+				t.Fatalf("platform = %q, want %q", l.Platform, PlatformYandexMusic)
+			}
+			if l.YandexAlbumID != tc.albumID || l.YandexTrackID != tc.trackID {
+				t.Fatalf("ids = (%q, %q), want (%q, %q)", l.YandexAlbumID, l.YandexTrackID, tc.albumID, tc.trackID)
+			}
+			if l.URL != tc.wantURL {
+				t.Fatalf("url = %q, want %q", l.URL, tc.wantURL)
+			}
+		})
+	}
+}
+
+func TestExtractURLsYandexMusicDedup(t *testing.T) {
+	text := "a https://music.yandex.ru/album/5/track/7 b https://music.yandex.kz/album/5/track/7"
+	links := ExtractURLs(text)
+	if len(links) != 1 {
+		t.Fatalf("expected dedup by track id, got %d (%+v)", len(links), links)
+	}
+}
+
 func TestExtractURLsInstagram(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

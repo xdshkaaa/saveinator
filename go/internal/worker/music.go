@@ -23,6 +23,7 @@ import (
 	"saveinator/internal/queue"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
+	"saveinator/internal/yandexmusic"
 )
 
 func downloadCoverArt(ctx context.Context, url, destDir string) string {
@@ -137,6 +138,8 @@ func (h *Handler) runMusicDownload(ctx context.Context, p queue.MusicPayload, pl
 	switch platform {
 	case "spotify":
 		return h.downloadSpotifyRelease(ctx, p, lang, cancelKB)
+	case "yandexmusic":
+		return h.downloadYandexMusicRelease(ctx, p, lang, cancelKB)
 	case "soundcloud":
 		return h.downloadSoundCloudRelease(ctx, p, lang, cancelKB)
 	default:
@@ -208,6 +211,99 @@ func (h *Handler) downloadSpotifyRelease(ctx context.Context, p queue.MusicPaylo
 	}
 
 	return h.finishMusicDownload(ctx, p, lang, sent, total, "spotify")
+}
+
+func (h *Handler) handleYandexMusic(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var p queue.MusicPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		recordTaskFailure(queue.TypeYandexMusic)
+		slog.Warn("yandexmusic payload decode failed", "err", err)
+		return nil
+	}
+	if p.ChatID == 0 || p.MessageID == 0 {
+		slog.Warn("yandexmusic payload missing chat/message", "resource", p.ResourceID)
+		return nil
+	}
+	slog.Info("yandexmusic worker started", "chat", p.ChatID, "message", p.MessageID, "resource", p.ResourceID)
+	if err := h.runMusicDownload(ctx, p, "yandexmusic"); err != nil {
+		slog.Warn("yandexmusic worker failed", "err", err)
+		recordTaskFailure(queue.TypeYandexMusic)
+		lang := p.Lang
+		if lang == "" {
+			lang = "en"
+		}
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("yandexmusic.download_failed", lang, nil))
+		return nil
+	}
+	recordTaskSuccess(queue.TypeYandexMusic, "yandexmusic", start, 0)
+	return nil
+}
+
+func (h *Handler) downloadYandexMusicRelease(ctx context.Context, p queue.MusicPayload, lang string, cancelKB *telego.InlineKeyboardMarkup) error {
+	var release yandexmusic.Release
+	if err := json.Unmarshal([]byte(p.ReleaseJSON), &release); err != nil {
+		return fmt.Errorf("decode release: %w", err)
+	}
+	if len(release.Tracks) == 0 {
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, locale.Get("yandexmusic.download_none_found", lang, nil))
+		return nil
+	}
+
+	taskDir, err := os.MkdirTemp("", "saveinator-yandexmusic-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(taskDir)
+
+	coverPath := downloadCoverArt(ctx, release.CoverURL, taskDir)
+
+	sent := 0
+	total := len(release.Tracks)
+	concurrency := h.runtime.CurrentInt(ctx, "yandexmusic.download_concurrency", h.cfg.YandexMusicDownloadConcurrency)
+	trackTimeout := h.runtime.CurrentInt(ctx, "yandexmusic.track_timeout_sec", h.cfg.YandexMusicTrackTimeoutSeconds)
+	sem := make(chan struct{}, maxInt(1, concurrency))
+
+	for i, track := range release.Tracks {
+		if cancelled, _ := h.redis.IsDownloadCancelled(ctx, p.LockScene, p.UserID, p.LockToken); cancelled {
+			_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, locale.Get("download.cancelled", lang, nil), nil)
+			return nil
+		}
+
+		current := i + 1
+		status := locale.Get("yandexmusic.download_track", lang, map[string]string{
+			"current": fmt.Sprintf("%d", current),
+			"total":   fmt.Sprintf("%d", total),
+			"title":   track.Title,
+		})
+		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, status, cancelKB)
+
+		trackDir := filepath.Join(taskDir, fmt.Sprintf("track-%d", current))
+		query := track.Artists + " - " + track.Title
+
+		sem <- struct{}{}
+		audioPath, dlErr := audio.DownloadFromYouTubeSearch(ctx, query, trackDir, h.cfg.YandexMusicDLOutputFormat, track.DurationMS, trackTimeout)
+		<-sem
+		if dlErr != nil {
+			slog.Warn("yandexmusic track download failed", "title", track.Title, "err", dlErr)
+			continue
+		}
+
+		sendStatus := locale.Get("yandexmusic.send_track", lang, map[string]string{
+			"current": fmt.Sprintf("%d", current),
+			"total":   fmt.Sprintf("%d", total),
+			"title":   track.Title,
+		})
+		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, sendStatus, cancelKB)
+
+		if err := h.sender.SendAudio(p.ChatID, audioPath, track.Title, track.Artists, track.DurationMS/1000, coverPath); err != nil {
+			slog.Warn("yandexmusic send audio failed", "title", track.Title, "err", err)
+			continue
+		}
+		sent++
+	}
+
+	return h.finishMusicDownload(ctx, p, lang, sent, total, "yandexmusic")
 }
 
 func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPayload, lang string, cancelKB *telego.InlineKeyboardMarkup) error {
@@ -314,9 +410,10 @@ func (h *Handler) downloadSoundCloudRelease(ctx context.Context, p queue.MusicPa
 func (h *Handler) finishMusicDownload(ctx context.Context, p queue.MusicPayload, lang string, sent, total int, platform string) error {
 	if sent == 0 {
 		var final string
-		if platform == "spotify" {
-			final = locale.Get("spotify.download_none_found", lang, nil)
-		} else {
+		switch platform {
+		case "spotify", "yandexmusic":
+			final = locale.Get(platform + ".download_none_found", lang, nil)
+		default:
 			final = locale.Get("soundcloud.download_failed", lang, nil)
 		}
 		_ = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, final, nil)
@@ -364,6 +461,8 @@ func (h *Handler) releaseLockKey(platform string, p queue.MusicPayload) string {
 	switch platform {
 	case "spotify":
 		return fmt.Sprintf("spotify:processing:%s:%s", p.LinkType, p.ResourceID)
+	case "yandexmusic":
+		return fmt.Sprintf("yandexmusic:processing:%s:%s", p.LinkType, p.ResourceID)
 	case "soundcloud":
 		return "soundcloud:processing:" + p.SourceURL
 	default:
@@ -376,6 +475,9 @@ func releaseLockTTL(platform string, cfg *config.Settings) time.Duration {
 	case "spotify":
 		perTrack := time.Duration(cfg.SpotifyTrackTimeoutSeconds) * time.Second
 		return perTrack*time.Duration(cfg.SpotifyLockMaxTracks) + 90*time.Second
+	case "yandexmusic":
+		perTrack := time.Duration(cfg.YandexMusicTrackTimeoutSeconds) * time.Second
+		return perTrack*time.Duration(cfg.YandexMusicLockMaxTracks) + 90*time.Second
 	case "soundcloud":
 		perTrack := time.Duration(cfg.SoundCloudTrackTimeoutSeconds) * time.Second
 		return perTrack*time.Duration(cfg.SoundCloudMaxTracks) + 90*time.Second

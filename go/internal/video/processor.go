@@ -158,6 +158,128 @@ func CompressIfOversized(ctx context.Context, sourcePath string, minDurationSec 
 	return finalPath, nil
 }
 
+// fitHeights lists output heights the fit pass may step down through,
+// tallest first; 0 means keep the source resolution.
+var fitHeights = []int{0, 720, 480, 360, 240}
+
+// fitHeight picks the tallest output height whose minimum acceptable bitrate
+// (about half its ladder value) fits the budget, stepping down from the
+// source resolution. It never upscales, so a small-budget short video keeps
+// its own size instead of growing.
+func fitHeight(srcShortSide, videoKbpsBudget int) int {
+	out := srcShortSide
+	for _, h := range fitHeights {
+		cand := h
+		if h == 0 {
+			cand = srcShortSide
+		} else if cand > srcShortSide {
+			break
+		}
+		out = cand
+		if videoKbpsBudget >= targetBitrateKbps(cand)/2 {
+			break
+		}
+	}
+	return out
+}
+
+// CompressToFit re-encodes a video so its size lands under maxBytes — the
+// ceiling an upload must clear to be sendable at all. The bitrate budget is
+// derived from the probed duration (audio gets a fixed slice), and the output
+// resolution steps down when the budget cannot sustain the source resolution.
+// ok=false leaves the source untouched: it could not be measured, the budget
+// would be unwatchably small, or ffmpeg's result still missed the cap.
+func CompressToFit(ctx context.Context, sourcePath string, maxBytes int64) (string, bool) {
+	duration, err := probeDurationSeconds(ctx, sourcePath)
+	if err != nil || duration <= 0 {
+		return sourcePath, false
+	}
+	hasAudio, err := HasAudioStream(ctx, sourcePath)
+	if err != nil {
+		return sourcePath, false
+	}
+
+	// Reserve ~5% of the cap for container overhead and encoder overshoot.
+	totalKbps := float64(maxBytes) * 8 * 0.95 / duration / 1000
+
+	audioKbps := 0
+	switch {
+	case !hasAudio:
+	case totalKbps >= 256:
+		audioKbps = 128
+	default:
+		audioKbps = 64
+	}
+	videoKbps := int(totalKbps) - audioKbps
+	if videoKbps < 120 {
+		// Below this the picture is mush even at 240p; better an honest
+		// "too large".
+		return sourcePath, false
+	}
+
+	srcShortSide := 0
+	if dims, err := probeDimensions(ctx, sourcePath); err == nil {
+		srcShortSide = dims[0]
+		if dims[1] < srcShortSide {
+			srcShortSide = dims[1]
+		}
+	}
+
+	var vf string
+	if srcShortSide > 0 {
+		if outHeight := fitHeight(srcShortSide, videoKbps); outHeight != srcShortSide {
+			vf = fmt.Sprintf("scale=-2:%d", outHeight)
+		}
+	}
+
+	ext := filepath.Ext(sourcePath)
+	base := strings.TrimSuffix(sourcePath, ext)
+	tmpPath := base + "_fittmp.mp4"
+	finalPath := base + ".mp4"
+
+	args := []string{"ffmpeg", "-y", "-i", sourcePath}
+	if vf != "" {
+		args = append(args, "-vf", vf)
+	}
+	args = append(args,
+		"-c:v", "libx264", "-preset", "medium",
+		"-b:v", fmt.Sprintf("%dk", videoKbps),
+		"-maxrate", fmt.Sprintf("%dk", videoKbps*12/10),
+		"-bufsize", fmt.Sprintf("%dk", videoKbps*2),
+		"-pix_fmt", "yuv420p",
+	)
+	if hasAudio {
+		args = append(args, "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", audioKbps))
+	} else {
+		args = append(args, "-an")
+	}
+	args = append(args, "-movflags", "+faststart", tmpPath)
+
+	if err := runFFmpegWithTimeout(ctx, args, 30*time.Minute); err != nil {
+		_ = os.Remove(tmpPath)
+		return sourcePath, false
+	}
+	info, err := os.Stat(tmpPath)
+	if err != nil || info.Size() > maxBytes {
+		_ = os.Remove(tmpPath)
+		return sourcePath, false
+	}
+
+	// Swap into the source's filename like CompressIfOversized does:
+	// downstream title parsing keys off the filename and must not see a
+	// distinguishing suffix.
+	if finalPath != sourcePath {
+		if err := os.Remove(sourcePath); err != nil {
+			_ = os.Remove(tmpPath)
+			return sourcePath, false
+		}
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		return sourcePath, false
+	}
+	return finalPath, true
+}
+
 func probeDurationSeconds(ctx context.Context, path string) (float64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

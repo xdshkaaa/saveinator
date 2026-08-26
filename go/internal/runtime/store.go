@@ -211,6 +211,18 @@ func defaultFromConfig(cfg *config.Settings, def Setting) any {
 			return cfg.SpotifyLockMaxTracks
 		case "SpotifyDownloadConcurrency":
 			return cfg.SpotifyDownloadConcurrency
+		case "YandexMusicEnabled":
+			return cfg.YandexMusicEnabled
+		case "YandexMusicDownloadEnabled":
+			return cfg.YandexMusicDownloadEnabled
+		case "YandexMusicTrackTimeoutSeconds":
+			return cfg.YandexMusicTrackTimeoutSeconds
+		case "YandexMusicAPITimeoutSeconds":
+			return cfg.YandexMusicAPITimeoutSeconds
+		case "YandexMusicLockMaxTracks":
+			return cfg.YandexMusicLockMaxTracks
+		case "YandexMusicDownloadConcurrency":
+			return cfg.YandexMusicDownloadConcurrency
 		case "SoundCloudEnabled":
 			return cfg.SoundCloudEnabled
 		case "SoundCloudDownloadEnabled":

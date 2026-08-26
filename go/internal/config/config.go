@@ -79,6 +79,15 @@ type Settings struct {
 	SoundCloudDLOutputFormat      string
 	SoundCloudDownloadConcurrency int
 
+	YandexMusicEnabled              bool
+	YandexMusicAccessToken          string
+	YandexMusicAPITimeoutSeconds    int
+	YandexMusicDownloadEnabled      bool
+	YandexMusicTrackTimeoutSeconds  int
+	YandexMusicDLOutputFormat       string
+	YandexMusicLockMaxTracks        int
+	YandexMusicDownloadConcurrency  int
+
 	MetricsEnabled bool
 	MetricsHost    string
 	MetricsPort    int
@@ -156,6 +165,14 @@ func Load() (*Settings, error) {
 		SoundCloudMaxTracks:           envInt("SOUNDCLOUD_MAX_TRACKS", 100),
 		SoundCloudDLOutputFormat:      env("SOUNDCLOUD_DL_OUTPUT_FORMAT", "mp3"),
 		SoundCloudDownloadConcurrency: envInt("SOUNDCLOUD_DOWNLOAD_CONCURRENCY", 1),
+		YandexMusicEnabled:             envBool("YANDEX_MUSIC_ENABLED", false),
+		YandexMusicAccessToken:         os.Getenv("YANDEX_MUSIC_ACCESS_TOKEN"),
+		YandexMusicAPITimeoutSeconds:   envInt("YANDEX_MUSIC_API_TIMEOUT_SECONDS", 15),
+		YandexMusicDownloadEnabled:     envBool("YANDEX_MUSIC_DOWNLOAD_ENABLED", true),
+		YandexMusicTrackTimeoutSeconds: envInt("YANDEX_MUSIC_TRACK_TIMEOUT_SECONDS", 60),
+		YandexMusicDLOutputFormat:      env("YANDEX_MUSIC_DL_OUTPUT_FORMAT", "mp3"),
+		YandexMusicLockMaxTracks:       envInt("YANDEX_MUSIC_LOCK_MAX_TRACKS", 50),
+		YandexMusicDownloadConcurrency: envInt("YANDEX_MUSIC_DOWNLOAD_CONCURRENCY", 2),
 		MetricsEnabled:         envBool("METRICS_ENABLED", true),
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),
@@ -180,6 +197,11 @@ func Load() (*Settings, error) {
 	// Enable Spotify metadata when credentials are present unless explicitly disabled.
 	if s.SpotifyClientID != "" && s.SpotifyClientSecret != "" && os.Getenv("SPOTIFY_ENABLED") == "" {
 		s.SpotifyEnabled = true
+	}
+
+	// Enable Yandex Music when an access token is present unless explicitly disabled.
+	if s.YandexMusicAccessToken != "" && os.Getenv("YANDEX_MUSIC_ENABLED") == "" {
+		s.YandexMusicEnabled = true
 	}
 
 	return s, nil

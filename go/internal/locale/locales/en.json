@@ -78,6 +78,28 @@
     "disabled": "Spotify support is disabled on this bot.",
     "not_spotify_link": "This bot only handles Spotify links. Send me a Spotify album or track URL."
   },
+  "yandexmusic": {
+    "card_title": "🎶 {artist} — {name}",
+    "track_card_title": "🎶 {artist} — {title}",
+    "duration": "Duration: {duration}",
+    "album_name": "Album: {name}",
+    "tracks_count": "Tracks: {count}",
+    "release_year": "Year: {year}",
+    "btn_open": "Open in Yandex Music",
+    "btn_download_album": "⬇ Download whole album ({count})",
+    "no_download": "For Yandex Music, only the release card is available. Audio download is disabled on this bot.",
+    "download_starting": "Starting download: {total} track(s)",
+    "download_track": "Downloading {current}/{total}: {title}",
+    "send_track": "Sending {current}/{total}: {title}",
+    "download_done": "Finished: {count}/{total} tracks sent.",
+    "download_none_found": "No audio files were found for this release.",
+    "download_failed": "Could not download tracks for this release. Please try again later.",
+    "not_found": "Yandex Music release not found.",
+    "not_configured": "Yandex Music support is not configured on this bot.",
+    "api_error": "Could not fetch Yandex Music release info. Please try again later.",
+    "disabled": "Yandex Music support is disabled on this bot.",
+    "geoblocked": "Yandex Music metadata is not available from the server region right now. Please try again later."
+  },
   "soundcloud": {
     "card_title": "🎤 {artist} — {name}",
     "track_card_title": "🎤 {artist} — {title}",

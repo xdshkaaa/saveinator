@@ -78,6 +78,28 @@
     "disabled": "Spotify қолдауы бұл ботта өшірілген.",
     "not_spotify_link": "Бұл бот тек Spotify сілтемелерімен жұмыс істейді. Альбом немесе трек URL жіберіңіз."
   },
+  "yandexmusic": {
+    "card_title": "🎶 {artist} — {name}",
+    "track_card_title": "🎶 {artist} — {title}",
+    "duration": "Ұзақтығы: {duration}",
+    "album_name": "Альбом: {name}",
+    "tracks_count": "Тректер: {count}",
+    "release_year": "Жылы: {year}",
+    "btn_open": "Яндекс Музыкасында ашу",
+    "btn_download_album": "⬇ Бүкіл альбомды жүктеу ({count})",
+    "no_download": "Яндекс Музыкасы үшін тек релиз карточкасы қолжетімді. Аудио жүктеп алу осы ботта өшірілген.",
+    "download_starting": "Жүктеп алуды бастау: тректер — {total}",
+    "download_track": "Жүктеп аламын {current}/{total}: {title}",
+    "send_track": "Жіберемін {current}/{total}: {title}",
+    "download_done": "Дайын: жіберілген тректер — {count}/{total}.",
+    "download_none_found": "Бұл релизге арналған аудио файлдар табылмады.",
+    "download_failed": "Бұл релиздің тректерін жүктеп алу мүмкін болмады. Кейінірек қайталап көріңіз.",
+    "not_found": "Релиз Яндекс Музыкасында табылмады.",
+    "not_configured": "Яндекс Музыкасын қолдау бұл ботта теңшелмеген.",
+    "api_error": "Яндекс Музыкасынан релиз деректерін алу мүмкін болмады. Кейінірек қайталап көріңіз.",
+    "disabled": "Яндекс Музыкасын қолдау бұл ботта өшірілген.",
+    "geoblocked": "Яндекс Музыкасының метадеректері қазір сервер аймағынан қолжетімсіз. Кейінірек қайталап көріңіз."
+  },
   "soundcloud": {
     "card_title": "🎤 {artist} — {name}",
     "track_card_title": "🎤 {artist} — {title}",

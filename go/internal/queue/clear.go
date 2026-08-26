@@ -14,12 +14,13 @@ const (
 )
 
 var userTaskTypes = map[string]struct{}{
-	TypeDownload:      {},
-	TypeTikTok:        {},
-	TypePinterest:     {},
-	TypePinterestKZ:   {},
-	TypeSpotify:       {},
-	TypeSoundCloud:    {},
+	TypeDownload:       {},
+	TypeTikTok:         {},
+	TypePinterest:      {},
+	TypePinterestKZ:    {},
+	TypeSpotify:        {},
+	TypeSoundCloud:     {},
+	TypeYandexMusic:    {},
 	TypeTikTokCarousel: {},
 }
 
@@ -50,7 +51,7 @@ func TaskUserID(taskType string, payload []byte) (int64, bool) {
 		return 0, false
 	}
 	switch taskType {
-	case TypeSpotify, TypeSoundCloud:
+	case TypeSpotify, TypeSoundCloud, TypeYandexMusic:
 		var p MusicPayload
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return 0, false
@@ -70,7 +71,7 @@ func TaskLockRef(taskType string, payload []byte) (LockRef, bool) {
 		return LockRef{}, false
 	}
 	switch taskType {
-	case TypeSpotify, TypeSoundCloud:
+	case TypeSpotify, TypeSoundCloud, TypeYandexMusic:
 		var p MusicPayload
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return LockRef{}, false

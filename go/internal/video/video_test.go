@@ -150,3 +150,102 @@ func TestCompressIfOversizedSkipsShortVideos(t *testing.T) {
 		t.Fatalf("expected short video to be left untouched, got %q", out)
 	}
 }
+
+func TestCompressToFitMissingFileReturnsSourceUnchanged(t *testing.T) {
+	t.Parallel()
+	path := "/tmp/does-not-exist-fit-test.mp4"
+	out, ok := CompressToFit(context.Background(), path, 10*1024*1024)
+	if ok || out != path {
+		t.Fatalf("expected untouched source, got %q ok=%v", out, ok)
+	}
+}
+
+func TestFitHeight(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		src    int
+		budget int
+		want   int
+	}{
+		// Comfortable budget keeps the source resolution.
+		{"keeps source when budget fits", 1080, 4000, 1080},
+		{"keeps small source even on tight budget", 360, 200, 360},
+		// Steps down to the tallest height the budget sustains.
+		{"steps 1080 to 720", 1080, 2000, 720},
+		{"steps 1080 to 480", 1080, 700, 480},
+		{"steps 720 to 360", 720, 500, 360},
+		{"floor at 240", 1080, 130, 240},
+	}
+	for _, tc := range cases {
+		if got := fitHeight(tc.src, tc.budget); got != tc.want {
+			t.Errorf("%s: fitHeight(%d, %d) = %d, want %d", tc.name, tc.src, tc.budget, got, tc.want)
+		}
+	}
+}
+
+func TestCompressToFitShrinksUnderCapKeepingFilename(t *testing.T) {
+	requireFFmpeg(t)
+	t.Parallel()
+	dir := t.TempDir()
+	source := filepath.Join(dir, "BigVideo_dQw4w9WgXcQ.mp4")
+	generateHighBitrateSample(t, source)
+
+	before, err := os.Stat(source)
+	if err != nil {
+		t.Fatalf("stat source: %v", err)
+	}
+
+	out, ok := CompressToFit(context.Background(), source, before.Size()/2)
+	if !ok {
+		t.Fatal("expected compression to fit under the cap")
+	}
+	if out != source {
+		t.Fatalf("expected output to keep original path %q, got %q", source, out)
+	}
+
+	after, err := os.Stat(out)
+	if err != nil {
+		t.Fatalf("stat output: %v", err)
+	}
+	if after.Size() > before.Size()/2 {
+		t.Fatalf("expected output under cap %d, got %d", before.Size()/2, after.Size())
+	}
+
+	if leftover, _ := filepath.Glob(filepath.Join(dir, "*_fittmp*")); len(leftover) != 0 {
+		t.Fatalf("expected no leftover temp files, found %v", leftover)
+	}
+	if filepath.Base(out) != filepath.Base(source) {
+		t.Fatalf("expected filename to be preserved, source=%q out=%q", filepath.Base(source), filepath.Base(out))
+	}
+}
+
+func TestCompressToFitRefusesImpossibleBudget(t *testing.T) {
+	requireFFmpeg(t)
+	t.Parallel()
+	dir := t.TempDir()
+	source := filepath.Join(dir, "HugeVideo_dQw4w9WgXcQ.mp4")
+	generateHighBitrateSample(t, source)
+
+	before, statErr := os.Stat(source)
+	if statErr != nil {
+		t.Fatalf("stat source: %v", statErr)
+	}
+
+	// A 16 KB cap for a 3-second clip is far below any watchable bitrate.
+	out, ok := CompressToFit(context.Background(), source, 16*1024)
+	if ok {
+		t.Fatal("expected refusal for impossible budget")
+	}
+	if out != source {
+		t.Fatalf("expected source untouched, got %q", out)
+	}
+
+	after, err := os.Stat(source)
+	if err != nil {
+		t.Fatalf("stat source after refusal: %v", err)
+	}
+	if after.Size() != before.Size() {
+		t.Fatalf("expected source size unchanged, before=%d after=%d", before.Size(), after.Size())
+	}
+}

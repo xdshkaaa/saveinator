@@ -43,6 +43,7 @@ func (q *recordingQueue) EnqueueTikTok(p queue.DownloadPayload) error {
 
 func (q *recordingQueue) EnqueueSpotify(p queue.MusicPayload) error           { return nil }
 func (q *recordingQueue) EnqueueSoundCloud(p queue.MusicPayload) error        { return nil }
+func (q *recordingQueue) EnqueueYandexMusic(p queue.MusicPayload) error       { return nil }
 func (q *recordingQueue) EnqueueBroadcast(p queue.BroadcastPayload) error     { return nil }
 func (q *recordingQueue) EnqueueTikTokCarousel(p queue.DownloadPayload) error { return nil }
 func (q *recordingQueue) EnqueuePinterestDefault(p queue.DownloadPayload) error {

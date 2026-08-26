@@ -98,6 +98,10 @@ var (
 		Name: "saveinator_spotify_requests_total",
 		Help: "Spotify link handling requests",
 	})
+	YandexMusicRequestsTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "saveinator_yandex_music_requests_total",
+		Help: "Yandex Music link handling requests",
+	})
 	SoundCloudRequestsTotal = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "saveinator_soundcloud_requests_total",
 		Help: "SoundCloud link handling requests",

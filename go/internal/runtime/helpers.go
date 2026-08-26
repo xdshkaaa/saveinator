@@ -16,6 +16,9 @@ func (s *Store) PlatformMaxFileMB(ctx context.Context, platform string) int {
 	if platform == "spotify" {
 		return s.CurrentInt(ctx, key, s.cfg.SendDocumentLimitMB)
 	}
+	if platform == "yandexmusic" {
+		return s.CurrentInt(ctx, key, s.cfg.SendDocumentLimitMB)
+	}
 	return s.CurrentInt(ctx, key, s.cfg.SendVideoLimitMB)
 }
 
@@ -26,6 +29,9 @@ func (s *Store) PlatformTimeoutSec(ctx context.Context, platform string) int {
 	}
 	if platform == "spotify" {
 		return s.CurrentInt(ctx, "spotify.track_timeout_sec", s.cfg.SpotifyTrackTimeoutSeconds)
+	}
+	if platform == "yandexmusic" {
+		return s.CurrentInt(ctx, "yandexmusic.track_timeout_sec", s.cfg.YandexMusicTrackTimeoutSeconds)
 	}
 	if platform == "soundcloud" {
 		return s.CurrentInt(ctx, "soundcloud.track_timeout_sec", s.cfg.SoundCloudTrackTimeoutSeconds)

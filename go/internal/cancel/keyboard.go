@@ -84,6 +84,8 @@ func scenarioLabel(scenario string) string {
 	switch scenario {
 	case "spotify":
 		return "Spotify"
+	case "yandexmusic":
+		return "Yandex Music"
 	case "soundcloud":
 		return "SoundCloud"
 	case "pinterest":

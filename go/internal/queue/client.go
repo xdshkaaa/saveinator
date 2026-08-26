@@ -15,6 +15,7 @@ const (
 	TypePinterestKZ = "download:pinterest_kz"
 	TypeSpotify     = "download:spotify"
 	TypeSoundCloud  = "download:soundcloud"
+	TypeYandexMusic = "download:yandexmusic"
 	TypeBroadcast       = "broadcast:execute"
 	TypeTikTokCarousel  = "download:tiktok_carousel"
 	TypeInstagram       = "download:instagram"
@@ -178,6 +179,16 @@ func (c *Client) EnqueueSoundCloud(p MusicPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeSoundCloud, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(QueueDownload))
+	return err
+}
+
+func (c *Client) EnqueueYandexMusic(p MusicPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeYandexMusic, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(2*time.Hour), asynq.Queue(QueueDownload))
 	return err
 }

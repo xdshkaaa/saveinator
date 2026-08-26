@@ -51,6 +51,57 @@ func TestSpotifyExplicitDisable(t *testing.T) {
 	}
 }
 
+func TestYandexMusicAutoEnableWithToken(t *testing.T) {
+	t.Setenv("BOT_TOKEN", "test-token")
+	t.Setenv("INTERNAL_API_TOKEN", "test-internal-token")
+	t.Setenv("YANDEX_MUSIC_ACCESS_TOKEN", "yandex-token")
+	os.Unsetenv("YANDEX_MUSIC_ENABLED")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.YandexMusicEnabled {
+		t.Fatal("expected YandexMusicEnabled=true when token present and flag unset")
+	}
+}
+
+func TestYandexMusicExplicitDisable(t *testing.T) {
+	t.Setenv("BOT_TOKEN", "test-token")
+	t.Setenv("INTERNAL_API_TOKEN", "test-internal-token")
+	t.Setenv("YANDEX_MUSIC_ACCESS_TOKEN", "yandex-token")
+	t.Setenv("YANDEX_MUSIC_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.YandexMusicEnabled {
+		t.Fatal("expected YandexMusicEnabled=false when explicitly disabled")
+	}
+}
+
+func TestYandexMusicDefaults(t *testing.T) {
+	t.Setenv("BOT_TOKEN", "test-token")
+	t.Setenv("INTERNAL_API_TOKEN", "test-internal-token")
+	os.Unsetenv("YANDEX_MUSIC_ACCESS_TOKEN")
+	os.Unsetenv("YANDEX_MUSIC_ENABLED")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.YandexMusicEnabled {
+		t.Fatal("expected YandexMusicEnabled=false without token")
+	}
+	if cfg.YandexMusicDownloadEnabled != true {
+		t.Fatal("expected YandexMusicDownloadEnabled=true by default")
+	}
+	if cfg.YandexMusicTrackTimeoutSeconds != 60 || cfg.YandexMusicLockMaxTracks != 50 || cfg.YandexMusicDownloadConcurrency != 2 {
+		t.Fatalf("unexpected defaults: %+v", cfg)
+	}
+}
+
 func TestLoad_requiresInternalAPITokenWhenDownloadAPIEnabled(t *testing.T) {
 	t.Setenv("BOT_TOKEN", "test-token")
 	os.Unsetenv("INTERNAL_API_TOKEN")

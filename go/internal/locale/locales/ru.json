@@ -78,6 +78,28 @@
     "disabled": "Поддержка Spotify отключена на этом боте.",
     "not_spotify_link": "Этот бот работает только со ссылками Spotify. Отправь URL альбома или трека."
   },
+  "yandexmusic": {
+    "card_title": "🎶 {artist} — {name}",
+    "track_card_title": "🎶 {artist} — {title}",
+    "duration": "Длительность: {duration}",
+    "album_name": "Альбом: {name}",
+    "tracks_count": "Треков: {count}",
+    "release_year": "Год: {year}",
+    "btn_open": "Открыть в Яндекс Музыке",
+    "btn_download_album": "⬇ Скачать весь альбом ({count})",
+    "no_download": "Для Яндекс Музыки доступна только карточка релиза. Скачивание аудио отключено на этом боте.",
+    "download_starting": "Начинаю скачивание: треков — {total}",
+    "download_track": "Скачиваю {current}/{total}: {title}",
+    "send_track": "Отправляю {current}/{total}: {title}",
+    "download_done": "Готово: отправлено треков — {count}/{total}.",
+    "download_none_found": "Не удалось найти аудиофайлы для этого релиза.",
+    "download_failed": "Не удалось скачать треки этого релиза. Попробуй позже.",
+    "not_found": "Релиз не найден в Яндекс Музыке.",
+    "not_configured": "Поддержка Яндекс Музыки не настроена на этом боте.",
+    "api_error": "Не удалось получить данные релиза из Яндекс Музыки. Попробуй позже.",
+    "disabled": "Поддержка Яндекс Музыки отключена на этом боте.",
+    "geoblocked": "Метаданные Яндекс Музыки сейчас недоступны из региона сервера. Попробуй позже."
+  },
   "soundcloud": {
     "card_title": "🎤 {artist} — {name}",
     "track_card_title": "🎤 {artist} — {title}",

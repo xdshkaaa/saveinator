@@ -12,6 +12,7 @@ type taskEnqueuer interface {
 	EnqueuePinterestDefault(p queue.DownloadPayload) error
 	EnqueueSpotify(p queue.MusicPayload) error
 	EnqueueSoundCloud(p queue.MusicPayload) error
+	EnqueueYandexMusic(p queue.MusicPayload) error
 	EnqueueBroadcast(p queue.BroadcastPayload) error
 	EnqueueTikTokCarousel(p queue.DownloadPayload) error
 	EnqueueInstagram(p queue.DownloadPayload) error

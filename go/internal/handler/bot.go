@@ -24,6 +24,7 @@ import (
 	"saveinator/internal/spotify"
 	"saveinator/internal/tgemoji"
 	"saveinator/internal/tiktok"
+	"saveinator/internal/yandexmusic"
 	"saveinator/internal/youtube"
 )
 
@@ -36,6 +37,7 @@ type Bot struct {
 	ttSessions *tiktok.SessionStore
 	spotify    *spotify.Client
 	soundcloud *soundcloud.Client
+	yandex     *yandexmusic.Client
 	fsm        *fsmStore
 	runtime    *runtime.Store
 }
@@ -50,6 +52,7 @@ func New(cfg *config.Settings, store *db.Store, redis *redisx.Client, q taskEnqu
 		ttSessions: tiktok.NewSessionStore(redis.Raw()),
 		spotify:    spotify.NewClient(cfg.SpotifyClientID, cfg.SpotifyClientSecret, cfg.SpotifyAPITimeoutSeconds),
 		soundcloud: soundcloud.NewClient(cfg.SoundCloudTrackTimeoutSeconds, cfg.SoundCloudMaxTracks),
+		yandex:     yandexmusic.NewClient(cfg.YandexMusicAccessToken, cfg.YandexMusicAPITimeoutSeconds),
 		fsm:        newFSM(),
 		runtime:    runtime.NewStore(redis, cfg),
 	}
@@ -72,6 +75,7 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onAdminCallback(bot), th.CallbackDataPrefix("admin|"))
 	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
 	h.HandleCallbackQueryCtx(b.onTikTokCarousel(bot), th.CallbackDataPrefix("ttk:img:"))
+	h.HandleCallbackQueryCtx(b.onYandexAlbumDownload(bot), th.CallbackDataPrefix(yandexmusic.AlbumCallbackPrefix))
 	// Fallback for callback data matching no prefix above (stale/forged buttons).
 	// Telego dispatches to the first handler whose predicates match, so this MUST
 	// stay registered last or it will shadow every handler above it.
@@ -219,6 +223,12 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 			return
 		}
 		b.handleSpotifyLink(ctx, bot, msg, lang, link)
+	case linkparser.PlatformYandexMusic:
+		if !b.runtime.PlatformEnabled(ctx, "yandexmusic") {
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("yandexmusic.disabled", lang, nil)))
+			return
+		}
+		b.handleYandexMusicLink(ctx, bot, msg, lang, link)
 	case linkparser.PlatformSoundCloud:
 		if !b.runtime.PlatformEnabled(ctx, "soundcloud") {
 			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("soundcloud.disabled", lang, nil)))
@@ -391,6 +401,9 @@ func musicLockTTL(cfg *config.Settings, scene string, trackCount int) time.Durat
 	switch scene {
 	case "spotify":
 		perTrack := time.Duration(cfg.SpotifyTrackTimeoutSeconds) * time.Second
+		return perTrack*time.Duration(trackCount) + buffer
+	case "yandexmusic":
+		perTrack := time.Duration(cfg.YandexMusicTrackTimeoutSeconds) * time.Second
 		return perTrack*time.Duration(trackCount) + buffer
 	case "soundcloud":
 		perTrack := time.Duration(cfg.SoundCloudTrackTimeoutSeconds) * time.Second

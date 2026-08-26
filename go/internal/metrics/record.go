@@ -60,6 +60,8 @@ func CeleryTaskName(taskType string) string {
 		return "workers.tiktok_task.tiktok_carousel_images_task"
 	case queue.TypeSpotify:
 		return "workers.tasks.spotify_download_task"
+	case queue.TypeYandexMusic:
+		return "workers.tasks.yandexmusic_download_task"
 	case queue.TypeSoundCloud:
 		return "workers.tasks.soundcloud_download_task"
 	case queue.TypeBroadcast:

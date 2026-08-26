@@ -26,7 +26,7 @@ type Setting struct {
 }
 
 var ServiceOrder = []string{
-	"youtube", "tiktok", "x", "spotify", "soundcloud", "pinterest", "instagram",
+	"youtube", "tiktok", "x", "spotify", "yandexmusic", "soundcloud", "pinterest", "instagram",
 }
 
 func intSetting(key, field, service, en, ru, unit string, min, max, def int) Setting {
@@ -84,6 +84,15 @@ var settings = []Setting{
 	intSetting("spotify.max_tracks_per_album", "SpotifyLockMaxTracks", "spotify", "Max tracks per album", "Треков на альбом", "", 1, 100, 50),
 	intSetting("spotify.download_concurrency", "SpotifyDownloadConcurrency", "spotify", "Download concurrency", "Одновременных загрузок", "", 1, 5, 2),
 
+	// yandexmusic
+	boolSetting("yandexmusic.enabled", "YandexMusicEnabled", "yandexmusic", "Enabled", "Включено", false),
+	boolSetting("yandexmusic.download_enabled", "YandexMusicDownloadEnabled", "yandexmusic", "Download enabled", "Скачивание", true),
+	intSetting("yandexmusic.max_file_mb", "SendDocumentLimitMB", "yandexmusic", "Max file", "Лимит файла", "MB", 1, 1999, 1999),
+	intSetting("yandexmusic.track_timeout_sec", "YandexMusicTrackTimeoutSeconds", "yandexmusic", "Track timeout", "Таймаут трека", "sec", 10, 300, 60),
+	intSetting("yandexmusic.api_timeout_sec", "YandexMusicAPITimeoutSeconds", "yandexmusic", "API timeout", "Таймаут API", "sec", 5, 60, 15),
+	intSetting("yandexmusic.max_tracks_per_album", "YandexMusicLockMaxTracks", "yandexmusic", "Max tracks per album", "Треков на альбом", "", 1, 100, 50),
+	intSetting("yandexmusic.download_concurrency", "YandexMusicDownloadConcurrency", "yandexmusic", "Download concurrency", "Одновременных загрузок", "", 1, 5, 2),
+
 	// soundcloud
 	boolSetting("soundcloud.enabled", "SoundCloudEnabled", "soundcloud", "Enabled", "Включено", true),
 	boolSetting("soundcloud.download_enabled", "SoundCloudDownloadEnabled", "soundcloud", "Download enabled", "Скачивание", false),
@@ -138,6 +147,7 @@ func ServiceLabel(service, lang string) string {
 		"tiktok":     {"TikTok", "TikTok"},
 		"x":          {"X / Twitter", "X / Twitter"},
 		"spotify":    {"Spotify", "Spotify"},
+		"yandexmusic": {"Yandex Music", "Яндекс Музыка"},
 		"soundcloud": {"SoundCloud", "SoundCloud"},
 		"pinterest":  {"Pinterest", "Pinterest"},
 		"instagram":  {"Instagram", "Instagram"},
