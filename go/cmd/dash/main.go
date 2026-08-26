@@ -28,7 +28,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	databaseURL := envOr("DATABASE_URL", "postgres://saveinator:saveinator@localhost:5432/saveinator?sslmode=disable")
+	databaseURL := normalizePostgresURL(envOr("DATABASE_URL", "postgres://saveinator:saveinator@localhost:5432/saveinator?sslmode=disable"))
 	redisURL := envOr("REDIS_URL", "redis://localhost:6379/0")
 	listen := envOr("DASH_LISTEN", "127.0.0.1")
 	port := envOr("DASH_PORT", "9000")
@@ -99,4 +99,16 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// normalizePostgresURL converts SQLAlchemy-style URLs (used by the compose
+// env) into pgx-compatible ones, mirroring config.normalizePostgresURL.
+func normalizePostgresURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	for _, prefix := range []string{"postgresql+asyncpg://", "postgresql://"} {
+		if strings.HasPrefix(raw, prefix) {
+			return "postgres://" + strings.TrimPrefix(raw, prefix)
+		}
+	}
+	return raw
 }
