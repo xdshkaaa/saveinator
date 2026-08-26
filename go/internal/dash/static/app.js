@@ -29,6 +29,16 @@
   const fmt = new Intl.NumberFormat("ru-RU");
   const fmtPct = (v) => (Number.isFinite(v) ? v.toFixed(1).replace(".", ",") + " %" : "—");
 
+  const STATUS_LABELS = {
+    QUEUED: "в очереди",
+    FETCHING: "получение",
+    DOWNLOADING: "скачивание",
+    TRANSCODING: "конвертация",
+    SENDING: "отправка",
+    COMPLETED: "отправлено",
+    FAILED: "ошибка",
+  };
+
   const state = {
     overview: null,
     services: [],
@@ -306,7 +316,7 @@
         const created = new Date(u.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
         const last = u.last_activity ? new Date(u.last_activity).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "—";
         const failCls = u.failed > 0 ? "fail-num" : "";
-        return `<tr>
+        return `<tr class="user-row" tabindex="0" data-id="${u.id}" data-handle="${escapeHtml(handle || name || u.id)}" title="История загрузок">
           <td class="user-id">${u.id}</td>
           <td class="user-handle">${escapeHtml(handle)} ${name ? `<span class="user-name">${escapeHtml(name)}</span>` : ""}</td>
           <td><span class="lang-chip">${lang}</span></td>
@@ -318,6 +328,84 @@
         </tr>`;
       })
       .join("");
+  }
+
+  /* ---------- user download history drawer ---------- */
+
+  function openDrawer(user) {
+    const drawer = $("user-drawer");
+    const backdrop = $("drawer-backdrop");
+    if (!drawer) return;
+    $("drawer-sub").textContent = "ID " + user.id + (user.username ? " · @" + user.username : "");
+    $("drawer-body").innerHTML = `<div class="empty">Загрузка…</div>`;
+    backdrop.hidden = false;
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    loadUserDownloads(user);
+  }
+
+  function closeDrawer() {
+    const drawer = $("user-drawer");
+    const backdrop = $("drawer-backdrop");
+    if (!drawer) return;
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    backdrop.hidden = true;
+    document.body.style.overflow = "";
+  }
+
+  async function loadUserDownloads(user) {
+    try {
+      const data = await api("/api/users/" + user.id + "/downloads?limit=200");
+      renderDownloads(user, data.downloads || []);
+    } catch (err) {
+      $("drawer-body").innerHTML = `<div class="empty">Не удалось загрузить историю: ${escapeHtml(String(err.message || err))}</div>`;
+    }
+  }
+
+  function renderDownloads(user, list) {
+    const body = $("drawer-body");
+    if (!body) return;
+    if (!list.length) {
+      body.innerHTML = `<div class="empty">У этого пользователя пока нет загрузок.</div>`;
+      return;
+    }
+    const total = list.length;
+    const ok = list.filter((d) => d.status === "COMPLETED").length;
+    const fail = list.filter((d) => d.status === "FAILED").length;
+    const failLine = fail ? ` · <span class="fail-num">ошибок: ${fmt.format(fail)}</span>` : "";
+    $("drawer-sub").innerHTML =
+      `ID ${user.id}${user.username ? " · @" + escapeHtml(user.username) : ""} · ` +
+      `загрузок: ${fmt.format(total)} · <span class="ok-num">успешно: ${fmt.format(ok)}</span>${failLine}`;
+
+    body.innerHTML =
+      `<div class="dl-list">` +
+      list
+        .map((d) => {
+          const s = d.status || "UNKNOWN";
+          const label = STATUS_LABELS[s] || s.toLowerCase();
+          const plat = platformLabel(d.platform);
+          const when = new Date(d.created_at).toLocaleString("ru-RU", {
+            day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
+          });
+          const size = d.file_size_mb > 0 ? fmt.format(Math.round(d.file_size_mb * 10) / 10) + " MB" : "";
+          const bot = d.bot_id && d.bot_id !== "unknown" ? botLabel(d.bot_id) : "";
+          const url = d.url.startsWith("http") ? d.url : "https://" + d.url;
+          return `<div class="dl-item s-${s}">
+            <span class="dl-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.url)}</a></span>
+            <span class="dl-badge s-${s}">${label}</span>
+            <span class="dl-meta">
+              <span>${escapeHtml(plat)}</span>
+              <span>${when}</span>
+              ${size ? `<span>${size}</span>` : ""}
+              ${bot ? `<span>${escapeHtml(bot)}</span>` : ""}
+            </span>
+            ${d.error_message ? `<span class="dl-err">${escapeHtml(d.error_message)}</span>` : ""}
+          </div>`;
+        })
+        .join("") +
+      `</div>`;
   }
 
   /* ---------- load ---------- */
@@ -411,6 +499,25 @@
       state.q = e.target.value;
       clearTimeout(state.searchTimer);
       state.searchTimer = setTimeout(renderUsers, 250);
+    });
+
+    $("users-body").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr.user-row");
+      if (tr) openDrawer(tr.dataset);
+    });
+    $("users-body").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const tr = e.target.closest("tr.user-row");
+      if (tr) {
+        e.preventDefault();
+        openDrawer(tr.dataset);
+      }
+    });
+
+    $("drawer-close").addEventListener("click", closeDrawer);
+    $("drawer-backdrop").addEventListener("click", closeDrawer);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDrawer();
     });
 
     window.addEventListener("resize", () => {

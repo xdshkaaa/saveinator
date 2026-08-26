@@ -7,9 +7,12 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 const (
@@ -117,6 +120,22 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": rows, "total": len(rows)})
+}
+
+func (s *Server) handleUserDownloads(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || userID <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid user id"})
+		return
+	}
+	limit := intQuery(r, "limit", 200)
+
+	rows, err := s.store.UserDownloads(r.Context(), userID, limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user_id": userID, "downloads": rows, "total": len(rows)})
 }
 
 func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {

@@ -37,6 +37,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/api/downloads", s.handleDownloads)
 	r.Get("/api/platforms", s.handlePlatforms)
 	r.Get("/api/users", s.handleUsers)
+	r.Get("/api/users/{id}/downloads", s.handleUserDownloads)
 	r.Get("/api/services", s.handleServices)
 
 	sub, err := fs.Sub(staticFS, "static")

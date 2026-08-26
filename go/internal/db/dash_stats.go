@@ -337,3 +337,45 @@ func (s *Store) UserTable(ctx context.Context, sort, q string, limit int) ([]Use
 	return out, rows.Err()
 }
 
+type UserDownload struct {
+	ID           int64      `json:"id"`
+	URL          string     `json:"url"`
+	Platform     string     `json:"platform"`
+	Status       string     `json:"status"`
+	BotID        *string    `json:"bot_id"`
+	FileSizeMB   float64    `json:"file_size_mb"`
+	ErrorMessage *string    `json:"error_message"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CompletedAt  *time.Time `json:"completed_at"`
+}
+
+// UserDownloads returns a user's download history, newest first.
+func (s *Store) UserDownloads(ctx context.Context, userID int64, limit int) ([]UserDownload, error) {
+	if limit < 1 || limit > 1000 {
+		limit = 200
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, url, platform::text, status::text, bot_id,
+			COALESCE(file_size, 0)::float / (1024 * 1024) AS file_size_mb,
+			error_message, created_at, completed_at
+		FROM downloads
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []UserDownload
+	for rows.Next() {
+		var d UserDownload
+		if rows.Scan(&d.ID, &d.URL, &d.Platform, &d.Status, &d.BotID,
+			&d.FileSizeMB, &d.ErrorMessage, &d.CreatedAt, &d.CompletedAt) == nil {
+			out = append(out, d)
+		}
+	}
+	return out, rows.Err()
+}
+
