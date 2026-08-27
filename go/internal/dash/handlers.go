@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	activeWindow    = 30 * time.Minute
-	serviceTimeout  = 3 * time.Second
+	activeWindow     = 30 * time.Minute
+	serviceTimeout   = 3 * time.Second
 	servicesCacheTTL = 10 * time.Second
 )
 
@@ -62,27 +62,27 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"updated_at":  time.Now().UTC(),
-		"active_now":  activeNow,
-		"banned":      banned,
-		"users":       o.TotalUsers,
-		"new_today":   o.NewToday,
-		"new_yesterday": o.NewYesterday,
-		"new_7d":      o.New7d,
-		"new_30d":     o.New30d,
-		"downloads_today": o.DownloadsToday,
-		"downloads_7d":    o.Downloads7d,
-		"downloads_30d":   o.Downloads30d,
-		"completed_30d":   o.Completed30d,
-		"failed_30d":      o.Failed30d,
-		"dau":          o.DAU,
-		"wau":          o.WAU,
-		"mau":          o.MAU,
+		"updated_at":           time.Now().UTC(),
+		"active_now":           activeNow,
+		"banned":               banned,
+		"users":                o.TotalUsers,
+		"new_today":            o.NewToday,
+		"new_yesterday":        o.NewYesterday,
+		"new_7d":               o.New7d,
+		"new_30d":              o.New30d,
+		"downloads_today":      o.DownloadsToday,
+		"downloads_7d":         o.Downloads7d,
+		"downloads_30d":        o.Downloads30d,
+		"completed_30d":        o.Completed30d,
+		"failed_30d":           o.Failed30d,
+		"dau":                  o.DAU,
+		"wau":                  o.WAU,
+		"mau":                  o.MAU,
 		"users_with_downloads": o.UsersWith,
 		"returning_users":      o.ReturningUsers,
-		"languages":      o.Languages,
-		"platforms_30d":  o.Platforms30d,
-		"bots":           o.Bots,
+		"languages":            o.Languages,
+		"platforms_30d":        o.Platforms30d,
+		"bots":                 o.Bots,
 	})
 }
 
@@ -144,7 +144,7 @@ func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {
 	if now.Sub(cache.at) < servicesCacheTTL {
 		cache.mu.Unlock()
 		writeJSON(w, http.StatusOK, map[string]any{
-			"services":  cache.status,
+			"services":   cache.status,
 			"checked_at": cache.at,
 		})
 		return

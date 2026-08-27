@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Deploy the operator dashboard (dash) to the VPS: builds the dash container,
-# wires up Caddy (:8094, basic auth) and the Cloudflare Tunnel ingress, and
-# verifies the public hostname.
+# wires up Caddy (:8098) and the Cloudflare Tunnel ingress, and verifies the
+# public hostname.
+#
+# Auth is inside the app (Telegram Login), so no basic-auth credentials are
+# needed at the proxy. The bot used by the Login Widget must have the domain
+# whitelisted: @BotFather → /setdomain → dash-saveinator.xdshka.party.
 #
 # Unlike the full deploy (deploy.sh), this script PATCHES the live Caddyfile
 # and cloudflared config on the VPS instead of replacing them, because those
@@ -12,8 +16,10 @@ set -euo pipefail
 VPS_HOST="${VPS_HOST:?set VPS_HOST env var}"
 VPS_USER="root"
 APP_DIR="/opt/saveinator"
-DASH_USER="${DASH_AUTH_USER:?set DASH_AUTH_USER env var}"
-DASH_PASS="${DASH_AUTH_PASSWORD:?set DASH_AUTH_PASSWORD env var}"
+# Optional: which Telegram bot powers the Login Widget and who may log in.
+# Defaults match the compose service (main bot token + owner id).
+DASH_TELEGRAM_TOKEN="${DASH_TELEGRAM_TOKEN:-}"
+DASH_ADMIN_IDS="${DASH_ADMIN_IDS:-339193247}"
 
 echo "=== Deploying dash to $VPS_HOST ==="
 
@@ -34,11 +40,12 @@ ssh "$VPS_USER@$VPS_HOST" "
     done
 "
 
-echo "[3/6] Patching Caddy (block :8098 + basic auth)..."
+echo "[3/6] Patching Caddy (block :8098)..."
 # The repo file monitoring/caddy-grafana.caddyfile contains the exact block
 # to insert; pull it out and splice it into the live Caddyfile if missing.
 # The marker comment is what makes the block unique — :PORT numbers on this
 # host are shared with other projects, so we match on the dash comment.
+# If the live block still carries basic_auth from an older deploy, remove it.
 ssh "$VPS_USER@$VPS_HOST" "
     set -euo pipefail
     MARK='# dash-saveinator.xdshka.party'
@@ -52,23 +59,21 @@ ssh "$VPS_USER@$VPS_HOST" "
         printf '\n%s\n' \"\$BLOCK\" >> /etc/caddy/Caddyfile
         echo 'Caddy: block :8098 appended (backup created)'
     else
-        echo 'Caddy: dash block already present, skipping'
+        # Older blocks carried basic_auth; strip it now that auth lives in-app.
+        cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.\$(date +%Y%m%d%H%M%S)
+        sed -i '/basic_auth {/,/}/d' /etc/caddy/Caddyfile
+        sed -i '/dash.htpasswd/d' /etc/caddy/Caddyfile
+        echo 'Caddy: dash block already present; stripped basic_auth (backup created)'
     fi
 "
 
-echo "[4/6] Setting up basic auth..."
+echo "[4/6] Ensuring access log ownership..."
 ssh "$VPS_USER@$VPS_HOST" "
     set -euo pipefail
-    HASH=\$(caddy hash-password --plaintext '$DASH_PASS')
-    # basic_auth expects 'user <hash>' (space-separated); import splices it.
-    printf '%s %s\n' '$DASH_USER' \"\$HASH\" > /etc/caddy/dash.htpasswd
-    # caddy reload adapts config as the caddy user, so the file must be readable.
-    chown caddy:caddy /etc/caddy/dash.htpasswd
-    chmod 640 /etc/caddy/dash.htpasswd
     # pre-create the access log with caddy ownership (caddy can't open root-owned files).
     touch /var/log/caddy/dash-saveinator.xdshka.party.access.log
     chown caddy:caddy /var/log/caddy/dash-saveinator.xdshka.party.access.log
-    echo 'dash.htpasswd written'
+    echo 'access log ready'
 "
 
 echo "[5/6] Patching cloudflared ingress..."
@@ -98,16 +103,19 @@ ssh "$VPS_USER@$VPS_HOST" "
     echo '--- dash direct (expect 200) ---'
     curl -fsS http://127.0.0.1:9000/api/health
     echo
-    echo '--- caddy no auth (expect 401) ---'
-    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8098/
-    echo '--- caddy with auth (expect 200) ---'
-    curl -s -o /dev/null -w '%{http_code}\n' -u '$DASH_USER:$DASH_PASS' http://127.0.0.1:8098/
-    echo '--- public hostname ---'
-    curl -s -o /dev/null -w '%{http_code}\n' -u '$DASH_USER:$DASH_PASS' https://dash-saveinator.xdshka.party/
+    echo '--- auth status (expect authed:false) ---'
+    curl -fsS http://127.0.0.1:9000/api/auth/status
+    echo
+    echo '--- overview without session (expect 401) ---'
+    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9000/api/overview
+    echo '--- public hostname (expect 200) ---'
+    curl -s -o /dev/null -w '%{http_code}\n' https://dash-saveinator.xdshka.party/
 "
 
 echo ""
 echo "=== Done! ==="
+echo "The app now authenticates via Telegram Login Widget."
+echo "Remember in @BotFather: /setdomain for the widget bot -> dash-saveinator.xdshka.party"
 echo "If the public check above did not return 200:"
 echo "  1. dig +short dash-saveinator.xdshka.party"
 echo "  2. If empty, add a CNAME dash-saveinator -> <tunnel-id>.cfargotunnel.com in Cloudflare DNS"

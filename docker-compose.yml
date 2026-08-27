@@ -205,6 +205,10 @@ services:
       REDIS_URL: redis://127.0.0.1:6379/0
       DASH_LISTEN: 127.0.0.1
       DASH_PORT: "9000"
+      # Telegram Login: the bot token for the widget (defaults to BOT_TOKEN
+      # inside the app) and the comma-separated allowlist of operator ids.
+      DASH_TELEGRAM_TOKEN: "${DASH_TELEGRAM_TOKEN:-${BOT_TOKEN:-}}"
+      DASH_ADMIN_IDS: "${DASH_ADMIN_IDS:-339193247}"
       # Service probes: app services and the monitoring stack all live on
       # the host loopback in host-network mode.
       DASH_SERVICE_PROBES: "${DASH_SERVICE_PROBES:-saveinator=http://127.0.0.1:8000/health;saveinator_metrics=http://127.0.0.1:9101/metrics;worker_metrics=http://127.0.0.1:9102/metrics;botd=http://127.0.0.1:8005/health;botd_metrics=http://127.0.0.1:9106/metrics;prometheus=http://127.0.0.1:9091/-/healthy;grafana=http://127.0.0.1:3000/api/health;node_exporter=http://127.0.0.1:9100/metrics;postgres_exporter=http://127.0.0.1:9187/metrics;redis_exporter=http://127.0.0.1:9121/metrics;loki=http://127.0.0.1:3100/loki/api/v1/status/buildinfo;promtail=http://127.0.0.1:9080/ready;cadvisor=http://127.0.0.1:8180/healthz}"

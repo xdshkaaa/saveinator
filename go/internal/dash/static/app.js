@@ -49,10 +49,89 @@
     searchTimer: null,
   };
 
+  /* ---------- auth ---------- */
+
+  const BOT_USERNAME = "SaveinatorBot"; // бот для Telegram Login Widget
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/status", { headers: { Accept: "application/json" } });
+      const data = await res.json();
+      return !!data.authed;
+    } catch {
+      return false;
+    }
+  }
+
+  function showLogin() {
+    $("app").hidden = true;
+    $("login").hidden = false;
+  }
+
+  function showApp(userName) {
+    $("login").hidden = true;
+    $("app").hidden = false;
+    if (userName) {
+      const btn = $("logout-btn");
+      btn.hidden = false;
+      btn.textContent = "Выйти · " + userName;
+    }
+  }
+
+  // Вызывается виджетом Telegram при успешном входе.
+  window.onTelegramAuth = async function (user) {
+    const err = $("login-err");
+    err.hidden = true;
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          id: user.id,
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+          username: user.username || "",
+          photo_url: user.photo_url || "",
+          auth_date: user.auth_date,
+          hash: user.hash,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        err.textContent =
+          res.status === 403
+            ? "Этот Telegram-аккаунт не в списке операторов."
+            : "Не удалось подтвердить вход: " + (data.error || res.status);
+        err.hidden = false;
+        return;
+      }
+      showApp(user.username ? "@" + user.username : user.first_name || "");
+      loadAll();
+      loadTimeline();
+      loadUsers();
+    } catch (e) {
+      err.textContent = "Сеть недоступна — попробуйте ещё раз.";
+      err.hidden = false;
+    }
+  };
+
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    showLogin();
+    location.reload();
+  }
+
   /* ---------- fetch helpers ---------- */
 
   async function api(path) {
     const res = await fetch(path, { headers: { Accept: "application/json" } });
+    if (res.status === 401) {
+      // сессия протухла — возвращаемся на экран входа
+      showLogin();
+      throw new Error("unauthorized");
+    }
     if (!res.ok) throw new Error(path + " → " + res.status);
     return res.json();
   }
@@ -80,7 +159,8 @@
       return;
     }
     const up = list.filter((s) => s.up).length;
-    hint.textContent = up + " из " + list.length + " в строю";
+    const all = list.length;
+    hint.textContent = up === all ? "все в строю" : up + " из " + all + " в строю";
     grid.innerHTML = list
       .map((s) => {
         const cls = s.up ? "up" : "down";
@@ -96,7 +176,7 @@
 
   /* ---------- KPI ---------- */
 
-  function setKpi(id, value, deltaHtml, deltaClass) {
+  function setKpi(id, value, deltaHtml, deltaClass, alarm) {
     const el = $(id);
     if (!el) return;
     const prev = state.prevKpi[id];
@@ -107,6 +187,11 @@
         d.innerHTML = deltaHtml;
         d.className = "kpi-delta" + (deltaClass ? " " + deltaClass : "");
       }
+    }
+    if (alarm) {
+      el.closest(".kpi").classList.add("kpi-alarm");
+    } else {
+      el.closest(".kpi").classList.remove("kpi-alarm");
     }
     if (prev !== undefined && prev !== value) {
       el.classList.remove("flash");
@@ -125,6 +210,7 @@
 
     const d30 = o.downloads_30d || 0;
     const success = d30 ? (o.completed_30d / d30) * 100 : 0;
+    const failed = o.failed_30d || 0;
 
     setKpi("kpi-users", fmt.format(o.users), "всего аккаунтов");
     setKpi("kpi-new-today", fmt.format(o.new_today), growthTxt, growthCls);
@@ -132,7 +218,7 @@
     setKpi("kpi-active-now", fmt.format(o.active_now), "онлайн за 30 минут");
     setKpi("kpi-dau-mau", fmt.format(o.dau) + " / " + fmt.format(o.mau), null);
     setKpi("kpi-stickiness", "стикинес: " + (o.mau ? (o.dau / o.mau * 100).toFixed(1).replace(".", ",") : "0") + " %");
-    setKpi("kpi-success", fmtPct(success), "ошибок: " + fmt.format(o.failed_30d), o.failed_30d > 0 ? "down" : "up");
+    setKpi("kpi-success", fmtPct(success), "ошибок: " + fmt.format(failed), failed > 0 ? "down" : "up", failed > 0);
   }
 
   /* ---------- timeline chart (canvas) ---------- */
@@ -141,6 +227,15 @@
     canvas: null,
     ctx: null,
     dpr: 1,
+  };
+
+  const CHART_COLORS = {
+    grid: "rgba(44, 57, 70, 0.55)",
+    axis: "#5d6b78",
+    area: "rgba(42, 171, 238, 0.14)",
+    total: "#2aabee",
+    ok: "#34d399",
+    bad: "#f87171",
   };
 
   function initChart() {
@@ -155,7 +250,7 @@
     const rect = chart.canvas.getBoundingClientRect();
     if (rect.width < 10) return;
     chart.canvas.width = Math.round(rect.width * chart.dpr);
-    chart.canvas.height = 260 * chart.dpr;
+    chart.canvas.height = Math.round(240 * chart.dpr);
     chart.ctx.setTransform(chart.dpr, 0, 0, chart.dpr, 0, 0);
   }
 
@@ -163,8 +258,8 @@
     if (!chart.ctx || !points || !points.length) return;
     const { ctx } = chart;
     const W = chart.canvas.width / chart.dpr;
-    const H = 260;
-    const pad = { top: 14, right: 10, bottom: 24, left: 34 };
+    const H = 240;
+    const pad = { top: 14, right: 12, bottom: 26, left: 38 };
 
     ctx.clearRect(0, 0, W, H);
 
@@ -175,10 +270,10 @@
     const x = (i) => pad.left + step * i;
     const y = (v) => pad.top + ih - (v / max) * ih;
 
-    // grid lines
-    ctx.strokeStyle = "rgba(30,42,55,0.8)";
+    // сетка
+    ctx.strokeStyle = CHART_COLORS.grid;
     ctx.lineWidth = 1;
-    ctx.fillStyle = "#8FA0B0";
+    ctx.fillStyle = CHART_COLORS.axis;
     ctx.font = "10px JetBrains Mono, monospace";
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
@@ -191,9 +286,9 @@
       ctx.fillText(fmt.format(Math.round(max * (1 - g / 4))), pad.left - 6, gy);
     }
 
-    // area under "total"
+    // область под «все»
     const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ih);
-    grad.addColorStop(0, "rgba(42,171,238,0.35)");
+    grad.addColorStop(0, "rgba(42,171,238,0.28)");
     grad.addColorStop(1, "rgba(42,171,238,0)");
     ctx.beginPath();
     points.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p.total)) : ctx.moveTo(x(i), y(p.total))));
@@ -203,35 +298,35 @@
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // total line
+    // «все»
     ctx.beginPath();
     points.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p.total)) : ctx.moveTo(x(i), y(p.total))));
-    ctx.strokeStyle = "#2AABEE";
+    ctx.strokeStyle = CHART_COLORS.total;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // completed line
+    // «успешно»
     ctx.beginPath();
     points.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p.completed)) : ctx.moveTo(x(i), y(p.completed))));
-    ctx.strokeStyle = "#34D399";
+    ctx.strokeStyle = CHART_COLORS.ok;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // failed line
+    // «ошибки»
     ctx.beginPath();
     points.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p.failed)) : ctx.moveTo(x(i), y(p.failed))));
-    ctx.strokeStyle = "#F87171";
+    ctx.strokeStyle = CHART_COLORS.bad;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // x labels
-    ctx.fillStyle = "#8FA0B0";
+    // подписи дат
+    ctx.fillStyle = CHART_COLORS.axis;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     const labelEvery = Math.max(1, Math.ceil(points.length / 8));
     points.forEach((p, i) => {
       if (i % labelEvery !== 0 && i !== points.length - 1) return;
-      ctx.fillText(p.day.slice(5), x(i), pad.top + ih + 6);
+      ctx.fillText(p.day.slice(5), x(i), pad.top + ih + 8);
     });
   }
 
@@ -481,14 +576,27 @@
     initChart();
     tickClock();
     setInterval(tickClock, 1000);
-    setInterval(loadAll, REFRESH_MS);
-    setInterval(loadTimeline, REFRESH_MS);
+
+    checkAuth().then((authed) => {
+      if (!authed) {
+        showLogin();
+        return;
+      }
+      showApp();
+      loadAll();
+      loadTimeline();
+      loadUsers();
+      setInterval(loadAll, REFRESH_MS);
+      setInterval(loadTimeline, REFRESH_MS);
+    });
 
     $("refresh-btn").addEventListener("click", () => {
       loadAll();
       loadTimeline();
       loadUsers();
     });
+
+    $("logout-btn").addEventListener("click", logout);
 
     $("users-sort").addEventListener("change", (e) => {
       state.sort = e.target.value;
@@ -525,10 +633,6 @@
       if (state.overview) loadTimeline();
     });
     resizeCanvas();
-
-    loadAll();
-    loadTimeline();
-    loadUsers();
   }
 
   document.addEventListener("DOMContentLoaded", init);
