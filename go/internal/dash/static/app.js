@@ -51,7 +51,7 @@
 
   /* ---------- auth ---------- */
 
-  const BOT_USERNAME = "SaveinatorBot"; // бот для Telegram Login Widget
+  const BOT_USERNAME = "saveinator_bot"; // бот для Telegram Login Widget
 
   async function checkAuth() {
     try {

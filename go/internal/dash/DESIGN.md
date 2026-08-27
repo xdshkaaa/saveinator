@@ -43,7 +43,7 @@ deltas show direction, the table is the work.
 ## Surfaces
 
 - **Login gate:** a single centered plate with the brand mark (orange ring),
-  the Telegram Login Widget for @SaveinatorBot, and the "Вход только для
+  the Telegram Login Widget for @saveinator_bot, and the "Вход только для
   владельца" line. Error copy distinguishes "не в списке операторов" (403)
   from network failures.
 - **Header plate:** brand, amber UTC clock, "обновлено …" mono readout,
