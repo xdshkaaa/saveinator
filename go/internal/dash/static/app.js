@@ -85,18 +85,19 @@
     const err = $("login-err");
     err.hidden = true;
     try {
+      // Telegram подписывает только те поля, которые реально есть у
+      // пользователя (username/last_name/photo_url могут отсутствовать).
+      // Пустые поля отправлять нельзя — они ломают HMAC-проверку.
+      const params = new URLSearchParams();
+      for (const key of ["id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash"]) {
+        if (user[key] !== undefined && user[key] !== null && user[key] !== "") {
+          params.set(key, user[key]);
+        }
+      }
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          id: user.id,
-          first_name: user.first_name || "",
-          last_name: user.last_name || "",
-          username: user.username || "",
-          photo_url: user.photo_url || "",
-          auth_date: user.auth_date,
-          hash: user.hash,
-        }),
+        body: params,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

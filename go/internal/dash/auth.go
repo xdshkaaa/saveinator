@@ -113,7 +113,9 @@ func telegramAuth(token string, form map[string]string) (int64, string, string, 
 
 	var keys []string
 	for k := range form {
-		if k != "hash" {
+		// Telegram подписывает только непустые поля: пустые значения в
+		// проверочной строке ломают HMAC.
+		if k != "hash" && form[k] != "" {
 			keys = append(keys, k)
 		}
 	}

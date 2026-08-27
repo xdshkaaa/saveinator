@@ -78,6 +78,28 @@ func TestTelegramAuthValid(t *testing.T) {
 	}
 }
 
+// TestTelegramAuthSparseFields: Telegram подписывает только те поля, которые
+// реально есть у пользователя. Пустые username/last_name/photo_url в форме
+// не должны участвовать в проверке (и не должны её ломать).
+func TestTelegramAuthSparseFields(t *testing.T) {
+	form := signTelegramForm(t, 339193247, "", "Xdshka", time.Now().Unix(), nil)
+	// Клиент может прислать пустые поля — сервер обязан их проигнорировать.
+	form.Set("username", "")
+	form.Set("last_name", "")
+	form.Set("photo_url", "")
+	m := make(map[string]string, len(form))
+	for k, vs := range form {
+		m[k] = vs[0]
+	}
+	id, user, first, err := telegramAuth(testBotToken, m)
+	if err != nil {
+		t.Fatalf("sparse auth rejected: %v", err)
+	}
+	if id != 339193247 || user != "" || first != "Xdshka" {
+		t.Fatalf("wrong identity: %d %q %q", id, user, first)
+	}
+}
+
 func TestTelegramAuthTampered(t *testing.T) {
 	form := signTelegramForm(t, 339193247, "xdshka", "Xdshka", time.Now().Unix(), nil)
 	form.Set("id", "12345") // tamper after signing
