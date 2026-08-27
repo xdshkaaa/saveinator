@@ -45,7 +45,8 @@ echo "[3/6] Patching Caddy (block :8098)..."
 # to insert; pull it out and splice it into the live Caddyfile if missing.
 # The marker comment is what makes the block unique — :PORT numbers on this
 # host are shared with other projects, so we match on the dash comment.
-# If the live block still carries basic_auth from an older deploy, remove it.
+# When the block already exists, it is REPLACED wholesale from the repo file
+# (older blocks carried basic_auth and must not survive).
 ssh "$VPS_USER@$VPS_HOST" "
     set -euo pipefail
     MARK='# dash-saveinator.xdshka.party'
@@ -59,11 +60,20 @@ ssh "$VPS_USER@$VPS_HOST" "
         printf '\n%s\n' \"\$BLOCK\" >> /etc/caddy/Caddyfile
         echo 'Caddy: block :8098 appended (backup created)'
     else
-        # Older blocks carried basic_auth; strip it now that auth lives in-app.
         cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.\$(date +%Y%m%d%H%M%S)
-        sed -i '/basic_auth {/,/}/d' /etc/caddy/Caddyfile
-        sed -i '/dash.htpasswd/d' /etc/caddy/Caddyfile
-        echo 'Caddy: dash block already present; stripped basic_auth (backup created)'
+        # Replace the old :8098 block between its braces with the repo block,
+        # preserving the rest of the file. python3 is present on the VPS.
+        python3 -c '
+import re, sys
+src = open(\"/etc/caddy/Caddyfile\").read()
+block = open(\"'\"$APP_DIR\"'/monitoring/caddy-grafana.caddyfile\").read()
+m = re.search(r\":8098 \\\\{.*?\\\\n\\\\}\", src, re.S)
+if not m:
+    sys.exit(\"ERROR: :8098 block not found in live Caddyfile\")
+new = re.sub(r\":8098 \\\\{.*?\\\\n\\\\}\", block.rstrip() + \"\\\\n\", src, count=1, flags=re.S)
+open(\"/etc/caddy/Caddyfile\", \"w\").write(new)
+'
+        echo 'Caddy: :8098 block replaced from repo (backup created)'
     fi
 "
 
