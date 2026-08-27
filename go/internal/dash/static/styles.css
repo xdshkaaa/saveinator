@@ -11,8 +11,8 @@
   --border: #242f3a;
   --border-2: #2c3946;
   --text: #d6dee6;
-  --muted: #8b99a6;
-  --faint: #5d6b78;
+  --muted: #94a2b0;
+  --faint: #7d8b99;
   --accent: #2aabee;
   --ok: #34d399;
   --warn: #fbbf24;
@@ -25,6 +25,10 @@
 }
 
 * { box-sizing: border-box; }
+
+/* The hidden attribute must win over any display rule on the same element
+   (author display rules would otherwise override the UA [hidden] style). */
+[hidden] { display: none !important; }
 
 html, body { margin: 0; padding: 0; }
 
@@ -435,7 +439,7 @@ body {
 
 .users-head { align-items: center; }
 
-.users-controls { display: flex; gap: 8px; }
+.users-controls { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .search, .sort {
   background: var(--panel-2);

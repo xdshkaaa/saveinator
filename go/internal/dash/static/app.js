@@ -71,11 +71,13 @@
   function showApp(userName) {
     $("login").hidden = true;
     $("app").hidden = false;
+    const btn = $("logout-btn");
+    btn.hidden = false;
     if (userName) {
-      const btn = $("logout-btn");
-      btn.hidden = false;
       btn.textContent = "Выйти · " + userName;
     }
+    // Панель только что стала видимой: канвас самописца нужно перемерить.
+    resizeCanvas();
   }
 
   // Вызывается виджетом Telegram при успешном входе.
@@ -589,7 +591,6 @@
       setInterval(loadAll, REFRESH_MS);
       setInterval(loadTimeline, REFRESH_MS);
     });
-
     $("refresh-btn").addEventListener("click", () => {
       loadAll();
       loadTimeline();
