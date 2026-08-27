@@ -208,7 +208,8 @@
       ? ((o.new_today - o.new_yesterday) / o.new_yesterday) * 100
       : (o.new_today > 0 ? 100 : 0);
     const growthCls = growth > 0 ? "up" : growth < 0 ? "down" : "";
-    const growthTxt = (growth > 0 ? "+" : "") + growth.toFixed(0).replace(".", ",") + " % к вчера";
+    const growthArrow = growth > 0 ? "▲ " : growth < 0 ? "▼ " : "";
+    const growthTxt = growthArrow + (growth > 0 ? "+" : "") + growth.toFixed(0).replace(".", ",") + " % к вчера";
 
     const d30 = o.downloads_30d || 0;
     const success = d30 ? (o.completed_30d / d30) * 100 : 0;
@@ -220,7 +221,7 @@
     setKpi("kpi-active-now", fmt.format(o.active_now), "онлайн за 30 минут");
     setKpi("kpi-dau-mau", fmt.format(o.dau) + " / " + fmt.format(o.mau), null);
     setKpi("kpi-stickiness", "стикинес: " + (o.mau ? (o.dau / o.mau * 100).toFixed(1).replace(".", ",") : "0") + " %");
-    setKpi("kpi-success", fmtPct(success), "ошибок: " + fmt.format(failed), failed > 0 ? "down" : "up", failed > 0);
+    setKpi("kpi-success", fmtPct(success), (failed > 0 ? "▼ " : "") + "ошибок: " + fmt.format(failed), failed > 0 ? "down" : "up", failed > 0);
   }
 
   /* ---------- timeline chart (canvas) ---------- */
