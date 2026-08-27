@@ -90,6 +90,12 @@ func (s *Server) Router() http.Handler {
 	}
 	// The app shell itself stays public so the frontend can show the login
 	// screen; all data behind /api requires a session.
-	r.Handle("/*", http.FileServerFS(sub))
+	// Static files are embedded into the binary and change on every deploy;
+	// tell Cloudflare/browsers to revalidate so a fresh deploy is visible
+	// immediately instead of being cached for hours.
+	r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		http.FileServerFS(sub).ServeHTTP(w, r)
+	}))
 	return r
 }
