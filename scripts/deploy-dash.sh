@@ -62,16 +62,20 @@ ssh "$VPS_USER@$VPS_HOST" "
     else
         cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.\$(date +%Y%m%d%H%M%S)
         # Replace the old :8098 block between its braces with the repo block,
-        # preserving the rest of the file. python3 is present on the VPS.
+        # preserving the rest of the file. The replacement must be the
+        # awk-extracted :8098 block ONLY — the repo caddyfile also carries
+        # :8092/:8093 blocks that already exist in the live file, and splicing
+        # the whole file in would duplicate them (ambiguous site definitions).
+        # python3 is present on the VPS.
+        export DASH_BLOCK=\"\$BLOCK\"
         python3 -c '
-import re, sys
+import os, re, sys
 src = open(\"/etc/caddy/Caddyfile\").read()
-block = open(\"'\"$APP_DIR\"'/monitoring/caddy-grafana.caddyfile\").read()
+block = os.environ[\"DASH_BLOCK\"].rstrip() + \"\\n\"
 m = re.search(r\":8098 \\{.*?\\n\\}\", src, re.S)
 if not m:
     sys.exit(\"ERROR: :8098 block not found in live Caddyfile\")
-new = re.sub(r\":8098 \\{.*?\\n\\}\", block.rstrip() + \"\\n\", src, count=1, flags=re.S)
-open(\"/etc/caddy/Caddyfile\", \"w\").write(new)
+open(\"/etc/caddy/Caddyfile\", \"w\").write(src[:m.start()] + block + src[m.end():])
 '
         echo 'Caddy: :8098 block replaced from repo (backup created)'
     fi
