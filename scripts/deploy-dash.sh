@@ -67,10 +67,10 @@ ssh "$VPS_USER@$VPS_HOST" "
 import re, sys
 src = open(\"/etc/caddy/Caddyfile\").read()
 block = open(\"'\"$APP_DIR\"'/monitoring/caddy-grafana.caddyfile\").read()
-m = re.search(r\":8098 \\\\{.*?\\\\n\\\\}\", src, re.S)
+m = re.search(r\":8098 \\{.*?\\n\\}\", src, re.S)
 if not m:
     sys.exit(\"ERROR: :8098 block not found in live Caddyfile\")
-new = re.sub(r\":8098 \\\\{.*?\\\\n\\\\}\", block.rstrip() + \"\\\\n\", src, count=1, flags=re.S)
+new = re.sub(r\":8098 \\{.*?\\n\\}\", block.rstrip() + \"\\n\", src, count=1, flags=re.S)
 open(\"/etc/caddy/Caddyfile\", \"w\").write(new)
 '
         echo 'Caddy: :8098 block replaced from repo (backup created)'
