@@ -66,6 +66,24 @@
   function showLogin() {
     $("app").hidden = true;
     $("login").hidden = false;
+    injectTgWidget();
+  }
+
+  // Виджет Telegram нужен только на экране входа — грузим его лениво,
+  // чтобы авторизованная панель не платила третьей стороной на каждый заход.
+  let tgWidgetInjected = false;
+  function injectTgWidget() {
+    if (tgWidgetInjected || !$("tg-widget")) return;
+    tgWidgetInjected = true;
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = "https://telegram.org/js/telegram-widget.js?22";
+    s.setAttribute("data-telegram-login", BOT_USERNAME);
+    s.setAttribute("data-size", "large");
+    s.setAttribute("data-radius", "8");
+    s.setAttribute("data-onauth", "onTelegramAuth(user)");
+    s.setAttribute("data-request-access", "write");
+    $("tg-widget").appendChild(s);
   }
 
   function showApp(userName) {
@@ -231,6 +249,8 @@
     canvas: null,
     ctx: null,
     dpr: 1,
+    h: 240,
+    points: null,
   };
 
   const CHART_COLORS = {
@@ -253,8 +273,10 @@
     if (!chart.canvas) return;
     const rect = chart.canvas.getBoundingClientRect();
     if (rect.width < 10) return;
+    chart.dpr = window.devicePixelRatio || 1;
+    chart.h = window.innerWidth < 640 ? 200 : 240;
     chart.canvas.width = Math.round(rect.width * chart.dpr);
-    chart.canvas.height = Math.round(240 * chart.dpr);
+    chart.canvas.height = Math.round(chart.h * chart.dpr);
     chart.ctx.setTransform(chart.dpr, 0, 0, chart.dpr, 0, 0);
   }
 
@@ -262,7 +284,7 @@
     if (!chart.ctx || !points || !points.length) return;
     const { ctx } = chart;
     const W = chart.canvas.width / chart.dpr;
-    const H = 240;
+    const H = chart.h || 240;
     const pad = { top: 14, right: 12, bottom: 26, left: 38 };
 
     ctx.clearRect(0, 0, W, H);
@@ -418,12 +440,12 @@
         return `<tr class="user-row" tabindex="0" data-id="${u.id}" data-handle="${escapeHtml(handle || name || u.id)}" title="История загрузок">
           <td class="user-id">${u.id}</td>
           <td class="user-handle">${escapeHtml(handle)} ${name ? `<span class="user-name">${escapeHtml(name)}</span>` : ""}</td>
-          <td><span class="lang-chip">${lang}</span></td>
-          <td><span class="bot-chip">${escapeHtml(bot)}</span></td>
-          <td>${created}</td>
-          <td class="num">${fmt.format(u.downloads)}</td>
-          <td class="num ${failCls}">${fmt.format(u.failed)}</td>
-          <td>${last}</td>
+          <td data-label="Язык"><span class="lang-chip">${lang}</span></td>
+          <td data-label="Бот"><span class="bot-chip">${escapeHtml(bot)}</span></td>
+          <td data-label="Регистрация">${created}</td>
+          <td class="num" data-label="Скачиваний">${fmt.format(u.downloads)}</td>
+          <td class="num ${failCls}" data-label="Ошибок">${fmt.format(u.failed)}</td>
+          <td data-label="Активность">${last}</td>
         </tr>`;
       })
       .join("");
@@ -549,7 +571,8 @@
   async function loadTimeline() {
     try {
       const data = await api("/api/downloads?days=14");
-      drawChart(data.points || []);
+      chart.points = data.points || [];
+      drawChart(chart.points);
     } catch (err) {
       console.error("timeline load failed:", err);
     }
@@ -590,8 +613,21 @@
       loadAll();
       loadTimeline();
       loadUsers();
-      setInterval(loadAll, REFRESH_MS);
-      setInterval(loadTimeline, REFRESH_MS);
+      // Скрытая вкладка не должна тратить трафик и батарею: в фоне
+      // тик пропускается, а по возвращении данные обновляются сразу,
+      // если успели устареть.
+      let lastTick = Date.now();
+      const tick = () => {
+        lastTick = Date.now();
+        loadAll(true);
+        loadTimeline();
+      };
+      setInterval(() => {
+        if (!document.hidden) tick();
+      }, REFRESH_MS);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && Date.now() - lastTick >= REFRESH_MS) tick();
+      });
     });
     $("refresh-btn").addEventListener("click", () => {
       loadAll();
@@ -631,9 +667,17 @@
       if (e.key === "Escape") closeDrawer();
     });
 
+    // Перерисовываем из кэша сразу; данные перезагружаем только при
+    // заметной смене ширины — схлопывание адресной строки мобильного
+    // браузера тоже бросает resize, и дёргать API из-за него нельзя.
+    let lastChartW = window.innerWidth;
     window.addEventListener("resize", () => {
       resizeCanvas();
-      if (state.overview) loadTimeline();
+      if (chart.points) drawChart(chart.points);
+      if (Math.abs(window.innerWidth - lastChartW) > 40) {
+        lastChartW = window.innerWidth;
+        if (state.overview) loadTimeline();
+      }
     });
     resizeCanvas();
   }

@@ -92,9 +92,14 @@ func (s *Server) Router() http.Handler {
 	// screen; all data behind /api requires a session.
 	// Static files are embedded into the binary and change on every deploy;
 	// tell Cloudflare/browsers to revalidate so a fresh deploy is visible
-	// immediately instead of being cached for hours.
+	// immediately instead of being cached for hours. Fonts are immutable
+	// content under versioned URLs — they can be cached for a year.
 	r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
+		if strings.HasSuffix(r.URL.Path, ".woff2") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		http.FileServerFS(sub).ServeHTTP(w, r)
 	}))
 	return r
