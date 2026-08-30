@@ -22,3 +22,11 @@ htmlcov/
 repomix-output.*
 .commandcode/
 go/saveinator
+go/dash
+graphify-out/
+
+# local AI tool state
+.codex/
+.impeccable/
+go/.claude/
+.cursor/hooks.json
