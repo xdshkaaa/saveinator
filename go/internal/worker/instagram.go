@@ -53,6 +53,9 @@ func (h *Handler) runInstagram(ctx context.Context, p queue.DownloadPayload) err
 	defer cancel()
 
 	if err := ytdlp.Download(dlCtx, p.URL, taskDir, h.ytdlpOpts("instagram", "best", timeout)); err != nil {
+		if ytdlp.IsRetryableError(err) {
+			return err
+		}
 		slog.Warn("instagram download failed", "url", p.URL, "err", err)
 		metrics.RecordYtdlpError("instagram")
 		recordTaskFailure(queue.TypeInstagram)

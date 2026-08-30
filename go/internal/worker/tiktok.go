@@ -15,6 +15,7 @@ import (
 	"saveinator/internal/queue"
 	"saveinator/internal/tgemoji"
 	"saveinator/internal/tiktok"
+	"saveinator/internal/ytdlp"
 )
 
 func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error {
@@ -42,6 +43,9 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 	)
 	result, err := dl.Download(ctx, p.URL, taskDir)
 	if err != nil {
+		if ytdlp.IsRetryableError(err) {
+			return err
+		}
 		slog.Warn("tiktok download failed", "err", err)
 		metrics.TikTokCarouselFailuresTotal.WithLabelValues("download").Inc()
 		recordTaskFailure(queue.TypeTikTok)

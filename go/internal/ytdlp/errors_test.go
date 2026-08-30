@@ -54,6 +54,10 @@ func TestUserFacingErrorKey_notFound(t *testing.T) {
 		"ERROR: [youtube] abc123: Video unavailable",
 		"ERROR: Private video. Sign in if you've been granted access to this video",
 		"ERROR: This content isn't available",
+		// TikTok refuses the post server-side (statusCode 10240): the video is
+		// deterministically unavailable, so this is not the retryable case.
+		"yt-dlp failed: exit status 1: ERROR: [TikTok] 7673554739023465741: Video not available, status code 10240; please report this issue on https://github.com/yt-dlp/yt-dlp/issues",
+		"ERROR: [TikTok] 123: You do not have permission to view this post. Log into an account that has access",
 	}
 	for _, msg := range tests {
 		t.Run(msg, func(t *testing.T) {
@@ -166,6 +170,57 @@ func TestIsNoVideoFormatsError(t *testing.T) {
 		t.Fatal("expected true")
 	}
 	if IsNoVideoFormatsError(errors.New("login required")) {
+		t.Fatal("expected false")
+	}
+}
+
+func TestIsNetworkError(t *testing.T) {
+	t.Parallel()
+	if !IsNetworkError(errors.New("dial tcp: connection refused")) {
+		t.Fatal("expected true")
+	}
+	if IsNetworkError(errors.New("context deadline exceeded")) {
+		t.Fatal("expected false - timeout, not network")
+	}
+	if IsNetworkError(errors.New("some random failure")) {
+		t.Fatal("expected false")
+	}
+	if IsNetworkError(nil) {
+		t.Fatal("expected false for nil")
+	}
+}
+
+func TestIsTimeoutError(t *testing.T) {
+	t.Parallel()
+	if !IsTimeoutError(errors.New("context deadline exceeded")) {
+		t.Fatal("expected true")
+	}
+	if !IsTimeoutError(errors.New("download timed out")) {
+		t.Fatal("expected true")
+	}
+	if IsTimeoutError(errors.New("dial tcp: connection refused")) {
+		t.Fatal("expected false - network, not timeout")
+	}
+	if IsTimeoutError(errors.New("some random failure")) {
+		t.Fatal("expected false")
+	}
+	if IsTimeoutError(nil) {
+		t.Fatal("expected false for nil")
+	}
+}
+
+func TestIsRetryableError(t *testing.T) {
+	t.Parallel()
+	if !IsRetryableError(errors.New("connection refused")) {
+		t.Fatal("expected true")
+	}
+	if !IsRetryableError(errors.New("context deadline exceeded")) {
+		t.Fatal("expected true")
+	}
+	if IsRetryableError(errors.New("video unavailable")) {
+		t.Fatal("expected false")
+	}
+	if IsRetryableError(nil) {
 		t.Fatal("expected false")
 	}
 }

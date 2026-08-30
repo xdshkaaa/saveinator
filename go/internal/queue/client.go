@@ -116,7 +116,7 @@ func (c *Client) EnqueueDownload(p DownloadPayload) error {
 	}
 	queueName := QueueFor(p)
 	task := asynq.NewTask(TypeDownload, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
 	return err
 }
 
@@ -128,7 +128,7 @@ func (c *Client) EnqueueDownloadTo(taskType, queueName string, p DownloadPayload
 		return err
 	}
 	task := asynq.NewTask(taskType, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(queueName))
 	return err
 }
 
@@ -149,7 +149,7 @@ func (c *Client) EnqueuePinterestDefault(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypePinterest, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -159,7 +159,7 @@ func (c *Client) EnqueueTikTok(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeTikTok, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -199,7 +199,7 @@ func (c *Client) EnqueueTikTokCarousel(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeTikTokCarousel, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 
@@ -209,7 +209,7 @@ func (c *Client) EnqueueInstagram(p DownloadPayload) error {
 		return err
 	}
 	task := asynq.NewTask(TypeInstagram, body)
-	_, err = c.client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 

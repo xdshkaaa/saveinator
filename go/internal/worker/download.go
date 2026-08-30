@@ -158,6 +158,9 @@ func (h *Handler) runYouTubeDownload(ctx context.Context, p queue.DownloadPayloa
 		opts.DownloadSections = youtube.DownloadSection(p.TrimStart, p.TrimEnd)
 	}
 	if err := h.downloadYouTubeVideo(dlCtx, p, taskDir, opts); err != nil {
+		if ytdlp.IsRetryableError(err) {
+			return err
+		}
 		slog.Warn("youtube download failed", "url", p.URL, "err", err)
 		metrics.RecordYtdlpError("youtube")
 		recordTaskFailure(queue.TypeDownload)
@@ -275,6 +278,9 @@ func (h *Handler) runYouTubeAudio(ctx, dlCtx context.Context, p queue.DownloadPa
 
 	path, err := audio.DownloadYouTubeAudio(dlCtx, p.URL, taskDir, "mp3", section)
 	if err != nil {
+		if ytdlp.IsRetryableError(err) {
+			return err
+		}
 		slog.Warn("youtube audio download failed", "url", p.URL, "err", err)
 		metrics.RecordYtdlpError("youtube")
 		recordTaskFailure(queue.TypeDownload)
@@ -343,6 +349,9 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	if err != nil {
 		if p.Platform == "x" {
 			return h.runXPhotos(ctx, p, lang, taskDir, queue.TypeDownload, start)
+		}
+		if ytdlp.IsRetryableError(err) {
+			return err
 		}
 		slog.Warn("download failed", "url", p.URL, "platform", p.Platform, "err", err)
 		metrics.RecordYtdlpError(p.Platform)

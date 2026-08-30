@@ -6,6 +6,25 @@ func IsNoVideoFormatsError(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "no video formats found")
 }
 
+// IsNetworkError reports that the failure is a transient network-level
+// issue (connection refused, no such host, connection reset, etc.) and
+// therefore worth one more attempt.
+func IsNetworkError(err error) bool {
+	return err != nil && UserFacingErrorKey("", err) == "errors.network"
+}
+
+// IsTimeoutError reports that the failure is a timeout (context deadline
+// exceeded or yt-dlp "timed out") and is therefore worth one more attempt.
+func IsTimeoutError(err error) bool {
+	return err != nil && UserFacingErrorKey("", err) == "download.timeout"
+}
+
+// IsRetryableError reports whether an error is transient enough to
+// warrant a second attempt: network-level failures and timeouts.
+func IsRetryableError(err error) bool {
+	return IsNetworkError(err) || IsTimeoutError(err)
+}
+
 // IsFormatUnavailableError reports the failure worth one more extraction
 // attempt: yt-dlp resolved the video but no requested format survived. The
 // usual cause is transient — the only YouTube player client that serves https
@@ -55,6 +74,13 @@ func UserFacingErrorKey(platform string, err error) string {
 		strings.Contains(msg, "no video file found"),
 		strings.Contains(msg, "no media files found"),
 		strings.Contains(msg, "unsupported url"),
+		// TikTok's webapp video-detail API answered with a status code (e.g.
+		// 10240) instead of item data — the post is deterministically refused
+		// (removed or audience-restricted), so a retry will not help. Verified
+		// 2026-08: mirror APIs and the embed page refuse the same posts.
+		strings.Contains(msg, "video not available, status code"),
+		// TikTok private post/account (statusCode 10216/10222).
+		strings.Contains(msg, "permission to view this post"),
 		strings.Contains(msg, "video unavailable"),
 		strings.Contains(msg, "private video"),
 		strings.Contains(msg, "login required"),
