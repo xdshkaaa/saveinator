@@ -20,12 +20,14 @@ func IsTimeoutError(err error) bool {
 }
 
 // IsRetryableError reports whether an error is transient enough to
-// warrant a second attempt: network-level failures, timeouts, and the
-// TikTok bot-challenge page ("Unexpected response from webpage request").
-// The latter is transient — the CDN blocked the request but retrying
-// (sometimes from a different extractor path) often succeeds.
+// warrant a second attempt: network-level failures and timeouts.
+// NOTE: TikTok "Unexpected response from webpage request" is intentionally
+// NOT retryable via asynq — with MaxRetry(1) it would take 2× the download
+// timeout and leave the user's placeholder message hanging ("вечно весит
+// загрузка") until retry exhausted with no EditMessage. The transient case
+// is handled as errors.format_unavailable with immediate user feedback.
 func IsRetryableError(err error) bool {
-	return IsNetworkError(err) || IsTimeoutError(err) || IsUnexpectedWebpageError(err)
+	return IsNetworkError(err) || IsTimeoutError(err)
 }
 
 // IsFormatUnavailableError reports the failure worth one more extraction
