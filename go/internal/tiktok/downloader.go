@@ -47,6 +47,11 @@ var (
 // "Unexpected response from webpage request") when the header is missing.
 const TikTokRefererDefault = "https://www.tiktok.com/"
 
+// TikTokPlayerClient forces the TikTok extractor to use the web player
+// client. Without it TikTok's CDN serves a bot-challenge page and
+// yt-dlp fails with "Unexpected response from webpage request".
+const TikTokPlayerClient = "tiktok:player_client=web"
+
 type Downloader struct {
 	cookiesPath        string
 	cookiesFromBrowser string
@@ -54,9 +59,10 @@ type Downloader struct {
 	timeout            time.Duration
 	maxImages          int
 	audioEnabled       bool
+	maxDuration        int
 }
 
-func NewDownloader(cookiesPath, cookiesFromBrowser, referer string, timeoutSeconds, maxImages int, audioEnabled bool) *Downloader {
+func NewDownloader(cookiesPath, cookiesFromBrowser, referer string, timeoutSeconds, maxImages int, audioEnabled bool, maxDuration int) *Downloader {
 	timeout := time.Duration(timeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
@@ -68,6 +74,7 @@ func NewDownloader(cookiesPath, cookiesFromBrowser, referer string, timeoutSecon
 		timeout:            timeout,
 		maxImages:          maxImages,
 		audioEnabled:       audioEnabled,
+		maxDuration:        maxDuration,
 	}
 }
 
@@ -162,6 +169,7 @@ func (d *Downloader) DownloadCarouselImages(ctx context.Context, url, outputDir 
 func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]any, string, error) {
 	resolved := resolvePageURL(url)
 	args := []string{"--dump-single-json", "--skip-download", "--no-warnings", "--quiet", "--impersonate", "chrome"}
+	args = append(args, d.extraArgs()...)
 	args = append(args, d.cookieArgs()...)
 	args = append(args, d.refererArgs()...)
 	args = append(args, resolved)
@@ -184,6 +192,7 @@ func (d *Downloader) runYTDLP(ctx context.Context, url, outputDir, format string
 		"-o", filepath.Join(outputDir, "%(title).100s_%(id)s.%(ext)s"),
 		"-f", format,
 	}
+	args = append(args, d.extraArgs()...)
 	args = append(args, d.cookieArgs()...)
 	args = append(args, d.refererArgs()...)
 	args = append(args, url)
@@ -234,6 +243,7 @@ func (d *Downloader) downloadAudio(ctx context.Context, url, outputDir string) (
 		"-o", filepath.Join(outputDir, "audio.%(ext)s"),
 		"--extract-audio", "--audio-format", "mp3",
 	}
+	args = append(args, d.extraArgs()...)
 	args = append(args, d.cookieArgs()...)
 	args = append(args, d.refererArgs()...)
 	args = append(args, url)
@@ -283,6 +293,15 @@ func (d *Downloader) refererArgs() []string {
 		referer = TikTokRefererDefault
 	}
 	return []string{"--referer", referer}
+}
+
+func (d *Downloader) extraArgs() []string {
+	var args []string
+	args = append(args, "--extractor-args", TikTokPlayerClient)
+	if d.maxDuration > 0 {
+		args = append(args, "--max-duration", fmt.Sprintf("%d", d.maxDuration))
+	}
+	return args
 }
 
 func (d *Downloader) run(ctx context.Context, name string, args ...string) ([]byte, error) {

@@ -45,6 +45,7 @@ type Settings struct {
 	TikTokCookiesRefreshEnabled    bool
 	TikTokCookiesRefreshURL        string
 	TikTokReferer                  string
+	TikTokMaxDurationSec           int
 
 	PinterestEnabled         bool
 	PinterestTimeoutSeconds  int
@@ -137,6 +138,7 @@ func Load() (*Settings, error) {
 		TikTokCookiesRefreshEnabled:    envBool("TIKTOK_COOKIES_REFRESH_ENABLED", true),
 		TikTokCookiesRefreshURL:        env("TIKTOK_COOKIES_REFRESH_URL", "https://vt.tiktok.com/ZSCFGyN3g/"),
 		TikTokReferer:                  env("TIKTOK_REFERER", "https://www.tiktok.com/"),
+		TikTokMaxDurationSec:           envInt("TIKTOK_MAX_DURATION_SEC", 0),
 		PinterestEnabled:         envBool("PINTEREST_ENABLED", true),
 		PinterestTimeoutSeconds:  envInt("PINTEREST_TIMEOUT_SECONDS", 30),
 		PinterestMaxItems:        envInt("PINTEREST_MAX_ITEMS", 10),

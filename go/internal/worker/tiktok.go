@@ -40,6 +40,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
 		h.runtime.CurrentInt(ctx, "tiktok.carousel_max_items", h.cfg.TikTokCarouselMaxItems),
 		h.runtime.CurrentBool(ctx, "tiktok.carousel_audio_enabled", h.cfg.TikTokCarouselAudioEnabled),
+		h.runtime.CurrentInt(ctx, "tiktok.max_duration_sec", h.cfg.TikTokMaxDurationSec),
 	)
 	result, err := dl.Download(ctx, p.URL, taskDir)
 	if err != nil {
@@ -157,6 +158,7 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 		h.runtime.PlatformTimeoutSec(ctx, "tiktok"),
 		maxItems,
 		false,
+		h.runtime.CurrentInt(ctx, "tiktok.max_duration_sec", h.cfg.TikTokMaxDurationSec),
 	)
 	result, err := dl.DownloadCarouselImages(ctx, p.URL, taskDir)
 	if err != nil || len(result.Images) == 0 {

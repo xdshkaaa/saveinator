@@ -11,7 +11,7 @@ import (
 
 func TestCookieArgsBrowserFallback(t *testing.T) {
 	t.Parallel()
-	d := NewDownloader("/missing/tiktok_cookies.txt", "chrome", "", 60, 10, true)
+	d := NewDownloader("/missing/tiktok_cookies.txt", "chrome", "", 60, 10, true, 0)
 	args := d.cookieArgs()
 	if len(args) != 2 || args[0] != "--cookies-from-browser" || args[1] != "chrome" {
 		t.Fatalf("expected browser cookies, got %v", args)
@@ -25,7 +25,7 @@ func TestCookieArgsFilePriority(t *testing.T) {
 	if err := os.WriteFile(cookieFile, []byte("test"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	d := NewDownloader(cookieFile, "chrome", "", 60, 10, true)
+	d := NewDownloader(cookieFile, "chrome", "", 60, 10, true, 0)
 	args := d.cookieArgs()
 	if len(args) != 2 || args[0] != "--cookies" {
 		t.Fatalf("expected file cookies, got %v", args)
@@ -37,7 +37,7 @@ func TestCookieArgsFilePriority(t *testing.T) {
 
 func TestRefererArgsIncluded(t *testing.T) {
 	t.Parallel()
-	d := NewDownloader("", "", TikTokRefererDefault, 60, 10, true)
+	d := NewDownloader("", "", TikTokRefererDefault, 60, 10, true, 0)
 	args := d.refererArgs()
 	if len(args) != 2 || args[0] != "--referer" || args[1] != TikTokRefererDefault {
 		t.Fatalf("expected referer args, got %v", args)
@@ -46,7 +46,7 @@ func TestRefererArgsIncluded(t *testing.T) {
 
 func TestRefererArgsOmittedWhenEmpty(t *testing.T) {
 	t.Parallel()
-	d := NewDownloader("", "", "", 60, 10, true)
+	d := NewDownloader("", "", "", 60, 10, true, 0)
 	args := d.refererArgs()
 	if len(args) != 2 || args[0] != "--referer" || args[1] != TikTokRefererDefault {
 		t.Fatalf("expected default referer fallback, got %v", args)
@@ -204,5 +204,34 @@ func TestPhotoModeEntryTriggersSlideshowDetection(t *testing.T) {
 	imageURLs := extractCarouselURLs(info)
 	if len(imageURLs) == 0 {
 		t.Fatal("expected image URLs to be extracted from photomode post")
+	}
+}
+
+func TestExtraArgsPlayerClient(t *testing.T) {
+	t.Parallel()
+	d := NewDownloader("", "", "", 60, 10, true, 0)
+	args := d.extraArgs()
+	if len(args) != 2 || args[0] != "--extractor-args" || args[1] != TikTokPlayerClient {
+		t.Fatalf("expected --extractor-args tiktok:player_client=web, got %v", args)
+	}
+}
+
+func TestExtraArgsMaxDuration(t *testing.T) {
+	t.Parallel()
+	d := NewDownloader("", "", "", 60, 10, true, 300)
+	args := d.extraArgs()
+	if len(args) != 4 || args[0] != "--extractor-args" || args[2] != "--max-duration" || args[3] != "300" {
+		t.Fatalf("expected --extractor-args ... --max-duration 300, got %v", args)
+	}
+}
+
+func TestExtraArgsNoMaxDurationWhenZero(t *testing.T) {
+	t.Parallel()
+	d := NewDownloader("", "", "", 60, 10, true, 0)
+	args := d.extraArgs()
+	for _, a := range args {
+		if a == "--max-duration" {
+			t.Fatal("unexpected --max-duration when maxDuration is 0")
+		}
 	}
 }

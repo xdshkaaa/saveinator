@@ -31,8 +31,19 @@ func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) yt
 		InstagramCookies:            instagramCookies,
 		InstagramCookiesFromBrowser: h.cfg.InstagramCookiesFromBrowser,
 		Referer:                     refererForPlatform(platform, h.cfg.TikTokReferer),
+		ExtractorArgs:               extractorArgsForPlatform(platform),
 		Timeout:                     timeout,
 	}
+}
+
+// extractorArgsForPlatform returns additional --extractor-args for the
+// given platform. TikTok needs "tiktok:player_client=web" to bypass
+// the bot-challenge page served by TikTok's CDN.
+func extractorArgsForPlatform(platform string) string {
+	if platform == "tiktok" {
+		return "tiktok:player_client=web"
+	}
+	return ""
 }
 
 // refererForPlatform returns the Referer header value to send for a platform.

@@ -21,7 +21,11 @@ type Options struct {
 	// yt-dlp's requests (bot challenge -> "Unexpected response from webpage
 	// request") unless a Referer is present; https://www.tiktok.com/ works.
 	Referer string
-	Timeout time.Duration
+	// ExtractorArgs are additional --extractor-args to pass to yt-dlp.
+	// For TikTok this should include "tiktok:player_client=web" to
+	// bypass the bot-challenge page served by TikTok's CDN.
+	ExtractorArgs string
+	Timeout       time.Duration
 	// DownloadSections limits the fetch to a fragment ("*12.00-45.00").
 	// Only that part is pulled from the network, so trimming a clip out of a
 	// long video costs neither the full download nor a second ffmpeg pass.
@@ -64,6 +68,9 @@ func buildArgs(url string, outputDir string, opts Options, skipDownload bool) []
 
 	if referer := strings.TrimSpace(opts.Referer); referer != "" {
 		args = append(args, "--referer", referer)
+	}
+	if extractorArgs := strings.TrimSpace(opts.ExtractorArgs); extractorArgs != "" {
+		args = append(args, "--extractor-args", extractorArgs)
 	}
 
 	return append(args, url)
