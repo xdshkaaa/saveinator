@@ -47,8 +47,9 @@ func TestRefererArgsIncluded(t *testing.T) {
 func TestRefererArgsOmittedWhenEmpty(t *testing.T) {
 	t.Parallel()
 	d := NewDownloader("", "", "", 60, 10, true)
-	if args := d.refererArgs(); len(args) != 0 {
-		t.Fatalf("expected no referer args, got %v", args)
+	args := d.refererArgs()
+	if len(args) != 2 || args[0] != "--referer" || args[1] != TikTokRefererDefault {
+		t.Fatalf("expected default referer fallback, got %v", args)
 	}
 }
 

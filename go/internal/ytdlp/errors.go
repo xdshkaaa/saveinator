@@ -20,9 +20,12 @@ func IsTimeoutError(err error) bool {
 }
 
 // IsRetryableError reports whether an error is transient enough to
-// warrant a second attempt: network-level failures and timeouts.
+// warrant a second attempt: network-level failures, timeouts, and the
+// TikTok bot-challenge page ("Unexpected response from webpage request").
+// The latter is transient — the CDN blocked the request but retrying
+// (sometimes from a different extractor path) often succeeds.
 func IsRetryableError(err error) bool {
-	return IsNetworkError(err) || IsTimeoutError(err)
+	return IsNetworkError(err) || IsTimeoutError(err) || IsUnexpectedWebpageError(err)
 }
 
 // IsFormatUnavailableError reports the failure worth one more extraction

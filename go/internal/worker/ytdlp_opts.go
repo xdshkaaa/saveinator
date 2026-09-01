@@ -40,7 +40,10 @@ func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) yt
 // webpage request"); other platforms need none.
 func refererForPlatform(platform, tiktokReferer string) string {
 	if platform == "tiktok" {
-		return tiktokReferer
+		if v := strings.TrimSpace(tiktokReferer); v != "" {
+			return v
+		}
+		return "https://www.tiktok.com/"
 	}
 	return ""
 }

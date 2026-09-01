@@ -278,10 +278,11 @@ func (d *Downloader) cookieArgs() []string {
 }
 
 func (d *Downloader) refererArgs() []string {
-	if d.referer == "" {
-		return nil
+	referer := strings.TrimSpace(d.referer)
+	if referer == "" {
+		referer = TikTokRefererDefault
 	}
-	return []string{"--referer", d.referer}
+	return []string{"--referer", referer}
 }
 
 func (d *Downloader) run(ctx context.Context, name string, args ...string) ([]byte, error) {
@@ -292,26 +293,23 @@ func (d *Downloader) run(ctx context.Context, name string, args ...string) ([]by
 }
 
 func resolvePageURL(url string) string {
+	// For full www.tiktok.com/@user/video/<id> URLs normalize to a canonical
+	// form; for short links (vt.tiktok.com, vm.tiktok.com) keep the original
+	// URL and let yt-dlp resolve the redirect with --impersonate + --referer.
+	// The previous implementation tried to follow vt redirects with a plain
+	// Go http.Client (no impersonation, no Referer) which TikTok's CDN now
+	// blocks on datacenter IPs with a bot-challenge page ("Unexpected response
+	// from webpage request"). Letting yt-dlp handle it is both correct and
+	// more resilient — verified locally that yt-dlp 2026.07.04 already resolves
+	// vt.tiktok.com/ZSVwhXM2d via its own extractor when given --referer.
 	if pageItemRE.MatchString(url) {
 		return canonicalVideoURL(url)
 	}
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
+	if m := itemIDRE.FindStringSubmatch(url); len(m) == 2 && strings.Contains(url, "tiktok.com/") {
 		return canonicalVideoURL(url)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
-		if len(via) >= 5 {
-			return fmt.Errorf("too many redirects")
-		}
-		return nil
-	}}
-	resp, err := client.Do(req)
-	if err != nil {
-		return canonicalVideoURL(url)
-	}
-	resp.Body.Close()
-	return canonicalVideoURL(resp.Request.URL.String())
+	// Short links or other forms: strip query/fragment but don't try to fetch.
+	return strings.SplitN(url, "?", 2)[0]
 }
 
 func canonicalVideoURL(url string) string {
