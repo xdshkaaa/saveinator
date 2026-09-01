@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Welcome! Send me a YouTube, TikTok, X/Twitter, Spotify, or SoundCloud link in any group. I can download videos and music.",
+    "welcome": "Hey! I'm a bot that can download anything. Just send a link, and I'll send you the audio or video.\nAvailable services for download:\nYouTube, YouTube Shorts, TikTok, X, Spotify, SoundCloud, Yandex Music, Pinterest",
     "welcome_pinterest": "👋 Hello!!\n📥 I can download videos from Pinterest\n👆 Send the link to the bot and in a couple of seconds you will receive a video without a watermark.",
     "welcome_spotify": "🎶 Welcome to Spotify Search Tool Bot!\n\nSend me a Spotify album or track link, and I'll download the tracks for you.\n\nExamples:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nJust paste the link — I'll handle the rest.",
     "welcome_soundcloud": "🎤 Welcome to SoundCloud Downloader Bot!\n\nSend me a SoundCloud track or playlist link, and I'll download the tracks for you.\n\nExamples:\n• https://soundcloud.com/artist/track\n• https://soundcloud.com/artist/sets/playlist\n\nJust paste the link — I'll handle the rest.",
