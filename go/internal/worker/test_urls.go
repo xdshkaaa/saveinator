@@ -10,12 +10,14 @@ import (
 	"saveinator/internal/db"
 	"saveinator/internal/pinterest"
 	"saveinator/internal/xphotos"
+	"saveinator/internal/youtube"
 	"saveinator/internal/ytdlp"
 )
 
 const (
 	testRunnerInterval  = 15 * time.Second
 	testDefaultTimeout  = 5 * time.Minute
+	testYouTubeQuality  = 720
 	testMaxErrorMessage = 500
 )
 
@@ -102,8 +104,15 @@ func (h *Handler) executeTestURL(ctx context.Context, row *db.TestURLRow) (statu
 
 // testYtdlpPlatform mirrors the generic runDownload scenario (minus the
 // Telegram send): ytdlp.Download with production opts, then media check.
+// YouTube goes through the same format cascade as production downloads —
+// a bare "best" fails on videos where YouTube no longer publishes
+// progressive renditions.
 func (h *Handler) testYtdlpPlatform(ctx context.Context, url, platform, taskDir string) (string, string, string, int64) {
-	opts := h.ytdlpOpts(platform, "best", testDefaultTimeout)
+	format := "best"
+	if platform == "youtube" {
+		format = youtube.FormatSelector("", testYouTubeQuality, "")
+	}
+	opts := h.ytdlpOpts(platform, format, testDefaultTimeout)
 	if err := ytdlp.Download(ctx, url, taskDir, opts); err != nil {
 		return db.TestStatusFailed, truncateTestErr(err), "", 0
 	}
