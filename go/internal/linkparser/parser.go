@@ -8,25 +8,26 @@ import (
 type Platform string
 
 const (
-	PlatformYouTube      Platform = "youtube"
-	PlatformTikTok       Platform = "tiktok"
-	PlatformX            Platform = "x"
-	PlatformSpotify      Platform = "spotify"
-	PlatformSoundCloud   Platform = "soundcloud"
-	PlatformPinterest    Platform = "pinterest"
-	PlatformInstagram    Platform = "instagram"
-	PlatformYandexMusic  Platform = "yandexmusic"
-	PlatformUnknown      Platform = "unknown"
+	PlatformYouTube     Platform = "youtube"
+	PlatformTikTok      Platform = "tiktok"
+	PlatformX           Platform = "x"
+	PlatformSpotify     Platform = "spotify"
+	PlatformSoundCloud  Platform = "soundcloud"
+	PlatformPinterest   Platform = "pinterest"
+	PlatformInstagram   Platform = "instagram"
+	PlatformYandexMusic Platform = "yandexmusic"
+	PlatformTwitch      Platform = "twitch"
+	PlatformUnknown     Platform = "unknown"
 )
 
 type ParsedLink struct {
-	Platform       Platform
-	URL            string
-	XStatusID      string
-	SpotifyID      string
-	SpotifyTyp     string
-	YandexAlbumID  string
-	YandexTrackID  string
+	Platform      Platform
+	URL           string
+	XStatusID     string
+	SpotifyID     string
+	SpotifyTyp    string
+	YandexAlbumID string
+	YandexTrackID string
 }
 
 type pattern struct {
@@ -35,11 +36,11 @@ type pattern struct {
 }
 
 var (
-	urlExtractor     = regexp.MustCompile(`(?i)https?://\S+`)
-	xStatusIDRegex   = regexp.MustCompile(`/status/(\d+)`)
-	youtubeShortsRe  = regexp.MustCompile(`(?i)youtube\.com/shorts/`)
-	spotifyURIRegex  = regexp.MustCompile(`(?i)spotify:(?:album|track):([A-Za-z0-9]{22})`)
-	spotifyIDInURL   = `[A-Za-z0-9]{22}`
+	urlExtractor    = regexp.MustCompile(`(?i)https?://\S+`)
+	xStatusIDRegex  = regexp.MustCompile(`/status/(\d+)`)
+	youtubeShortsRe = regexp.MustCompile(`(?i)youtube\.com/shorts/`)
+	spotifyURIRegex = regexp.MustCompile(`(?i)spotify:(?:album|track):([A-Za-z0-9]{22})`)
+	spotifyIDInURL  = `[A-Za-z0-9]{22}`
 
 	yandexMusicPathRegex = regexp.MustCompile(`(?i)music\.yandex\.[a-z]{2,3}/(?:album/(\d+)(?:/track/(\d+))?|track/(\d+))`)
 
@@ -66,6 +67,10 @@ var (
 		// instagr.am shortener.
 		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.|m\.)?instagram\.com/(?:reel|p|tv|stories|share)/[^\s?#]+(?:[/?#&]\S*)?`)},
 		{PlatformInstagram, regexp.MustCompile(`(?i)(?:https?://)?instagr\.am/[^\s?#]+(?:[/?#&]\S*)?`)},
+		// Twitch clips: channel pages (twitch.tv/<user>/clip/<slug>, also
+		// www/m subdomains) and the legacy clips.twitch.tv share links.
+		{PlatformTwitch, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.|m\.)?twitch\.tv/(?:[\w-]+/)?clip/[\w-]+(?:[/?#&]\S*)?`)},
+		{PlatformTwitch, regexp.MustCompile(`(?i)(?:https?://)?clips\.twitch\.tv/[\w-]+(?:[/?#&]\S*)?`)},
 	}
 )
 

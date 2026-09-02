@@ -21,6 +21,7 @@ class Platform(str, enum.Enum):
     SPOTIFY = "spotify"
     SOUNDCLOUD = "soundcloud"
     PINTEREST = "pinterest"
+    TWITCH = "twitch"
     UNKNOWN = "unknown"
 
 

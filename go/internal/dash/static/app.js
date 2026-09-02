@@ -13,6 +13,7 @@
     spotify: "Spotify",
     soundcloud: "SoundCloud",
     pinterest: "Pinterest",
+    twitch: "Twitch",
     yandexmusic: "Yandex Music",
     unknown: "Прочее",
   };
