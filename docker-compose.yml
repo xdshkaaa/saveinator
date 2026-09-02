@@ -192,7 +192,9 @@ services:
 
   # dash serves the operator dashboard (dash-saveinator.xdshka.party):
   # stats across every service plus the full user table. Read-only consumer
-  # of Postgres/Redis. Runs in host network mode so it can probe the
+  # of Postgres/Redis except the test_urls table (dash writes the admin's
+  # URL test checklist; the saveinator worker executes it). Runs in host
+  # network mode so it can probe the
   # host-network monitoring stack (prometheus, grafana, exporters) on the
   # loopback; binds 127.0.0.1:9000 only.
   dash:

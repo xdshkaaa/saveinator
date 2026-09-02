@@ -243,3 +243,29 @@ class BroadcastDelivery(Base):
         Index("ix_broadcast_deliveries_broadcast_id", "broadcast_id"),
         Index("ix_broadcast_deliveries_user_id", "user_id"),
     )
+
+
+class TestURL(Base):
+    """Admin checklist URL test-run (dash «Тест ссылок»).
+
+    worker monolith claims PENDING rows and runs the platform scenario
+    into a temp dir; results are shown in the dash panel only.
+    """
+
+    __tablename__ = "test_urls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    url: Mapped[str] = mapped_column(Text, unique=True)
+    platform: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(16), default="PENDING", server_default="PENDING")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    media_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+
+    __table_args__ = (
+        Index("ix_test_urls_status_updated", "status", "updated_at"),
+    )

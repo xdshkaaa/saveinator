@@ -101,3 +101,19 @@ CREATE TABLE broadcast_deliveries (
     error_message TEXT,
     sent_at TIMESTAMP
 );
+
+CREATE TABLE test_urls (
+    id SERIAL PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    platform VARCHAR(32) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    error_message TEXT,
+    media_type VARCHAR(16),
+    file_size BIGINT,
+    duration_ms INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    checked_at TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ix_test_urls_status_updated ON test_urls (status, updated_at);

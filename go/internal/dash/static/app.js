@@ -158,6 +158,22 @@
     return res.json();
   }
 
+  // POST/DELETE с JSON-телом: ошибки бэкенда приходят как {"error": "..."}.
+  async function apiSend(method, path, body) {
+    const res = await fetch(path, {
+      method,
+      headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 401) {
+      showLogin();
+      throw new Error("unauthorized");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+    return data;
+  }
+
   /* ---------- header ---------- */
 
   function tickClock() {
@@ -346,11 +362,12 @@
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // подписи дат
+    // подписи дат: сколько влезает — зависит от ширины полотна
     ctx.fillStyle = CHART_COLORS.axis;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const labelEvery = Math.max(1, Math.ceil(points.length / 8));
+    const maxLabels = Math.max(3, Math.min(8, Math.floor(iw / 42)));
+    const labelEvery = Math.max(1, Math.ceil(points.length / maxLabels));
     points.forEach((p, i) => {
       if (i % labelEvery !== 0 && i !== points.length - 1) return;
       ctx.fillText(p.day.slice(5), x(i), pad.top + ih + 8);
@@ -530,6 +547,129 @@
       `</div>`;
   }
 
+  /* ---------- test urls (admin checklist) ---------- */
+
+  const TEST_STATUS_LABELS = {
+    PENDING: "в очереди",
+    RUNNING: "выполняется",
+    PASSED: "прошло",
+    FAILED: "не прошло",
+  };
+
+  function setTestMsg(text) {
+    const el = $("test-msg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.hidden = !text;
+  }
+
+  function fmtSize(bytes) {
+    if (!bytes || bytes <= 0) return "";
+    const mb = bytes / 1048576;
+    return (mb >= 100 ? Math.round(mb) : Math.round(mb * 10) / 10).toString().replace(".", ",") + " MB";
+  }
+
+  function fmtDuration(ms) {
+    if (!ms || ms <= 0) return "";
+    if (ms < 60000) return (Math.round(ms / 100) / 10).toString().replace(".", ",") + " с";
+    const m = Math.floor(ms / 60000);
+    const s = Math.round((ms % 60000) / 1000);
+    return s ? m + " мин " + s + " с" : m + " мин";
+  }
+
+  function testCountsLine(counts) {
+    const failed = counts.failed || 0;
+    const waiting = (counts.pending || 0) + (counts.running || 0);
+    return "прошло: " + `<span class="ok-num">${fmt.format(counts.passed || 0)}</span>` +
+      " · не прошло: " + `<span class="${failed ? "fail-num" : ""}">${fmt.format(failed)}</span>` +
+      " · ждут: " + `<span>${fmt.format(waiting)}</span>`;
+  }
+
+  function renderTestUrls(items, counts) {
+    const body = $("test-urls-body");
+    const empty = $("test-urls-empty");
+    const countsEl = $("test-counts");
+    if (!body) return;
+    if (countsEl) countsEl.innerHTML = testCountsLine(counts || {});
+    if (!items.length) {
+      body.innerHTML = "";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    body.innerHTML = items
+      .map((t) => {
+        const status = t.status || "PENDING";
+        const label = TEST_STATUS_LABELS[status] || status.toLowerCase();
+        const checked = t.checked_at
+          ? new Date(t.checked_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+          : "—";
+        const err = t.error_message
+          ? `<td class="test-err" title="${escapeHtml(t.error_message)}">${escapeHtml(t.error_message)}</td>`
+          : `<td class="test-err">—</td>`;
+        const canRerun = status === "PASSED" || status === "FAILED";
+        return `<tr class="test-row">
+          <td class="test-url"><a href="${escapeHtml(t.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(t.url)}">${escapeHtml(t.url)}</a></td>
+          <td><span class="bot-chip">${escapeHtml(platformLabel(t.platform))}</span></td>
+          <td><span class="t-badge s-${escapeHtml(status)}">${label}</span></td>
+          <td class="num">${fmtSize(t.file_size) || "—"}</td>
+          <td class="num">${fmtDuration(t.duration_ms) || "—"}</td>
+          ${err}
+          <td class="test-checked">${checked}</td>
+          <td class="test-acts">
+            ${canRerun ? `<button class="t-btn" data-action="rerun" data-id="${t.id}" type="button" title="Перезапустить тест" aria-label="Перезапустить тест">↻</button>` : ""}
+            <button class="t-btn t-del" data-action="delete" data-id="${t.id}" type="button" title="Удалить из списка" aria-label="Удалить из списка">✕</button>
+          </td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  async function loadTestUrls() {
+    try {
+      const data = await api("/api/test-urls");
+      renderTestUrls(data.items || [], data.counts || {});
+    } catch (err) {
+      console.error("test urls load failed:", err);
+    }
+  }
+
+  async function addTestURL() {
+    const input = $("test-url-input");
+    const url = (input.value || "").trim();
+    if (!url) return;
+    setTestMsg("");
+    try {
+      await apiSend("POST", "/api/test-urls", { url });
+      input.value = "";
+      loadTestUrls();
+    } catch (err) {
+      setTestMsg("Не удалось добавить: " + (err.message || err));
+    }
+  }
+
+  async function runAllTests() {
+    setTestMsg("");
+    try {
+      const data = await apiSend("POST", "/api/test-urls/run");
+      setTestMsg(data.requeued ? "В очередь поставлено: " + fmt.format(data.requeued) : "Нет завершённых ссылок для прогона.");
+      loadTestUrls();
+    } catch (err) {
+      setTestMsg("Не удалось запустить: " + (err.message || err));
+    }
+  }
+
+  async function testRowAction(action, id) {
+    setTestMsg("");
+    try {
+      if (action === "delete") await apiSend("DELETE", "/api/test-urls/" + id);
+      if (action === "rerun") await apiSend("POST", "/api/test-urls/" + id + "/rerun");
+      loadTestUrls();
+    } catch (err) {
+      setTestMsg("Не удалось выполнить: " + (err.message || err));
+    }
+  }
+
   /* ---------- load ---------- */
 
   async function loadAll(silent) {
@@ -614,6 +754,12 @@
       loadAll();
       loadTimeline();
       loadUsers();
+      loadTestUrls();
+      // Статусы тестов обновляются чаще основной панели — прогон виден
+      // почти вживую, а эндпоинт дешёвый (одна таблица).
+      setInterval(() => {
+        if (!document.hidden) loadTestUrls();
+      }, 5000);
       // Скрытая вкладка не должна тратить трафик и батарею: в фоне
       // тик пропускается, а по возвращении данные обновляются сразу,
       // если успели устареть.
@@ -634,6 +780,7 @@
       loadAll();
       loadTimeline();
       loadUsers();
+      loadTestUrls();
     });
 
     $("logout-btn").addEventListener("click", logout);
@@ -660,6 +807,19 @@
         e.preventDefault();
         openDrawer(tr.dataset);
       }
+    });
+
+    $("test-add-btn").addEventListener("click", addTestURL);
+    $("test-url-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addTestURL();
+      }
+    });
+    $("test-run-btn").addEventListener("click", runAllTests);
+    $("test-urls-body").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (btn) testRowAction(btn.dataset.action, btn.dataset.id);
     });
 
     $("drawer-close").addEventListener("click", closeDrawer);

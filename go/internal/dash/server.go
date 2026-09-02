@@ -82,6 +82,11 @@ func (s *Server) Router() http.Handler {
 		r.Get("/api/users", s.handleUsers)
 		r.Get("/api/users/{id}/downloads", s.handleUserDownloads)
 		r.Get("/api/services", s.handleServices)
+		r.Get("/api/test-urls", s.handleTestURLs)
+		r.Post("/api/test-urls", s.handleTestURLCreate)
+		r.Post("/api/test-urls/run", s.handleTestURLRun)
+		r.Post("/api/test-urls/{id}/rerun", s.handleTestURLRerun)
+		r.Delete("/api/test-urls/{id}", s.handleTestURLDelete)
 	})
 
 	sub, err := fs.Sub(staticFS, "static")

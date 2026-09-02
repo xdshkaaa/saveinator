@@ -205,7 +205,9 @@ func (a *App) runWorker(ctx context.Context, bot *telego.Bot, store *db.Store, r
 	})
 
 	mux := asynq.NewServeMux()
-	worker.NewHandler(a.cfg, bot, store, redisClient).Register(mux)
+	wh := worker.NewHandler(a.cfg, bot, store, redisClient)
+	wh.Register(mux)
+	wh.StartTestRunner(ctx)
 	worker.StartMaintenance(ctx, a.cfg)
 
 	go func() {
