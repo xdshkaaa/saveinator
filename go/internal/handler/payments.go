@@ -35,6 +35,9 @@ func (b *Bot) wmEntitled(ctx context.Context, userID int64) bool {
 // noWatermarkFor snapshots the effective per-download footer preference:
 // entitlement alone is not enough, the toggle must also be on.
 func (b *Bot) noWatermarkFor(ctx context.Context, userID int64) bool {
+	if b.db == nil { // test bots run without a store
+		return false
+	}
 	settings, err := b.db.GetOrCreateUserSettings(ctx, userID)
 	if err != nil {
 		slog.Warn("user settings lookup failed", "err", err, "user", userID)
