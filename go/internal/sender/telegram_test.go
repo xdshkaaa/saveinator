@@ -1,10 +1,20 @@
 package sender
 
 import (
+	"bytes"
+	"io"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/mymmrac/telego"
+	tu "github.com/mymmrac/telego/telegoutil"
 )
 
 func TestTypedNilReplyMarkupInStructFieldIsNonZero(t *testing.T) {
@@ -51,5 +61,81 @@ func TestEditMessageMarkupNilSafe(t *testing.T) {
 	var markup *telego.InlineKeyboardMarkup
 	if markup != nil {
 		t.Fatal("expected nil markup — EditMessageMarkup must call EditMessage without ReplyMarkup")
+	}
+}
+
+// TestSendFileNilMarkupNotOnWire pins the telego trap: ReplyMarkup params are
+// interface-typed, so chaining WithReplyMarkup with a typed-nil
+// *InlineKeyboardMarkup serializes reply_markup=null and Telegram answers
+// 400 "object expected as reply markup". Nil-markup sends must omit the field
+// entirely; a real keyboard must still be delivered.
+func TestSendFileNilMarkupNotOnWire(t *testing.T) {
+	t.Parallel()
+
+	contentTypes := make([]string, 0, 4)
+	bodies := make([][]byte, 0, 4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, body)
+		contentTypes = append(contentTypes, r.Header.Get("Content-Type"))
+		_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
+	}))
+	defer srv.Close()
+
+	bot, err := telego.NewBot("1234567890:"+strings.Repeat("A", 35), telego.WithAPIServer(srv.URL), telego.WithDiscardLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(bot)
+
+	path := filepath.Join(t.TempDir(), "clip.mp4")
+	if err := os.WriteFile(path, bytes.Repeat([]byte{0x00}, 64), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.SendFile(1, path, "t", "en", "tiktok", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SendFileNoFooter(1, path, "t", "en", "tiktok", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SendFileWithMarkup(1, path, "t", "en", "tiktok", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	for i := range bodies {
+		if v := multipartField(t, bodies[i], contentTypes[i], "reply_markup"); v != "" {
+			t.Fatalf("nil-markup send #%d carried reply_markup=%q, want field absent", i, v)
+		}
+	}
+
+	keyboard := tu.InlineKeyboard(tu.InlineKeyboardRow(tu.InlineKeyboardButton("b").WithCallbackData("x")))
+	if err := s.SendFileWithMarkup(1, path, "t", "en", "tiktok", false, keyboard); err != nil {
+		t.Fatal(err)
+	}
+	if v := multipartField(t, bodies[len(bodies)-1], contentTypes[len(contentTypes)-1], "reply_markup"); v == "" {
+		t.Fatal("SendFileWithMarkup with a keyboard sent no reply_markup")
+	}
+}
+
+// multipartField extracts a form value from a captured multipart request body.
+func multipartField(t *testing.T, body []byte, contentType, field string) string {
+	t.Helper()
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+		t.Fatalf("unexpected content type %q: %v", contentType, err)
+	}
+	mr := multipart.NewReader(bytes.NewReader(body), params["boundary"])
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			return ""
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if part.FormName() == field {
+			value, _ := io.ReadAll(part)
+			return string(value)
+		}
 	}
 }

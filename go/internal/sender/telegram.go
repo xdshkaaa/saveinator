@@ -130,12 +130,20 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 	}
 	defer file.close()
 
+	// ReplyMarkup params are interface-typed in telego: chaining WithReplyMarkup
+	// with a typed-nil *InlineKeyboardMarkup wraps it into a non-nil interface,
+	// and the request goes out with "reply_markup": null which Telegram rejects
+	// ("object expected as reply markup"). Only attach real keyboards.
 	sizeMB := float64(fileSize(path)) / (1024 * 1024)
 	chat := tu.ID(chatID)
 
 	if animation {
+		anim := tu.Animation(chat, file.input).WithCaption(caption)
+		if markup != nil {
+			anim = anim.WithReplyMarkup(markup)
+		}
 		return metrics.CallTelegram("SendAnimation", func() error {
-			_, err := t.bot.SendAnimation(tu.Animation(chat, file.input).WithCaption(caption).WithReplyMarkup(markup))
+			_, err := t.bot.SendAnimation(anim)
 			return err
 		})
 	}
@@ -143,16 +151,23 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".jpg", ".jpeg", ".png", ".webp":
+		photo := tu.Photo(chat, file.input).WithCaption(caption)
+		if markup != nil {
+			photo = photo.WithReplyMarkup(markup)
+		}
 		return metrics.CallTelegram("SendPhoto", func() error {
-			_, err := t.bot.SendPhoto(tu.Photo(chat, file.input).WithCaption(caption).WithReplyMarkup(markup))
+			_, err := t.bot.SendPhoto(photo)
 			return err
 		})
 	case ".mp4", ".webm", ".mov", ".mkv", ".m4v":
 		if sizeMB <= 50 {
 			meta := probeVideoMeta(path)
 			defer meta.close()
-			vidParams := tu.Video(chat, file.input).WithCaption(caption).WithReplyMarkup(markup).
+			vidParams := tu.Video(chat, file.input).WithCaption(caption).
 				WithWidth(meta.width).WithHeight(meta.height).WithDuration(meta.duration).WithSupportsStreaming()
+			if markup != nil {
+				vidParams = vidParams.WithReplyMarkup(markup)
+			}
 			if meta.thumb != nil {
 				vidParams = vidParams.WithThumbnail(&meta.thumb.input)
 			}
@@ -163,8 +178,12 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 		}
 	}
 
+	doc := tu.Document(chat, file.input).WithCaption(caption)
+	if markup != nil {
+		doc = doc.WithReplyMarkup(markup)
+	}
 	return metrics.CallTelegram("SendDocument", func() error {
-		_, err := t.bot.SendDocument(tu.Document(chat, file.input).WithCaption(caption).WithReplyMarkup(markup))
+		_, err := t.bot.SendDocument(doc)
 		return err
 	})
 }
