@@ -223,7 +223,9 @@ func (b *Bot) startYouTubeDownload(ctx context.Context, bot *telego.Bot, session
 		aspectRatio = b.youtubeAspectRatio(ctx, session.UserID)
 	}
 
-	if err := b.q.EnqueueDownload(buildYouTubePayload(session, option, audioOnly, aspectRatio)); err != nil {
+	payload := buildYouTubePayload(session, option, audioOnly, aspectRatio)
+	payload.NoWatermark = b.noWatermarkFor(ctx, session.UserID)
+	if err := b.q.EnqueueDownload(payload); err != nil {
 		slog.Warn("enqueue youtube failed", "err", err)
 		_, _ = bot.SendMessage(htmlMessage(tu.ID(session.ChatID), locale.Get("errors.generic", session.Lang, nil)))
 		return

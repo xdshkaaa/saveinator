@@ -96,7 +96,7 @@ func (h *Handler) runInstagram(ctx context.Context, p queue.DownloadPayload) err
 
 func (h *Handler) sendInstagramVideo(ctx context.Context, p queue.DownloadPayload, lang, videoPath string, start time.Time) {
 	title := instagramTitle(videoPath)
-	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, "instagram", false); err != nil {
+	if err := h.sendFile(p, videoPath, title, lang, "instagram", false); err != nil {
 		slog.Warn("instagram send failed", "err", err)
 		recordTaskFailure(queue.TypeInstagram)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
@@ -112,7 +112,7 @@ func (h *Handler) sendInstagramPhotos(ctx context.Context, p queue.DownloadPaylo
 	if len(images) > maxItems {
 		images = images[:maxItems]
 	}
-	caption := buildMediaCaption("", lang)
+	caption := buildMediaCaption("", lang, p.NoWatermark)
 	if err := h.sender.SendPhotoAlbum(p.ChatID, images, caption); err != nil {
 		slog.Warn("instagram album send failed", "err", err)
 		recordTaskFailure(queue.TypeInstagram)

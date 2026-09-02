@@ -379,7 +379,7 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 	images := ytdlp.ImageFiles(files)
 	sourceVideo := ytdlp.LargestVideo(files)
 	if sourceVideo == "" && len(images) > 0 {
-		caption := buildMediaCaption("", lang)
+		caption := buildMediaCaption("", lang, p.NoWatermark)
 		if err := h.sender.SendPhotoAlbum(p.ChatID, images, caption); err != nil {
 			slog.Warn("send album failed", "err", err)
 			recordTaskFailure(queue.TypeDownload)
@@ -425,7 +425,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 		return nil
 	}
 
-	caption := h.buildXPhotoCaption(ctx, statusID, result, lang)
+	caption := h.buildXPhotoCaption(ctx, statusID, result, lang, p.NoWatermark)
 	if err := h.sender.SendPhotoAlbum(p.ChatID, paths, caption); err != nil {
 		slog.Warn("x photo album send failed", "err", err)
 		recordTaskFailure(taskType)
@@ -439,7 +439,7 @@ func (h *Handler) runXPhotos(ctx context.Context, p queue.DownloadPayload, lang,
 	return nil
 }
 
-func (h *Handler) buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string) string {
+func (h *Handler) buildXPhotoCaption(ctx context.Context, statusID string, result *xphotos.Result, lang string, noFooter bool) string {
 	title := ""
 	if result != nil {
 		title = x.CleanRawTitle(result.Title)
@@ -448,9 +448,9 @@ func (h *Handler) buildXPhotoCaption(ctx context.Context, statusID string, resul
 		title = x.ResolveTitle(ctx, statusID, "")
 	}
 	if title == "" {
-		return buildMediaCaption(title, lang)
+		return buildMediaCaption(title, lang, noFooter)
 	}
-	return buildMediaCaption(h.translateXTitle(ctx, title), lang)
+	return buildMediaCaption(h.translateXTitle(ctx, title), lang, noFooter)
 }
 
 // translateXTitle appends a Russian auto-translation under the original post
@@ -467,9 +467,22 @@ func (h *Handler) translateXTitle(ctx context.Context, title string) string {
 	return title + "\n\n" + translated
 }
 
-func buildMediaCaption(title, lang string) string {
-	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
+// sendFile delivers a file honoring the payload's watermark preference:
+// NoWatermark users (admins and Stars buyers with the toggle on) get the
+// caption without the "via @bot" footer.
+func (h *Handler) sendFile(p queue.DownloadPayload, path, title, lang, platform string, animation bool) error {
+	if p.NoWatermark {
+		return h.sender.SendFileNoFooter(p.ChatID, path, title, lang, platform, animation)
+	}
+	return h.sender.SendFile(p.ChatID, path, title, lang, platform, animation)
+}
+
+func buildMediaCaption(title, lang string, noFooter bool) string {
 	title = strings.TrimSpace(title)
+	if noFooter {
+		return title
+	}
+	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
 	if title == "" {
 		return via
 	}
@@ -501,7 +514,7 @@ func (h *Handler) sendVideoResult(ctx context.Context, p queue.DownloadPayload, 
 		title = h.translateXTitle(ctx, x.ResolveTitle(ctx, statusID, videoPath))
 	}
 	animation := p.Platform == "x" && !ytdlp.HasAudioStream(videoPath)
-	if err := h.sender.SendFile(p.ChatID, videoPath, title, lang, p.Platform, animation); err != nil {
+	if err := h.sendFile(p, videoPath, title, lang, p.Platform, animation); err != nil {
 		slog.Warn("send file failed", "err", err)
 		recordTaskFailure(taskType)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
@@ -613,7 +626,7 @@ func (h *Handler) runPinterest(ctx context.Context, p queue.DownloadPayload) err
 		_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "pinterest", "failed", 0, err.Error())
 		return nil
 	}
-	if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
+		if err := h.sendFile(p, item.FilePath, title, lang, "pinterest", false); err != nil {
 		slog.Warn("pinterest send failed", "err", err)
 		recordTaskFailure(queue.TypePinterest)
 		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, err))
@@ -651,7 +664,7 @@ func (h *Handler) sendPinterestItems(ctx context.Context, p queue.DownloadPayloa
 			if title == "" {
 				title = pinterest.DisplayTitle(item.FilePath)
 			}
-			if err := h.sender.SendFile(p.ChatID, item.FilePath, title, lang, "pinterest", false); err != nil {
+			if err := h.sendFile(p, item.FilePath, title, lang, "pinterest", false); err != nil {
 				slog.Warn("pinterest send failed", "err", err)
 				continue
 			}
@@ -667,7 +680,7 @@ func (h *Handler) sendPinterestItems(ctx context.Context, p queue.DownloadPayloa
 	}
 
 	if len(imagePaths) > 0 {
-		caption := buildMediaCaption("", lang)
+		caption := buildMediaCaption("", lang, p.NoWatermark)
 		if err := h.sender.SendPhotoAlbum(p.ChatID, imagePaths, caption); err != nil {
 			slog.Warn("pinterest album send failed", "err", err)
 		} else {

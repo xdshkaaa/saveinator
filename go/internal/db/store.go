@@ -122,14 +122,15 @@ func nullable(s string) any {
 type UserSettings struct {
 	YouTubeQuality string
 	YouTubeRatio   string
+	NoWatermark    bool
 }
 
 func (s *Store) GetOrCreateUserSettings(ctx context.Context, userID int64) (UserSettings, error) {
 	var settings UserSettings
 	err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(youtube_quality, 'ask'), COALESCE(youtube_ratio, 'ask')
+		SELECT COALESCE(youtube_quality, 'ask'), COALESCE(youtube_ratio, 'ask'), COALESCE(no_watermark, FALSE)
 		FROM user_settings WHERE user_id = $1
-	`, userID).Scan(&settings.YouTubeQuality, &settings.YouTubeRatio)
+	`, userID).Scan(&settings.YouTubeQuality, &settings.YouTubeRatio, &settings.NoWatermark)
 	if err == nil {
 		return settings, nil
 	}
@@ -180,14 +181,52 @@ func (s *Store) SetYouTubeRatio(ctx context.Context, userID int64, ratio string)
 	return s.upsertSetting(ctx, userID, "youtube_ratio", ratio)
 }
 
+// SetNoWatermark toggles the "hide the via-footer" preference. It only has an
+// effect for users entitled to it (a Stars purchase or the admin).
+func (s *Store) SetNoWatermark(ctx context.Context, userID int64, enabled bool) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO users (id, language, created_at) VALUES ($1, 'EN'::language, $2) ON CONFLICT DO NOTHING`, userID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	_, err = s.pool.Exec(ctx, `
+		INSERT INTO user_settings (user_id, no_watermark) VALUES ($1, $2::boolean)
+		ON CONFLICT (user_id) DO UPDATE SET no_watermark = EXCLUDED.no_watermark
+	`, userID, enabled)
+	return err
+}
+
+// HasPurchase reports whether the user has already bought the given product.
+func (s *Store) HasPurchase(ctx context.Context, userID int64, product string) (bool, error) {
+	var exists bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM purchases WHERE user_id = $1 AND product = $2)
+	`, userID, product).Scan(&exists)
+	return exists, err
+}
+
+// RecordPurchase stores a completed payment. The unique charge id makes it
+// idempotent: redelivered successful_payment updates insert nothing. It
+// returns whether this call recorded a new purchase.
+func (s *Store) RecordPurchase(ctx context.Context, userID int64, product string, stars int, currency, chargeID string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		INSERT INTO purchases (user_id, product, stars_amount, currency, telegram_payment_charge_id)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (telegram_payment_charge_id) DO NOTHING
+	`, userID, product, stars, currency, chargeID)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 func (s *Store) ResetUserSettings(ctx context.Context, userID int64) error {
 	if _, err := s.pool.Exec(ctx, `UPDATE users SET language = 'EN'::language WHERE id = $1`, userID); err != nil {
 		return err
 	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO user_settings (user_id, youtube_quality, youtube_ratio)
-		VALUES ($1, 'ask', 'ask')
-		ON CONFLICT (user_id) DO UPDATE SET youtube_quality = 'ask', youtube_ratio = 'ask'
+		INSERT INTO user_settings (user_id, youtube_quality, youtube_ratio, no_watermark)
+		VALUES ($1, 'ask', 'ask', FALSE)
+		ON CONFLICT (user_id) DO UPDATE SET youtube_quality = 'ask', youtube_ratio = 'ask', no_watermark = FALSE
 	`, userID)
 	return err
 }

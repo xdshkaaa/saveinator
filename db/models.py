@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, String, DateTime, Enum, ForeignKey, Text, Index, Integer, UniqueConstraint, JSON
+from sqlalchemy import BigInteger, String, DateTime, Enum, ForeignKey, Text, Index, Integer, UniqueConstraint, JSON, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime, UTC
@@ -152,6 +152,27 @@ class UserSettings(Base):
     )
     youtube_ratio: Mapped[str] = mapped_column(
         String(16), default="ask", server_default="ask"
+    )
+    no_watermark: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+
+
+class Purchase(Base):
+    """One-time Telegram Stars purchase (product unlock / payment ledger)."""
+
+    __tablename__ = "purchases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    product: Mapped[str] = mapped_column(String(32))
+    stars_amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(8), default="XTR", server_default="XTR")
+    telegram_payment_charge_id: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+
+    __table_args__ = (
+        Index("ix_purchases_user", "user_id", "product"),
     )
 
 

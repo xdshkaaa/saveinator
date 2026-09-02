@@ -55,8 +55,21 @@ CREATE TABLE downloads (
 CREATE TABLE user_settings (
     user_id BIGINT PRIMARY KEY REFERENCES users(id),
     youtube_quality VARCHAR(16) NOT NULL DEFAULT 'ask',
-    youtube_ratio VARCHAR(16) NOT NULL DEFAULT 'ask'
+    youtube_ratio VARCHAR(16) NOT NULL DEFAULT 'ask',
+    no_watermark BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+CREATE TABLE purchases (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    product VARCHAR(32) NOT NULL,
+    stars_amount INT NOT NULL,
+    currency VARCHAR(8) NOT NULL DEFAULT 'XTR',
+    telegram_payment_charge_id TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ix_purchases_user ON purchases (user_id, product);
 
 CREATE TABLE banned_links (
     id SERIAL PRIMARY KEY,

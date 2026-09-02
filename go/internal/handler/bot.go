@@ -76,6 +76,8 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
 	h.HandleCallbackQueryCtx(b.onTikTokCarousel(bot), th.CallbackDataPrefix("ttk:img:"))
 	h.HandleCallbackQueryCtx(b.onYandexAlbumDownload(bot), th.CallbackDataPrefix(yandexmusic.AlbumCallbackPrefix))
+	h.HandlePreCheckoutQueryCtx(b.onPreCheckoutQuery(bot), th.AnyPreCheckoutQuery())
+	h.HandleMessageCtx(b.onSuccessfulPayment(bot), th.SuccessPayment())
 	// Fallback for callback data matching no prefix above (stale/forged buttons).
 	// Telego dispatches to the first handler whose predicates match, so this MUST
 	// stay registered last or it will shadow every handler above it.
@@ -304,16 +306,17 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 	}
 
 	payload := queue.DownloadPayload{
-		URL:       link.URL,
-		Platform:  string(link.Platform),
-		ChatID:    msg.Chat.ID,
-		UserID:    msg.From.ID,
-		MessageID: status.MessageID,
-		Lang:      lang,
-		LockToken: token,
-		LockScene: scene,
-		XStatusID: link.XStatusID,
-		FormatID:  "best",
+		URL:         link.URL,
+		Platform:    string(link.Platform),
+		ChatID:      msg.Chat.ID,
+		UserID:      msg.From.ID,
+		MessageID:   status.MessageID,
+		Lang:        lang,
+		LockToken:   token,
+		LockScene:   scene,
+		XStatusID:   link.XStatusID,
+		FormatID:    "best",
+		NoWatermark: b.noWatermarkFor(ctx, msg.From.ID),
 	}
 
 	var enqueueErr error

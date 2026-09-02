@@ -54,6 +54,9 @@ func (s *recordingSender) SendPhotoAlbum(chatID int64, paths []string, caption s
 func (s *recordingSender) SendFile(chatID int64, path, title, lang, platform string, animation bool) error {
 	return nil
 }
+func (s *recordingSender) SendFileNoFooter(chatID int64, path, title, lang, platform string, animation bool) error {
+	return nil
+}
 func (s *recordingSender) SendFileWithMarkup(chatID int64, path, title, lang, platform string, animation bool, markup *telego.InlineKeyboardMarkup) error {
 	return nil
 }

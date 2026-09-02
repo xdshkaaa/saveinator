@@ -56,6 +56,7 @@ func (b *Bot) onTikTokCarousel(bot *telego.Bot) func(context.Context, *telego.Bo
 			LockToken:    lockToken,
 			LockScene:    "tiktok",
 			SessionToken: token,
+			NoWatermark:  b.noWatermarkFor(ctx, userID),
 		})
 		metrics.DownloadsEnqueued.WithLabelValues("tiktok").Inc()
 	}

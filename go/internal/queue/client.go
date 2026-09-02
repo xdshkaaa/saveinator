@@ -61,6 +61,9 @@ type DownloadPayload struct {
 	Author string `json:"author,omitempty"`
 	// AudioOnly requests the soundtrack instead of the video.
 	AudioOnly bool `json:"audio_only,omitempty"`
+	// NoWatermark snapshots the user's entitlement+toggle at enqueue time:
+	// deliver the media without the "via @bot" caption footer.
+	NoWatermark bool `json:"no_watermark,omitempty"`
 	// TrimStart/TrimEnd bound the fragment to fetch, in seconds. Zero means
 	// "whole video".
 	TrimStart float64 `json:"trim_start,omitempty"`

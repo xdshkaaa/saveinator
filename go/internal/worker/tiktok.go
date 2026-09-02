@@ -55,7 +55,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 		return nil
 	}
 
-	caption := buildTikTokCaption(result.Title, result.Author, lang)
+	caption := buildTikTokCaption(result.Title, result.Author, lang, p.NoWatermark)
 
 	switch result.PostType {
 	case tiktok.PostTypeCarousel, tiktok.PostTypeAudioOnly:
@@ -87,7 +87,7 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, "no video file found")
 			return nil
 		}
-		if sendErr := h.sender.SendFile(p.ChatID, result.VideoPath, result.Title, lang, "tiktok", false); sendErr != nil {
+		if sendErr := h.sendFile(p, result.VideoPath, result.Title, lang, "tiktok", false); sendErr != nil {
 			slog.Warn("tiktok send failed", "err", sendErr)
 			_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, sendErr))
 			_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "failed", 0, sendErr.Error())
@@ -105,13 +105,16 @@ func (h *Handler) runTikTok(ctx context.Context, p queue.DownloadPayload) error 
 	return nil
 }
 
-func buildTikTokCaption(title, author, lang string) string {
+func buildTikTokCaption(title, author, lang string, noFooter bool) string {
 	parts := []string{}
 	if title != "" {
 		parts = append(parts, title)
 	}
 	if author != "" {
 		parts = append(parts, "@"+author)
+	}
+	if noFooter {
+		return stringsJoin(parts, "\n")
 	}
 	content := stringsJoin(parts, "\n")
 	via := locale.Get("download.via_bot", lang, map[string]string{"bot_username": "saveinator_bot"})
@@ -180,7 +183,7 @@ func (h *Handler) runTikTokCarouselImages(ctx context.Context, p queue.DownloadP
 		})))
 	}
 
-	caption := buildTikTokCaption(result.Title, result.Author, lang)
+	caption := buildTikTokCaption(result.Title, result.Author, lang, p.NoWatermark)
 	_ = h.sender.SendPhotoAlbum(p.ChatID, result.Images, caption)
 	metrics.TikTokCarouselImagesTotal.Add(float64(len(result.Images)))
 	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "tiktok", "completed", 0, "")

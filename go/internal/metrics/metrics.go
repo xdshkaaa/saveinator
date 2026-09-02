@@ -178,6 +178,10 @@ var (
 		Name: "saveinator_rpc_failures_total",
 		Help: "Infrastructure RPC failures (database, redis, internal)",
 	}, []string{"rpc_type"})
+	StarPurchasesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "saveinator_star_purchases_total",
+		Help: "Telegram Stars purchases by product",
+	}, []string{"product"})
 
 	CeleryTasksTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "saveinator_celery_tasks_total",

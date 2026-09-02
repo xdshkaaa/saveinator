@@ -259,7 +259,25 @@
     "btn_ratio": "📐 Video format",
     "btn_reset": "♻️ Reset settings",
     "btn_back": "← Back",
-    "reset_toast": "Settings reset to defaults"
+    "reset_toast": "Settings reset to defaults",
+    "wm_line": "Watermark (bot signature): {state}",
+    "btn_wm": "💧 Watermark"
+  },
+  "watermark": {
+    "state_on": "shown",
+    "state_off": "off",
+    "prompt_locked": "Downloads currently come with the signature «via @{bot_username}».\n\nTurn it off for all your future downloads — {price} ⭐, one-time payment.",
+    "prompt_unlocked": "Watermark (bot signature) is {state}.\n\nOff — downloads come without the «via @{bot_username}» line.",
+    "btn_buy": "⭐ Turn off for {price}",
+    "btn_enable": "Turn on",
+    "btn_disable": "Turn off",
+    "purchased": "⭐ Payment received! Watermark is now off — downloads no longer carry the bot signature.",
+    "pay_error": "Payment could not be completed. Please try again.",
+    "invoice_title": "Watermark off",
+    "invoice_description": "Remove the «via @{bot_username}» signature from downloaded files",
+    "dm_hint": "Purchase is available in a private chat with the bot.",
+    "toast_enabled": "Watermark on",
+    "toast_disabled": "Watermark off"
   },
   "tiktok": {
     "carousel_downloading": "📸 Downloading TikTok carousel...",

@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/mymmrac/telego"
@@ -60,6 +62,20 @@ func (b *Bot) onSettingsCallback(bot *telego.Bot) func(context.Context, *telego.
 			} else {
 				b.editSettingsRatio(bot, chat.ID, msgID, lang)
 			}
+		case "wm":
+			switch {
+			case len(parts) == 2:
+				b.editSettingsWatermark(ctx, bot, userID, chat.ID, msgID, lang)
+			case len(parts) == 3 && (parts[2] == "on" || parts[2] == "off"):
+				// Server-side entitlement check: the buttons are only rendered
+				// for entitled users, but a forged callback must not toggle.
+				if b.wmEntitled(ctx, userID) {
+					_ = b.db.SetNoWatermark(ctx, userID, parts[2] == "on")
+				}
+				b.editSettingsWatermark(ctx, bot, userID, chat.ID, msgID, lang)
+			case len(parts) == 3 && parts[2] == "buy":
+				b.sendWatermarkInvoice(bot, userID, chat.ID, chat.Type, lang)
+			}
 		case "reset":
 			_ = b.db.ResetUserSettings(ctx, userID)
 			lang = "en"
@@ -76,10 +92,15 @@ func (b *Bot) settingsSummary(ctx context.Context, userID int64, lang string) st
 	if userLang == "" {
 		userLang = lang
 	}
-	return fmt.Sprintf("%s\n\n%s\n%s",
+	stateKey := "watermark.state_on"
+	if settings.NoWatermark {
+		stateKey = "watermark.state_off"
+	}
+	return fmt.Sprintf("%s\n\n%s\n%s\n%s",
 		locale.Get("settings.title", lang, nil),
 		locale.Get("settings.lang_line", lang, map[string]string{"language": languageLabel(userLang, lang)}),
 		locale.Get("settings.ratio_line", lang, map[string]string{"ratio": ratioLabel(settings.YouTubeRatio, lang)}),
+		locale.Get("settings.wm_line", lang, map[string]string{"state": locale.Get(stateKey, lang, nil)}),
 	)
 }
 
@@ -133,8 +154,84 @@ func (b *Bot) settingsMenuKeyboard(lang string) *telego.InlineKeyboardMarkup {
 	return tu.InlineKeyboard(
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_lang", lang, nil)).WithCallbackData("settings|lang")),
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_ratio", lang, nil)).WithCallbackData("settings|ratio")),
+		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_wm", lang, nil)).WithCallbackData("settings|wm")),
 		tu.InlineKeyboardRow(tu.InlineKeyboardButton(locale.Get("settings.btn_reset", lang, nil)).WithCallbackData("settings|reset")),
 	)
+}
+
+// editSettingsWatermark renders the watermark submenu: a buy button with the
+// Stars price for users without the purchase, toggle buttons for entitled
+// ones (admins and buyers).
+func (b *Bot) editSettingsWatermark(ctx context.Context, bot *telego.Bot, userID, chatID int64, messageID int, lang string) {
+	entitled := b.wmEntitled(ctx, userID)
+	settings, _ := b.db.GetOrCreateUserSettings(ctx, userID)
+	username := b.botUsername()
+	price := strconv.Itoa(watermarkPriceStars)
+
+	var text string
+	var kb *telego.InlineKeyboardMarkup
+	if entitled {
+		stateKey := "watermark.state_on"
+		if settings.NoWatermark {
+			stateKey = "watermark.state_off"
+		}
+		text = locale.Get("watermark.prompt_unlocked", lang, map[string]string{
+			"state":        locale.Get(stateKey, lang, nil),
+			"bot_username": username,
+		})
+		kb = tu.InlineKeyboard(
+			tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton(locale.Get("watermark.btn_enable", lang, nil)).WithCallbackData("settings|wm|on"),
+				tu.InlineKeyboardButton(locale.Get("watermark.btn_disable", lang, nil)).WithCallbackData("settings|wm|off"),
+			),
+			tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton(locale.Get("settings.btn_back", lang, nil)).WithCallbackData("settings|menu"),
+			),
+		)
+	} else {
+		text = locale.Get("watermark.prompt_locked", lang, map[string]string{
+			"price":        price,
+			"bot_username": username,
+		})
+		kb = tu.InlineKeyboard(
+			tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton(locale.Get("watermark.btn_buy", lang, map[string]string{"price": price})).WithCallbackData("settings|wm|buy"),
+			),
+			tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton(locale.Get("settings.btn_back", lang, nil)).WithCallbackData("settings|menu"),
+			),
+		)
+	}
+
+	_, _ = bot.EditMessageText(&telego.EditMessageTextParams{
+		ChatID:      tu.ID(chatID),
+		MessageID:   messageID,
+		Text:        tgemoji.Render(text),
+		ParseMode:   telego.ModeHTML,
+		ReplyMarkup: kb,
+	})
+}
+
+// sendWatermarkInvoice offers the one-time Stars purchase. Invoices can only
+// be sent to private chats.
+func (b *Bot) sendWatermarkInvoice(bot *telego.Bot, userID, chatID int64, chatType string, lang string) {
+	if chatType != telego.ChatTypePrivate {
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(chatID), locale.Get("watermark.dm_hint", lang, nil)))
+		return
+	}
+	title := locale.Get("watermark.invoice_title", lang, nil)
+	_, err := bot.SendInvoice(&telego.SendInvoiceParams{
+		ChatID:        tu.ID(chatID),
+		Title:         title,
+		Description:   locale.Get("watermark.invoice_description", lang, map[string]string{"bot_username": b.botUsername()}),
+		Payload:       watermarkProduct,
+		ProviderToken: "",
+		Currency:      "XTR",
+		Prices:        []telego.LabeledPrice{{Label: title, Amount: watermarkPriceStars}},
+	})
+	if err != nil {
+		slog.Warn("send invoice failed", "err", err, "user", userID)
+	}
 }
 
 func languageLabel(code, lang string) string {

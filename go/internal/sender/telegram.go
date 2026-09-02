@@ -107,74 +107,23 @@ func (t *Telegram) DeleteMessage(chatID int64, messageID int) error {
 }
 
 func (t *Telegram) SendFile(chatID int64, path, title, lang, platform string, animation bool) error {
-	file, err := openInputFile(path)
-	if err != nil {
-		return err
-	}
-	defer file.close()
+	return t.sendFile(chatID, path, t.buildCaption(title, lang, platform), animation, nil)
+}
 
-	sizeMB := float64(fileSize(path)) / (1024 * 1024)
-	caption := t.buildCaption(title, lang, platform)
-	if animation {
-		return metrics.CallTelegram("SendAnimation", func() error {
-			_, err := t.bot.SendAnimation(&telego.SendAnimationParams{
-				ChatID:    tu.ID(chatID),
-				Animation: file.input,
-				Caption:   caption,
-			})
-			return err
-		})
-	}
-
-	ext := strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".jpg", ".jpeg", ".png", ".webp":
-		return metrics.CallTelegram("SendPhoto", func() error {
-			_, err := t.bot.SendPhoto(&telego.SendPhotoParams{
-				ChatID:  tu.ID(chatID),
-				Photo:   file.input,
-				Caption: caption,
-			})
-			return err
-		})
-	case ".mp4", ".webm", ".mov", ".mkv", ".m4v":
-		if sizeMB <= 50 {
-			meta := probeVideoMeta(path)
-			defer meta.close()
-			params := &telego.SendVideoParams{
-				ChatID:            tu.ID(chatID),
-				Video:             file.input,
-				Caption:           caption,
-				Width:             meta.width,
-				Height:            meta.height,
-				Duration:          meta.duration,
-				SupportsStreaming: true,
-			}
-			if meta.thumb != nil {
-				params.Thumbnail = &meta.thumb.input
-			}
-			return metrics.CallTelegram("SendVideo", func() error {
-				_, err := t.bot.SendVideo(params)
-				return err
-			})
-		}
-	}
-
-	return metrics.CallTelegram("SendDocument", func() error {
-		_, err := t.bot.SendDocument(&telego.SendDocumentParams{
-			ChatID:   tu.ID(chatID),
-			Document: file.input,
-			Caption:  caption,
-		})
-		return err
-	})
+// SendFileNoFooter delivers media with the title-only caption: no "via @bot"
+// line. Used for users who turned the watermark (bot signature) off.
+func (t *Telegram) SendFileNoFooter(chatID int64, path, title, lang, platform string, animation bool) error {
+	return t.sendFile(chatID, path, buildCleanCaption(title), animation, nil)
 }
 
 func (t *Telegram) SendFileWithMarkup(chatID int64, path, title, lang, platform string, animation bool, markup *telego.InlineKeyboardMarkup) error {
 	if markup == nil {
 		return t.SendFile(chatID, path, title, lang, platform, animation)
 	}
+	return t.sendFile(chatID, path, t.buildCaption(title, lang, platform), animation, markup)
+}
 
+func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, markup *telego.InlineKeyboardMarkup) error {
 	file, err := openInputFile(path)
 	if err != nil {
 		return err
@@ -182,7 +131,6 @@ func (t *Telegram) SendFileWithMarkup(chatID int64, path, title, lang, platform 
 	defer file.close()
 
 	sizeMB := float64(fileSize(path)) / (1024 * 1024)
-	caption := t.buildCaption(title, lang, platform)
 	chat := tu.ID(chatID)
 
 	if animation {
@@ -352,6 +300,12 @@ func (t *Telegram) buildCaption(title, lang, platform string) string {
 		return title + "\n\n" + via
 	}
 	return via
+}
+
+// buildCleanCaption returns the title-only caption, without the "via @bot"
+// footer, for users who bought the watermark removal.
+func buildCleanCaption(title string) string {
+	return strings.TrimSpace(title)
 }
 
 func buildCaption(title, lang, platform, botUsername string) string {
