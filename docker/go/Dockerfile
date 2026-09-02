@@ -13,7 +13,6 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg curl ca-certificates python3 python3-pip unzip \
     && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
-    && ln -sf /usr/local/bin/deno /usr/local/bin/deno \
     # yt-dlp pinned: 2026.8.19 carries the upstream TikTok bot-challenge fixes
     # (yt-dlp#17452/#17460) and the YouTube 403 fixes; 2026.7.4 fails both
     # (YouTube audio downloads return "HTTP Error 403: Forbidden").
