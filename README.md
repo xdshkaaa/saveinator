@@ -12,7 +12,7 @@ Production runs as **Go binaries**: the main `saveinator` bot (webhook/polling +
 - `dash` operator dashboard: service probes, aggregate stats, full user table, admin URL test-runner (`test_urls`, executed by the saveinator worker); Telegram Login auth
 - EN/RU/KK localization, admin panel, broadcasts, `/clear` queue command, download cancel
 - Runtime settings in Redis (hot-swap), rate limiting, per-user download locks, group anti-spam
-- Prometheus metrics + Grafana dashboards — see [`MONITORING.md`](MONITORING.md)
+- Prometheus metrics + Grafana dashboards — see [`MONITORING.md`](docs/MONITORING.md)
 
 ## Quick start (production Docker)
 
