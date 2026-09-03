@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -77,6 +78,9 @@ func (c *Client) downloadPin(ctx context.Context, pinURL, outputDir string, down
 	}
 
 	ext := filepath.Ext(strings.Split(mediaURL, "?")[0])
+	if ext == ".m3u8" {
+		ext = ".mp4"
+	}
 	if ext == "" {
 		if mediaType == "video" {
 			ext = ".mp4"
@@ -143,13 +147,70 @@ func (c *Client) fetchPinMedia(ctx context.Context, pinURL string) (pinID, title
 	}
 
 	title = firstString(data["grid_title"], data["description"])
-	if mediaURL, ok := extractVideoURL(data); ok && mediaURL != "" {
-		return pinID, title, mediaURL, "video", nil
-	}
-	if mediaURL, ok := extractImageURL(data); ok && mediaURL != "" {
-		return pinID, title, mediaURL, "image", nil
+	if mediaURL, mediaType, ok := pinMedia(data); ok && mediaURL != "" {
+		return pinID, title, mediaURL, mediaType, nil
 	}
 	return "", "", "", "", ErrNoMedia
+}
+
+// pinMedia resolves a pin's best media from an API payload: video (top-level
+// or story-pin), falling back to the cover image.
+func pinMedia(data map[string]any) (mediaURL, mediaType string, ok bool) {
+	if u, found := extractVideoURL(data); found && u != "" {
+		return u, "video", true
+	}
+	// Idea pins ("story pins") carry video only inside story_pin_data, with
+	// no top-level videos object.
+	for _, list := range storyPinVideoLists(data) {
+		if u, found := bestVideoURL(list); found && u != "" {
+			return u, "video", true
+		}
+	}
+	if u, found := extractImageURL(data); found && u != "" {
+		return u, "image", true
+	}
+	return "", "", false
+}
+
+// storyPinVideoLists collects the video_list maps of a story pin: one per
+// page, taken from page-level video or its blocks.
+func storyPinVideoLists(data map[string]any) []map[string]any {
+	spd, ok := data["story_pin_data"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	pages, ok := spd["pages"].([]any)
+	if !ok {
+		return nil
+	}
+	var lists []map[string]any
+	for _, pageAny := range pages {
+		page, ok := pageAny.(map[string]any)
+		if !ok {
+			continue
+		}
+		if v, ok := page["video"].(map[string]any); ok {
+			if list, ok := v["video_list"].(map[string]any); ok && len(list) > 0 {
+				lists = append(lists, list)
+			}
+		}
+		blocks, ok := page["blocks"].([]any)
+		if !ok {
+			continue
+		}
+		for _, blockAny := range blocks {
+			block, ok := blockAny.(map[string]any)
+			if !ok {
+				continue
+			}
+			if v, ok := block["video"].(map[string]any); ok {
+				if list, ok := v["video_list"].(map[string]any); ok && len(list) > 0 {
+					lists = append(lists, list)
+				}
+			}
+		}
+	}
+	return lists
 }
 
 func (c *Client) downloadBoard(ctx context.Context, boardURL, outputDir string, maxItems int, downloadImages, downloadVideos bool) ([]MediaItem, error) {
@@ -210,12 +271,7 @@ func (c *Client) downloadBoard(ctx context.Context, boardURL, outputDir string, 
 		}
 		pinID := fmt.Sprint(pin["id"])
 		title := firstString(pin["grid_title"], pin["description"])
-		mediaURL, mediaType, ok := "", "", false
-		if u, found := extractVideoURL(pin); found {
-			mediaURL, mediaType, ok = u, "video", true
-		} else if u, found := extractImageURL(pin); found {
-			mediaURL, mediaType, ok = u, "image", true
-		}
+		mediaURL, mediaType, ok := pinMedia(pin)
 		if !ok || mediaURL == "" {
 			continue
 		}
@@ -298,6 +354,9 @@ func (c *Client) loadCookies(req *http.Request) {
 }
 
 func (c *Client) downloadFile(ctx context.Context, mediaURL, filePath string) (int64, error) {
+	if strings.Contains(strings.ToLower(mediaURL), ".m3u8") {
+		return c.downloadHLS(ctx, mediaURL, filePath)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
 	if err != nil {
 		return 0, err
@@ -319,6 +378,29 @@ func (c *Client) downloadFile(ctx context.Context, mediaURL, filePath string) (i
 	defer f.Close()
 	n, err := io.Copy(f, resp.Body)
 	return n, err
+}
+
+// downloadHLS remuxes an HLS playlist into a local mp4 with ffmpeg. Pinterest
+// serves idea-pin video only as HLS, and a plain GET of a playlist returns a
+// text file rather than media. -c copy keeps this a remux: the segments are
+// already h264/aac, so no re-encode happens on the healthy path.
+func (c *Client) downloadHLS(ctx context.Context, mediaURL, filePath string) (int64, error) {
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-loglevel", "error",
+		"-user_agent", userAgent, "-i", mediaURL, "-c", "copy", filePath)
+	if err := cmd.Run(); err != nil {
+		// Some playlists remux badly; a re-encode still yields a playable file.
+		retry := exec.CommandContext(ctx, "ffmpeg", "-y", "-loglevel", "error",
+			"-user_agent", userAgent, "-i", mediaURL,
+			"-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", filePath)
+		if retryErr := retry.Run(); retryErr != nil {
+			return 0, fmt.Errorf("ffmpeg hls download: %v / %v", err, retryErr)
+		}
+	}
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
 }
 
 func extractImageURL(data map[string]any) (string, bool) {
@@ -365,9 +447,16 @@ func extractVideoURL(data map[string]any) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	bestURL := ""
-	bestScore := -1
-	for key, val := range list {
+	return bestVideoURL(list)
+}
+
+// bestVideoURL picks the highest-resolution entry from a video_list, always
+// preferring direct mp4 variants over HLS playlists: an mp4 downloads with a
+// plain HTTP GET, while an m3u8 needs the ffmpeg remux in downloadFile.
+func bestVideoURL(list map[string]any) (string, bool) {
+	bestURL, bestW := "", -1
+	bestHLS, bestHLSScore := "", -1
+	for _, val := range list {
 		m, ok := val.(map[string]any)
 		if !ok {
 			continue
@@ -376,25 +465,26 @@ func extractVideoURL(data map[string]any) (string, bool) {
 		if u == "" {
 			continue
 		}
-		score := 0
-		if strings.Contains(key, "720") {
-			score = 720
-		} else if strings.Contains(key, "540") {
-			score = 540
-		} else if strings.Contains(strings.ToLower(key), "hls") {
-			score = 100
-		} else {
-			score = 480
-		}
+		width := 0
 		if w, ok := m["width"].(float64); ok {
-			score = int(w)
+			width = int(w)
 		}
-		if score > bestScore {
-			bestScore = score
+		if strings.Contains(strings.ToLower(u), ".m3u8") {
+			if width > bestHLSScore {
+				bestHLSScore = width
+				bestHLS = u
+			}
+			continue
+		}
+		if width > bestW {
+			bestW = width
 			bestURL = u
 		}
 	}
-	return bestURL, bestURL != ""
+	if bestURL != "" {
+		return bestURL, true
+	}
+	return bestHLS, bestHLS != ""
 }
 
 func firstString(values ...any) string {
