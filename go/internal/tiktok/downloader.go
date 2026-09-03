@@ -83,7 +83,7 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 		return nil, err
 	}
 
-	info, resolved, err := d.extractInfo(ctx, url)
+	info, resolved, err := d.extractInfo(ctx, url, outputDir)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +91,9 @@ func (d *Downloader) Download(ctx context.Context, url, outputDir string) (*Resu
 	title, author := metadataFromInfo(info)
 	result := &Result{Title: title, Author: author}
 
-	imageURLs := extractCarouselURLs(info)
-	isSlideshow := boolField(info, "is_slideshow") || len(infoEntries(info)) >= 2 || isPhotoMode(info)
+	imageURLs, fromPage := d.carouselURLs(info, outputDir)
+	isSlideshow := boolField(info, "is_slideshow") || len(infoEntries(info)) >= 2 || isPhotoMode(info) ||
+		(fromPage && len(imageURLs) >= 2)
 	hasImages := len(imageURLs) >= 2 || (isPhotoMode(info) && len(imageURLs) >= 1)
 
 	if isSlideshow && hasImages && !preferVideoDelivery(info) {
@@ -145,13 +146,13 @@ func (d *Downloader) DownloadCarouselImages(ctx context.Context, url, outputDir 
 		return nil, err
 	}
 
-	info, _, err := d.extractInfo(ctx, url)
+	info, _, err := d.extractInfo(ctx, url, outputDir)
 	if err != nil {
 		return nil, err
 	}
 
 	title, author := metadataFromInfo(info)
-	imageURLs := extractCarouselURLs(info)
+	imageURLs, _ := d.carouselURLs(info, outputDir)
 	images := d.downloadImages(ctx, imageURLs, outputDir)
 
 	result := &Result{
@@ -166,15 +167,16 @@ func (d *Downloader) DownloadCarouselImages(ctx context.Context, url, outputDir 
 	return result, nil
 }
 
-func (d *Downloader) extractInfo(ctx context.Context, url string) (map[string]any, string, error) {
+func (d *Downloader) extractInfo(ctx context.Context, url, outputDir string) (map[string]any, string, error) {
 	resolved := resolvePageURL(url)
 	args := []string{"--dump-single-json", "--skip-download", "--no-warnings", "--quiet", "--impersonate", "chrome"}
+	args = append(args, "--write-pages")
 	args = append(args, d.extraArgs()...)
 	args = append(args, d.cookieArgs()...)
 	args = append(args, d.refererArgs()...)
 	args = append(args, resolved)
 
-	out, err := d.run(ctx, "yt-dlp", args...)
+	out, err := d.runIn(ctx, outputDir, "yt-dlp", args...)
 	if err != nil {
 		return nil, resolved, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -305,9 +307,14 @@ func (d *Downloader) extraArgs() []string {
 }
 
 func (d *Downloader) run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return d.runIn(ctx, "", name, args...)
+}
+
+func (d *Downloader) runIn(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
 	return cmd.CombinedOutput()
 }
 
@@ -373,6 +380,149 @@ func extractCarouselURLs(info map[string]any) []string {
 		}
 	}
 	return urls
+}
+
+// carouselURLs returns the carousel image URLs in post order plus whether
+// they came from the page dump. yt-dlp's TikTok extractor does not support
+// photo posts (no imagePostInfo parsing, see yt-dlp issue #9990): it exposes
+// only audio/video formats plus up to four cover thumbnails — variants of
+// the FIRST slide — so relying on the JSON alone yields one duplicated image
+// instead of the whole carousel. The full slide list is therefore recovered
+// from the page HTML that yt-dlp already downloads (saved next to the JSON
+// via --write-pages), falling back to the JSON-derived covers only when the
+// page is unavailable.
+func (d *Downloader) carouselURLs(info map[string]any, outputDir string) ([]string, bool) {
+	if urls := carouselURLsFromPageDumps(outputDir); len(urls) > 0 {
+		return urls, true
+	}
+	return extractCarouselURLs(info), false
+}
+
+var universalDataRE = regexp.MustCompile(`(?s)<script[^>]+id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)</script>`)
+
+func carouselURLsFromPageDumps(dir string) []string {
+	dumps, _ := filepath.Glob(filepath.Join(dir, "*.dump"))
+	var urls []string
+	for _, dump := range dumps {
+		html, err := os.ReadFile(dump)
+		if err != nil {
+			continue
+		}
+		urls = appendUniqueSlice(urls, extractCarouselURLsFromHTML(string(html)))
+	}
+	return urls
+}
+
+// extractCarouselURLsFromHTML parses TikTok's __UNIVERSAL_DATA_FOR_REHYDRATION__
+// JSON and returns every image URL of a photo post, in post order:
+// webapp.video-detail.itemInfo.itemStruct.imagePost.images[*].imageURL.urlList.
+func extractCarouselURLsFromHTML(html string) []string {
+	m := universalDataRE.FindStringSubmatch(html)
+	if m == nil {
+		return nil
+	}
+	var data map[string]any
+	if err := json.Unmarshal([]byte(m[1]), &data); err != nil {
+		return nil
+	}
+	itemMap, ok := digMap(data, "__DEFAULT_SCOPE__", "webapp.video-detail", "itemInfo", "itemStruct").(map[string]any)
+	if !ok {
+		return nil
+	}
+	images, ok := digMap(itemMap, "imagePost", "images").([]any)
+	if !ok {
+		return nil
+	}
+
+	var urls []string
+	for _, raw := range images {
+		img, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if u := bestImageURL(img); u != "" && !looksLikeVideoURL(u) {
+			urls = appendUnique(urls, u)
+		}
+	}
+	return urls
+}
+
+// bestImageURL picks the highest-resolution URL of one carousel slide,
+// preferring imageAdvancedUrls (resolution-keyed) over imageURL.urlList.
+func bestImageURL(img map[string]any) string {
+	if advanced, ok := img["imageAdvancedUrls"].(map[string]any); ok {
+		bestRes := 0
+		best := ""
+		for res, val := range advanced {
+			n := 0
+			if _, err := fmt.Sscanf(res, "%d", &n); err != nil {
+				continue
+			}
+			entry, ok := val.(map[string]any)
+			if !ok {
+				continue
+			}
+			list, ok := entry["urlList"].([]any)
+			if !ok || len(list) == 0 {
+				continue
+			}
+			if u := stringFieldOf(list[0]); u != "" && n > bestRes {
+				bestRes = n
+				best = u
+			}
+		}
+		if best != "" {
+			return absoluteURL(best)
+		}
+	}
+	for _, key := range []string{"imageURL", "imageUrl"} {
+		entry, ok := img[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		list, ok := entry["urlList"].([]any)
+		if !ok || len(list) == 0 {
+			continue
+		}
+		if u := stringFieldOf(list[0]); u != "" {
+			return absoluteURL(u)
+		}
+	}
+	return ""
+}
+
+func digMap(m map[string]any, path ...string) any {
+	cur := any(m)
+	for _, key := range path {
+		next, ok := cur.(map[string]any)
+		if !ok {
+			return nil
+		}
+		cur = next[key]
+	}
+	return cur
+}
+
+func stringFieldOf(v any) string {
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+func absoluteURL(u string) string {
+	if strings.HasPrefix(u, "//") {
+		return "https:" + u
+	}
+	return u
+}
+
+func appendUniqueSlice(list, values []string) []string {
+	for _, v := range values {
+		list = appendUnique(list, v)
+	}
+	return list
 }
 
 func preferVideoDelivery(info map[string]any) bool {
@@ -475,16 +625,45 @@ func writableCookies(path string) string {
 	return cookies.SyncFromMount(path, cookies.TikTokWritablePath)
 }
 
+// downloadHTTP fetches one carousel image. TikTok's signed CDN URLs
+// intermittently return 403/timeout for individual slides, and a silent
+// failure here would drop that image from the delivered album, so failed
+// attempts are retried once and non-200 responses are rejected instead of
+// being saved as corrupt image files.
 func downloadHTTP(ctx context.Context, client *http.Client, url, path string) error {
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+		err := tryDownloadHTTP(ctx, client, url, path)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+	}
+	return lastErr
+}
+
+func tryDownloadHTTP(ctx context.Context, client *http.Client, url, path string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Referer", TikTokRefererDefault)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d for %s", resp.StatusCode, url)
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err

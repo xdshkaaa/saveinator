@@ -1,10 +1,16 @@
 package tiktok
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"saveinator/internal/cookies"
 )
@@ -233,5 +239,142 @@ func TestExtraArgsNoMaxDurationWhenZero(t *testing.T) {
 		if a == "--max-duration" {
 			t.Fatal("unexpected --max-duration when maxDuration is 0")
 		}
+	}
+}
+
+const carouselPageHTML = `<!doctype html><html><head>
+<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{"__DEFAULT_SCOPE__":{"webapp.video-detail":{"itemInfo":{"itemStruct":{"id":"7656787943713033505","desc":"test slideshow","imagePost":{"cover":{},"images":[
+{"imageWidth":1080,"imageHeight":1440,"imageURL":{"urlList":["https://p16.tiktokcdn.com/img-a~tplv-photomode-image.jpeg?sig=1","https://p19.tiktokcdn.com/img-a~tplv-photomode-image.jpeg?sig=2"]}},
+{"imageWidth":1470,"imageHeight":1070,"imageAdvancedUrls":{"720":{"urlList":["https://p16.tiktokcdn.com/img-b~c5_720x720.jpeg"]},"1080":{"urlList":["https://p16.tiktokcdn.com/img-b~c5_1080x1080.jpeg"]}},"imageURL":{"urlList":["https://p16.tiktokcdn.com/img-b~tplv-photomode-image.jpeg"]}},
+{"imageWidth":100,"imageHeight":100,"imageURL":{"urlList":["//p16.tiktokcdn.com/img-c~tplv-photomode-image.jpeg"]}},
+{"imageWidth":100,"imageHeight":100}
+]}}}}}}</script>
+</head><body></body></html>`
+
+func TestExtractCarouselURLsFromHTML(t *testing.T) {
+	t.Parallel()
+	urls := extractCarouselURLsFromHTML(carouselPageHTML)
+	want := []string{
+		"https://p16.tiktokcdn.com/img-a~tplv-photomode-image.jpeg?sig=1",
+		"https://p16.tiktokcdn.com/img-b~c5_1080x1080.jpeg",
+		"https://p16.tiktokcdn.com/img-c~tplv-photomode-image.jpeg",
+	}
+	if len(urls) != len(want) {
+		t.Fatalf("expected %d URLs, got %d: %v", len(want), len(urls), urls)
+	}
+	for i := range want {
+		if urls[i] != want[i] {
+			t.Errorf("urls[%d] = %s, want %s", i, urls[i], want[i])
+		}
+	}
+}
+
+func TestExtractCarouselURLsFromHTMLNoUniversalData(t *testing.T) {
+	t.Parallel()
+	if urls := extractCarouselURLsFromHTML("<html><body>bot challenge</body></html>"); len(urls) != 0 {
+		t.Fatalf("expected no URLs from challenge page, got %v", urls)
+	}
+}
+
+func TestCarouselURLsFromPageDumpsIgnoresChallengePages(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "challenge_www.tiktok.com.dump"), []byte("<html>captcha</html>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "7656787943713033505_https_-_www.tiktok.com.dump"), []byte(carouselPageHTML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	urls := carouselURLsFromPageDumps(dir)
+	if len(urls) != 3 {
+		t.Fatalf("expected 3 URLs from page dumps, got %d: %v", len(urls), urls)
+	}
+}
+
+func TestCarouselURLsPrefersPageOverJSON(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "page.dump"), []byte(carouselPageHTML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://p16.tiktokcdn.com/img-a~tplv-photomode-image.jpeg"},
+			map[string]any{"id": "originCover", "url": "https://p16.tiktokcdn.com/img-a~tplv-photomode-origin.jpeg"},
+		},
+	}
+	d := NewDownloader("", "", "", 60, 10, true, 0)
+	urls, fromPage := d.carouselURLs(info, dir)
+	if !fromPage {
+		t.Fatal("expected fromPage=true when a page dump is available")
+	}
+	if len(urls) != 3 {
+		t.Fatalf("expected 3 slide URLs from page, got %d: %v", len(urls), urls)
+	}
+}
+
+func TestCarouselURLsFallsBackToJSONWithoutDumps(t *testing.T) {
+	t.Parallel()
+	info := map[string]any{
+		"thumbnails": []any{
+			map[string]any{"id": "cover", "url": "https://p16.tiktokcdn.com/img-a~tplv-photomode-image.jpeg"},
+			map[string]any{"id": "originCover", "url": "https://p16.tiktokcdn.com/img-a~tplv-photomode-origin.jpeg"},
+		},
+	}
+	d := NewDownloader("", "", "", 60, 10, true, 0)
+	urls, fromPage := d.carouselURLs(info, t.TempDir())
+	if fromPage {
+		t.Fatal("expected fromPage=false without page dumps")
+	}
+	if len(urls) != 2 {
+		t.Fatalf("expected 2 JSON-derived URLs, got %d: %v", len(urls), urls)
+	}
+}
+
+func TestDownloadHTTPRetriesAfterFailure(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if r.Header.Get("Referer") != TikTokRefererDefault {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		_, _ = w.Write([]byte("jpegdata"))
+	}))
+	defer srv.Close()
+
+	path := filepath.Join(t.TempDir(), "image_0000.jpg")
+	err := downloadHTTP(context.Background(), &http.Client{Timeout: 5 * time.Second}, srv.URL, path)
+	if err != nil {
+		t.Fatalf("expected retry to succeed, got %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "jpegdata" {
+		t.Fatalf("expected downloaded file content jpegdata, got %q err=%v", data, err)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("expected 2 requests (1 failure + 1 retry), got %d", got)
+	}
+}
+
+func TestDownloadHTTPRejectsNon200(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, "<html>forbidden</html>")
+	}))
+	defer srv.Close()
+
+	path := filepath.Join(t.TempDir(), "image_0001.jpg")
+	err := downloadHTTP(context.Background(), &http.Client{Timeout: 5 * time.Second}, srv.URL, path)
+	if err == nil {
+		t.Fatal("expected error for non-200 response")
+	}
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Fatal("expected no file to be created for non-200 response")
 	}
 }

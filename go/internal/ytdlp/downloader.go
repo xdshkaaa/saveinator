@@ -25,6 +25,16 @@ type Options struct {
 	// For TikTok this should include "tiktok:player_client=web" to
 	// bypass the bot-challenge page served by TikTok's CDN.
 	ExtractorArgs string
+	// Impersonate enables TLS/JA4 impersonation via yt-dlp's --impersonate
+	// flag. TikTok requires this to avoid serving bot-challenge pages;
+	// set to "chrome" (or a specific target like "chrome-150:macos-26").
+	// Note: curl_cffi's JA4 fingerprint is blocked by TikTok. Use UserAgent
+	// as a workaround when impersonation fails.
+	Impersonate string
+	// UserAgent overrides the default User-Agent header. TikTok's CDN
+	// blocks curl_cffi's TLS fingerprint; setting a browser User-Agent
+	// (e.g. Chrome 139) bypasses this.
+	UserAgent string
 	Timeout       time.Duration
 	// DownloadSections limits the fetch to a fragment ("*12.00-45.00").
 	// Only that part is pulled from the network, so trimming a clip out of a
@@ -71,6 +81,12 @@ func buildArgs(url string, outputDir string, opts Options, skipDownload bool) []
 	}
 	if extractorArgs := strings.TrimSpace(opts.ExtractorArgs); extractorArgs != "" {
 		args = append(args, "--extractor-args", extractorArgs)
+	}
+	if impersonate := strings.TrimSpace(opts.Impersonate); impersonate != "" {
+		args = append(args, "--impersonate", impersonate)
+	}
+	if userAgent := strings.TrimSpace(opts.UserAgent); userAgent != "" {
+		args = append(args, "--user-agent", userAgent)
 	}
 
 	return append(args, url)
