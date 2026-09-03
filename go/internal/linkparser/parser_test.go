@@ -9,6 +9,43 @@ func TestExtractURLsYouTube(t *testing.T) {
 	}
 }
 
+func TestExtractURLsYouTubeHandle(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		url  string
+		want string // expected extracted URL
+	}{
+		{"plain shorts", "https://www.youtube.com/shorts/EnlKGEob5Uc", "https://www.youtube.com/shorts/EnlKGEob5Uc"},
+		{"shorts with handle", "https://www.youtube.com/@handle/shorts/EnlKGEob5Uc", "https://www.youtube.com/@handle/shorts/EnlKGEob5Uc"},
+		{"shorts with dotted handle and query", "https://www.youtube.com/@Some.One/shorts/0MEIBEbWSVM?feature=share", "https://www.youtube.com/@Some.One/shorts/0MEIBEbWSVM?feature=share"},
+		{"mobile shorts with handle", "https://m.youtube.com/@handle/shorts/EnlKGEob5Uc", "https://m.youtube.com/@handle/shorts/EnlKGEob5Uc"},
+		{"watch with handle", "https://www.youtube.com/@channel/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/@channel/watch?v=dQw4w9WgXcQ"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			links := ExtractURLs(tc.url)
+			if len(links) != 1 {
+				t.Fatalf("expected 1 link, got %d (%+v)", len(links), links)
+			}
+			if links[0].Platform != PlatformYouTube {
+				t.Fatalf("platform = %q, want %q", links[0].Platform, PlatformYouTube)
+			}
+			if links[0].URL != tc.want {
+				t.Fatalf("url = %q, want %q", links[0].URL, tc.want)
+			}
+		})
+	}
+}
+
+func TestExtractURLsYouTubeChannelPageNotMatched(t *testing.T) {
+	t.Parallel()
+	links := ExtractURLs("https://www.youtube.com/@somehandle")
+	if len(links) != 1 || links[0].Platform != PlatformUnknown {
+		t.Fatalf("channel pages are out of scope, got %+v", links)
+	}
+}
+
 func TestExtractURLsXStatusID(t *testing.T) {
 	links := ExtractURLs("https://x.com/user/status/1234567890")
 	if len(links) != 1 || links[0].XStatusID != "1234567890" {
@@ -26,6 +63,12 @@ func TestExtractURLsSpotify(t *testing.T) {
 func TestIsYouTubeShorts(t *testing.T) {
 	if !IsYouTubeShorts("https://www.youtube.com/shorts/abc12345678") {
 		t.Fatal("expected shorts")
+	}
+	if !IsYouTubeShorts("https://www.youtube.com/@user/shorts/abc12345678") {
+		t.Fatal("expected shorts with handle")
+	}
+	if IsYouTubeShorts("https://www.youtube.com/watch?v=abc12345678") {
+		t.Fatal("expected watch not to be shorts")
 	}
 }
 

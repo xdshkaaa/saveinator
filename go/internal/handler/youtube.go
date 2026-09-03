@@ -26,6 +26,11 @@ const probeTimeout = 30 * time.Second
 var defaultQualities = []string{"144", "240", "360", "480", "720", "1080"}
 
 func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink) {
+	if linkparser.IsYouTubeShorts(link.URL) {
+		b.startYouTubeShortsDownload(ctx, bot, msg, lang, link)
+		return
+	}
+
 	status, err := bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("youtube.fetching_info", lang, nil)))
 	if err != nil {
 		return
@@ -48,6 +53,43 @@ func (b *Bot) handleYouTubeLink(ctx context.Context, bot *telego.Bot, msg telego
 	_ = b.ytSessions.Save(ctx, session)
 
 	b.renderFormatCard(ctx, bot, session)
+}
+
+// startYouTubeShortsDownload skips the format card for Shorts: they are brief
+// clips the user wants as-is, so the probe round-trip and the quality button
+// would only add latency. The worker labels the result from the downloaded
+// filename and caps the generic format cascade at the top allowed quality; the
+// original frame is kept, so the job never lands on the transcode queue.
+func (b *Bot) startYouTubeShortsDownload(ctx context.Context, bot *telego.Bot, msg telego.Message, lang string, link linkparser.ParsedLink) {
+	status, err := bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("download.downloading", lang, nil)))
+	if err != nil {
+		return
+	}
+
+	payload := queue.DownloadPayload{
+		URL:         link.URL,
+		Platform:    "youtube",
+		ChatID:      msg.Chat.ID,
+		UserID:      msg.From.ID,
+		MessageID:   status.MessageID,
+		Lang:        lang,
+		Quality:     b.topAllowedQuality(ctx),
+		NoWatermark: b.noWatermarkFor(ctx, msg.From.ID),
+	}
+	if err := b.q.EnqueueDownload(payload); err != nil {
+		slog.Warn("enqueue youtube failed", "err", err)
+		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.generic", lang, nil)))
+		return
+	}
+	metrics.DownloadsEnqueued.WithLabelValues("youtube").Inc()
+}
+
+// topAllowedQuality returns the highest height the runtime quality ladder
+// permits, so an instant Shorts download delivers the same ceiling the format
+// card would have offered.
+func (b *Bot) topAllowedQuality(ctx context.Context) int {
+	heights := youtube.AllowedHeights(b.runtime.CurrentStringList(ctx, "youtube.allowed_qualities", defaultQualities))
+	return heights[len(heights)-1]
 }
 
 // probeYouTube resolves metadata through the shared cache. A failure is not

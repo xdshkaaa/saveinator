@@ -38,14 +38,16 @@ type pattern struct {
 var (
 	urlExtractor    = regexp.MustCompile(`(?i)https?://\S+`)
 	xStatusIDRegex  = regexp.MustCompile(`/status/(\d+)`)
-	youtubeShortsRe = regexp.MustCompile(`(?i)youtube\.com/shorts/`)
+	youtubeShortsRe = regexp.MustCompile(`(?i)youtube\.com/(?:@[\w.-]+/)?shorts/`)
 	spotifyURIRegex = regexp.MustCompile(`(?i)spotify:(?:album|track):([A-Za-z0-9]{22})`)
 	spotifyIDInURL  = `[A-Za-z0-9]{22}`
 
 	yandexMusicPathRegex = regexp.MustCompile(`(?i)music\.yandex\.[a-z]{2,3}/(?:album/(\d+)(?:/track/(\d+))?|track/(\d+))`)
 
 	patterns = []pattern{
-		{PlatformYouTube, regexp.MustCompile(`(?i)(?:https?://)?(?:(?:www\.|m\.)?youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)[\w-]{11}(?:[?&]\S*)?`)},
+		// The optional /@handle/ segment covers share links copied from a
+		// channel page (youtube.com/@user/shorts/ID, youtube.com/@user/watch?v=ID).
+		{PlatformYouTube, regexp.MustCompile(`(?i)(?:https?://)?(?:(?:www\.|m\.)?youtube\.com/(?:@[\w.-]+/)?(?:watch\?v=|shorts/)|youtu\.be/)[\w-]{11}(?:[?&]\S*)?`)},
 		{PlatformTikTok, regexp.MustCompile(`(?i)(?:https?://)?(?:` +
 			`(?:www\.)?tiktok\.com/@[\w.-]*/(?:video|photo)/\d+(?:[/?#&]\S*)?` +
 			`|(?:www\.)?tiktok\.com/t/[\w-]+/?(?:[?&]\S*)?` +
