@@ -24,9 +24,13 @@ repomix-output.*
 go/saveinator
 go/dash
 graphify-out/
+coverage.out
+go/bin/
 
 # local AI tool state
+.claude/
 .codex/
 .impeccable/
-go/.claude/
-.cursor/hooks.json
+.agents/
+.cursor/
+skills-lock.json
