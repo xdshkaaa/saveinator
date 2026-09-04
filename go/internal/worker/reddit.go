@@ -14,6 +14,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"saveinator/internal/cookies"
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/reddit"
@@ -55,7 +56,8 @@ func (h *Handler) runReddit(ctx context.Context, p queue.DownloadPayload) error 
 	}
 	defer os.RemoveAll(taskDir)
 
-	client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds))
+	client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds),
+		cookies.SyncFromMount(h.cfg.RedditCookiesPath, cookies.RedditWritablePath))
 
 	fetchCtx, cancel := context.WithTimeout(ctx, time.Duration(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds))*time.Second)
 	thread, err := client.Thread(fetchCtx, threadID, h.redditMaxComments(ctx))
@@ -95,10 +97,20 @@ func (h *Handler) runReddit(ctx context.Context, p queue.DownloadPayload) error 
 		return nil
 	}
 
-	if mediaSent {
+	// Media went out. The placeholder goes away on success; when only the
+	// article failed it becomes the error notice instead of dying silently.
+	if mediaSent && articleErr != nil && articleErr != errRedditArticleDisabled {
+		slog.Warn("reddit article failed", "err", articleErr)
+		_ = h.sender.EditMessage(p.ChatID, p.MessageID, h.userFacingError(lang, p.UserID, articleErr))
+	} else if mediaSent {
 		_ = h.sender.DeleteMessage(p.ChatID, p.MessageID)
 	}
-	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "reddit", "completed", mediaSize, "")
+
+	status, statusErr := "completed", ""
+	if articleErr != nil && articleErr != errRedditArticleDisabled {
+		statusErr = articleErr.Error()
+	}
+	_ = h.db.RecordDownload(ctx, p.UserID, p.ChatID, p.URL, "reddit", status, mediaSize, statusErr)
 	recordTaskSuccess(queue.TypeReddit, "reddit", start, int64(mediaSize*1024*1024))
 	return nil
 }
@@ -133,7 +145,7 @@ func (h *Handler) deliverRedditArticle(ctx context.Context, p queue.DownloadPayl
 	if mediaSent {
 		_, err = h.sender.SendMessageMarkup(p.ChatID, text, kb)
 	} else {
-		err = h.sender.EditMessageMarkup(p.ChatID, p.MessageID, text, kb)
+		err = h.sender.EditMessageHTML(p.ChatID, p.MessageID, text, kb)
 	}
 	return err
 }
@@ -207,7 +219,7 @@ func (h *Handler) sendRedditMedia(ctx context.Context, p queue.DownloadPayload, 
 			// Reddit hosts video and audio as separate DASH streams, so the
 			// explicit merge format is required — "best" alone often has no
 			// audio track at all.
-			err := ytdlp.Download(dlCtx, thread.Permalink, vidDir, ytdlp.Options{FormatID: "bv*+ba/b", Platform: "reddit"})
+			err := ytdlp.Download(dlCtx, thread.Permalink, vidDir, h.ytdlpOpts("reddit", "bv*+ba/b", 15*time.Minute))
 			cancel()
 			if err != nil {
 				slog.Warn("reddit video download failed", "err", err)
@@ -282,7 +294,10 @@ func clipCaption(title string) string {
 	return string(r)
 }
 
-// newestFileIn finds the most recently modified regular file in dir.
+// newestFileIn finds the most recently modified regular file in dir,
+// ignoring yt-dlp's cookie scratch copy: prepareCookieOptions writes it
+// into the same output dir and yt-dlp rewrites it after every run, so it
+// would otherwise win the mtime race against the actual download.
 func newestFileIn(dir string) (string, int64, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -291,7 +306,7 @@ func newestFileIn(dir string) (string, int64, error) {
 	var best os.DirEntry
 	var bestMod time.Time
 	for _, e := range entries {
-		if e.IsDir() {
+		if e.IsDir() || e.Name() == "yt-dlp-cookies.txt" {
 			continue
 		}
 		info, err := e.Info()

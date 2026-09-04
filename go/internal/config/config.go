@@ -93,6 +93,9 @@ type Settings struct {
 	TelegraphAccessToken string
 	TelegraphAuthorName  string
 
+	RedditCookiesPath          string
+	RedditCookiesFromBrowser   string
+
 	MetricsEnabled bool
 	MetricsHost    string
 	MetricsPort    int
@@ -181,6 +184,8 @@ func Load() (*Settings, error) {
 		YandexMusicDownloadConcurrency: envInt("YANDEX_MUSIC_DOWNLOAD_CONCURRENCY", 2),
 		TelegraphAccessToken:           os.Getenv("TELEGRAPH_ACCESS_TOKEN"),
 		TelegraphAuthorName:            env("TELEGRAPH_AUTHOR_NAME", "saveinator"),
+		RedditCookiesPath:              env("REDDIT_COOKIES_PATH", "/secrets/reddit_cookies.txt"),
+		RedditCookiesFromBrowser:       env("REDDIT_COOKIES_FROM_BROWSER", ""),
 		MetricsEnabled:         envBool("METRICS_ENABLED", true),
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),

@@ -164,6 +164,33 @@ func TestEnqueue_instagramWithLock(t *testing.T) {
 	}
 }
 
+func TestEnqueue_redditUsesRedditTask(t *testing.T) {
+	b, recQ, _ := testHandlerBot(t, 0)
+	ctx := context.Background()
+	messenger := &stubMessenger{}
+	userID := int64(42)
+	msg := telego.Message{
+		Chat: telego.Chat{ID: 1, Type: "private"},
+		From: &telego.User{ID: userID},
+	}
+	link := linkparser.ParsedLink{
+		Platform: linkparser.PlatformReddit,
+		URL:      "https://www.reddit.com/r/golang/comments/1abcde/my_test_post/",
+	}
+
+	if err := b.enqueue(ctx, messenger, msg, "en", link, "reddit", queue.TypeReddit, false); err != nil {
+		t.Fatal(err)
+	}
+	recQ.mu.Lock()
+	defer recQ.mu.Unlock()
+	if len(recQ.calls) != 1 || recQ.calls[0] != queue.TypeReddit {
+		t.Fatalf("calls = %v, want reddit enqueue (not generic download)", recQ.calls)
+	}
+	if recQ.last.Platform != "reddit" {
+		t.Fatalf("platform = %q, want reddit", recQ.last.Platform)
+	}
+}
+
 func TestEnqueue_batchSkipsLock(t *testing.T) {
 	b, recQ, redisClient := testHandlerBot(t, 0)
 	ctx := context.Background()

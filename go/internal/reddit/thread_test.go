@@ -164,6 +164,37 @@ func TestParagraphs(t *testing.T) {
 	}
 }
 
+func TestParseThreadAnimatedPreview(t *testing.T) {
+	// Real reddit shape: "preview" is an object wrapping the images array.
+	body := `[
+	  {"data": {"children": [{"kind": "t3", "data": {
+	      "id": "2fghij",
+	      "title": "gif post",
+	      "author": "bob",
+	      "subreddit": "golang",
+	      "permalink": "/r/golang/comments/2fghij/gif_post/",
+	      "preview": {
+	        "images": [{
+	          "source": {"url": "https://preview.redd.it/x.png", "width": 640},
+	          "resolutions": [{"url": "https://preview.redd.it/x.png?width=108"}],
+	          "variants": {"mp4": {"source": {"url": "https://preview.redd.it/x.gif?format=mp4"}}}
+	        }],
+	        "enabled": true
+	      }
+	  }}]}},
+	  {"data": {"children": []}}
+	]`
+
+	thread, err := parseThread([]byte(body))
+	if err != nil {
+		t.Fatalf("parseThread: %v", err)
+	}
+	want := []Media{{Type: "gif", URL: "https://preview.redd.it/x.gif?format=mp4"}}
+	if len(thread.Media) != 1 || thread.Media[0] != want[0] {
+		t.Fatalf("media = %+v, want %+v", thread.Media, want)
+	}
+}
+
 func TestDownloadImage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/jpeg")
@@ -171,7 +202,7 @@ func TestDownloadImage(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(5)
+	c := NewClient(5, "")
 	dir := t.TempDir()
 	path, err := c.DownloadImage(context.Background(), srv.URL+"/pic.jpg", dir)
 	if err != nil {
@@ -192,7 +223,7 @@ func TestDownloadImageHTTPError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(5)
+	c := NewClient(5, "")
 	if _, err := c.DownloadImage(context.Background(), srv.URL+"/pic.jpg", t.TempDir()); err == nil {
 		t.Fatal("expected error on 403")
 	}

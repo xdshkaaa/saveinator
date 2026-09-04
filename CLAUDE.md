@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Telegram bots (Go binaries) that download media from YouTube, TikTok, X/Twitter, Spotify, SoundCloud, and Pinterest. Two services: `saveinator` (main) and `pinterest` (microservice). Schema managed via Alembic in Python; runtime is pure Go.
+Telegram bots (Go binaries) that download media from YouTube, TikTok, X/Twitter, Instagram, Reddit, Spotify, SoundCloud, Yandex Music, and Pinterest. Two services: `saveinator` (main) and `pinterest` (microservice). Schema managed via Alembic in Python; runtime is pure Go.
 
 ## Commands
 
@@ -96,11 +96,14 @@ go/internal/
   locale/     — //go:embed JSON files; rebuild required after edits
   tgemoji/    — premium emoji pack + HTML render for message bodies
   redisx/     — Redis client + user lock (user_busy:{userID})
+  cookies/    — Netscape cookie-file sync (/secrets mount → writable copy) for yt-dlp
   ytdlp/      — yt-dlp subprocess wrapper
   pinterest/  — Pinterest API client (pins, boards, short links)
   spotify/    — Spotify Web API
   soundcloud/ — SoundCloud via yt-dlp metadata
   tiktok/     — TikTok via yt-dlp
+  reddit/     — thread JSON API (cookie-header auth) + media/gallery extraction
+  telegraph/  — Telegraph page publishing (Reddit thread articles)
   youtube/    — format card (probe, sizes, trim) + session + yt-dlp
   sender/     — Telegram send helpers (video, audio, photo groups)
 db/migrations/        — Alembic revision history

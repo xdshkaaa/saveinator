@@ -344,7 +344,14 @@ func (h *Handler) runDownload(ctx context.Context, p queue.DownloadPayload) erro
 
 	format := p.FormatID
 	if format == "" {
-		format = "best"
+		// Reddit hosts video and audio as separate DASH streams; a plain
+		// "best" resolves to no format at all ("Requested format is not
+		// available"), the explicit merge selector is required.
+		if p.Platform == "reddit" {
+			format = "bv*+ba/b"
+		} else {
+			format = "best"
+		}
 	}
 
 	err = ytdlp.Download(dlCtx, p.URL, taskDir, h.ytdlpOpts(p.Platform, format, timeout))

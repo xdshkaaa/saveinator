@@ -11,6 +11,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"saveinator/internal/cookies"
 	"saveinator/internal/locale"
 	"saveinator/internal/queue"
 	"saveinator/internal/reddit"
@@ -30,7 +31,8 @@ func (h *Handler) handleTelegraphTranslate(ctx context.Context, t *asynq.Task) e
 
 	thread := h.cachedRedditThread(ctx, p.ThreadID)
 	if thread == nil {
-		client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds))
+		client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds),
+			cookies.SyncFromMount(h.cfg.RedditCookiesPath, cookies.RedditWritablePath))
 		fetchCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		var err error
 		thread, err = client.Thread(fetchCtx, p.ThreadID, h.redditMaxComments(ctx))
@@ -70,7 +72,7 @@ func (h *Handler) handleTelegraphTranslate(ctx context.Context, t *asynq.Task) e
 
 	text := translateResultHTML(h.loadArticleRef(ctx, p.ThreadID, p.UserID), translated.Title, ruURL)
 	kb := telegraph.TranslatedKeyboard(lang, ruURL)
-	if err := h.sender.EditMessageMarkup(p.ChatID, p.MessageID, text, kb); err != nil {
+	if err := h.sender.EditMessageHTML(p.ChatID, p.MessageID, text, kb); err != nil {
 		slog.Warn("telegraph translate edit failed", "err", err)
 		recordTaskFailure(queue.TypeTelegraphTranslate)
 		return nil

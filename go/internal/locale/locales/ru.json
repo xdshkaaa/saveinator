@@ -1,7 +1,7 @@
 {
   "onboarding": {
     "language_prompt": "Choose your language / Выберите язык:",
-    "welcome": "Привет! Я бот для скачки всего, отправь ссылку и я отправлю видео или аудио\nДоступные сервисы для скачивания:\nYouTube, YouTube Shorts, TikTok, X, Spotify, SoundCloud, Yandex Music, Pinterest",
+    "welcome": "Привет! Я бот для скачки всего, отправь ссылку и я отправлю видео или аудио\nДоступные сервисы для скачивания:\nYouTube, YouTube Shorts, TikTok, X, Spotify, SoundCloud, Yandex Music, Pinterest, Reddit",
     "welcome_pinterest": "👋 Привет!!\n📥 Я скачиваю видео с Pinterest\n👆 Отправь ссылку боту — через пару секунд получишь видео без водяного знака.",
     "welcome_spotify": "🎶 Добро пожаловать в Spotify Search Tool Bot!\n\nОтправь ссылку на альбом или трек Spotify, и я скачаю треки для тебя.\n\nПримеры:\n• https://open.spotify.com/album/...\n• https://open.spotify.com/track/...\n\nПросто вставь ссылку — остальное я сделаю сам.",
     "welcome_soundcloud": "🎤 Добро пожаловать в SoundCloud Downloader Bot!\n\nОтправь ссылку на трек или плейлист SoundCloud, и я скачаю треки для тебя.\n\nПримеры:\n• https://soundcloud.com/artist/track\n• https://soundcloud.com/artist/sets/playlist\n\nПросто вставь ссылку — остальное я сделаю сам.",
@@ -38,7 +38,7 @@
     "text_only": "❌ В этом посте нет фото или видео для скачивания."
   },
   "errors": {
-    "unsupported": "Неподдерживаемая ссылка. Я работаю с YouTube, TikTok, X/Twitter, Spotify и SoundCloud.",
+    "unsupported": "YouTube, YouTube Shorts, TikTok, X, Spotify, SoundCloud, Yandex Music, Pinterest, Reddit",
     "rate_limit": "Подожди немного! Можно делать {count} запросов каждые {window} секунд.",
     "chat_rate_limit": "Эта группа отправляет слишком много запросов. Попробуй позже.",
     "busy": "Подожди, пока завершится текущее скачивание, и только потом отправляй новую ссылку.",
@@ -310,10 +310,10 @@
     "no_content": "В этом посте нет медиа или текста для сохранения."
   },
   "telegraph": {
-    "comments_heading": "Лучшие комментарии",
+    "comments_heading": "Комментарии",
     "source_label": "Источник",
     "btn_translate": "🌍 Перевести на русский",
-    "btn_article_ru": "🇷🇺 Русская версия",
+    "btn_article_ru": "🇷🇺 Перевод",
     "translating": "Перевожу статью…",
     "not_allowed": "Эта статья запрошена другим пользователем.",
     "failed": "❌ Не удалось создать перевод статьи. Попробуй позже."

@@ -88,6 +88,22 @@ func (t *Telegram) EditMessage(chatID int64, messageID int, text string) error {
 	return t.EditMessageMarkup(chatID, messageID, text, nil)
 }
 
+// EditMessageHTML rewrites a message whose text is already valid HTML
+// assembled by the caller (links, escaped titles). Unlike EditMessageMarkup
+// it does not escape the text — tgemoji.Decorate only upgrades covered emoji.
+func (t *Telegram) EditMessageHTML(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
+	return metrics.CallTelegram("EditMessageText", func() error {
+		_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{
+			ChatID:      tu.ID(chatID),
+			MessageID:   messageID,
+			Text:        tgemoji.Decorate(text),
+			ParseMode:   telego.ModeHTML,
+			ReplyMarkup: markup,
+		})
+		return err
+	})
+}
+
 func (t *Telegram) EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
 	return metrics.CallTelegram("EditMessageText", func() error {
 		_, err := t.bot.EditMessageText(&telego.EditMessageTextParams{

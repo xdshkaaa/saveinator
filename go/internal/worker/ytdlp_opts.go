@@ -23,6 +23,13 @@ func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) yt
 		}
 	}
 
+	redditCookies := h.cfg.RedditCookiesPath
+	if strings.TrimSpace(h.cfg.RedditCookiesFromBrowser) == "" {
+		if synced := cookies.SyncFromMount(redditCookies, cookies.RedditWritablePath); synced != "" {
+			redditCookies = synced
+		}
+	}
+
 	return ytdlp.Options{
 		FormatID:                    formatID,
 		Platform:                    platform,
@@ -30,6 +37,8 @@ func (h *Handler) ytdlpOpts(platform, formatID string, timeout time.Duration) yt
 		TikTokCookiesFromBrowser:    h.cfg.TikTokCookiesFromBrowser,
 		InstagramCookies:            instagramCookies,
 		InstagramCookiesFromBrowser: h.cfg.InstagramCookiesFromBrowser,
+		RedditCookies:               redditCookies,
+		RedditCookiesFromBrowser:    h.cfg.RedditCookiesFromBrowser,
 		Referer:                     refererForPlatform(platform, h.cfg.TikTokReferer),
 		ExtractorArgs:               extractorArgsForPlatform(platform),
 		UserAgent:                   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",

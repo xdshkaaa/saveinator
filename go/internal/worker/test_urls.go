@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"saveinator/internal/cookies"
 	"saveinator/internal/db"
 	"saveinator/internal/pinterest"
 	"saveinator/internal/reddit"
@@ -176,7 +177,8 @@ func (h *Handler) testReddit(ctx context.Context, url, taskDir string) (string, 
 	if threadID == "" {
 		return db.TestStatusFailed, "no thread id in url", "", 0
 	}
-	client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds))
+	client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds),
+		cookies.SyncFromMount(h.cfg.RedditCookiesPath, cookies.RedditWritablePath))
 	thread, err := client.Thread(ctx, threadID, 3)
 	if err != nil {
 		return db.TestStatusFailed, truncateTestErr(err), "", 0
@@ -194,7 +196,7 @@ func (h *Handler) testReddit(ctx context.Context, url, taskDir string) (string, 
 		_ = os.MkdirAll(vidDir, 0o755)
 		// Reddit hosts video and audio as separate DASH streams; the merge
 		// selector is required or the download has no audio track.
-		if err := ytdlp.Download(ctx, thread.Permalink, vidDir, ytdlp.Options{FormatID: "bv*+ba/b", Platform: "reddit"}); err != nil {
+		if err := ytdlp.Download(ctx, thread.Permalink, vidDir, h.ytdlpOpts("reddit", "bv*+ba/b", time.Duration(h.cfg.DownloadTimeoutSeconds)*time.Second)); err != nil {
 			return db.TestStatusFailed, truncateTestErr(err), "", 0
 		}
 		return testDirMedia(vidDir)

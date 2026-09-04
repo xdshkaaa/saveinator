@@ -59,15 +59,27 @@ func (t *Thread) HasMedia() bool {
 
 type Client struct {
 	client *http.Client
+	// apiBase is the origin serving the public JSON API. Tests point it at
+	// an httptest server; production uses www.reddit.com.
+	apiBase string
+	// cookieHeader is sent on every request; reddit returns 403 for the
+	// public JSON endpoints without an authenticated session. Empty means
+	// no cookie file is available (local dev with REDDIT_COOKIES_FROM_BROWSER).
+	cookieHeader string
 }
 
 // NewClient returns a Reddit client with the given request timeout in
-// seconds (falls back to 30s when the value is not sane).
-func NewClient(timeoutSec int) *Client {
+// seconds (falls back to 30s when the value is not sane). cookieFile points
+// at a Netscape cookie file with a logged-in reddit session; may be empty.
+func NewClient(timeoutSec int, cookieFile string) *Client {
 	if timeoutSec <= 0 {
 		timeoutSec = 30
 	}
-	return &Client{client: &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}}
+	return &Client{
+		client:       &http.Client{Timeout: time.Duration(timeoutSec) * time.Second},
+		apiBase:      "https://www.reddit.com",
+		cookieHeader: LoadCookieHeader(cookieFile),
+	}
 }
 
 // The public JSON endpoint rejects default Go/undocumented user agents with
@@ -89,12 +101,15 @@ func (c *Client) Thread(ctx context.Context, threadID string, maxComments int) (
 	params.Set("depth", "1")
 	params.Set("limit", fmt.Sprint(maxComments))
 
-	apiURL := "https://www.reddit.com/comments/" + threadID + ".json?" + params.Encode()
+	apiURL := c.apiBase + "/comments/" + threadID + ".json?" + params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
+	if c.cookieHeader != "" {
+		req.Header.Set("Cookie", c.cookieHeader)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -137,13 +152,18 @@ type galleryMetadata struct {
 	} `json:"s"`
 }
 
+// previewPayload mirrors the real reddit shape: "preview" is an object
+// holding the images array, not an array itself.
+type previewPayload struct {
+	Images []previewImage `json:"images"`
+}
+
 type previewImage struct {
-	Images []struct {
-		Variants struct {
-			Gif *previewVariant `json:"gif"`
-			Mp4 *previewVariant `json:"mp4"`
-		} `json:"variants"`
-	} `json:"images"`
+	// Source/resolutions are unused here; only animation variants matter.
+	Variants struct {
+		Gif *previewVariant `json:"gif"`
+		Mp4 *previewVariant `json:"mp4"`
+	} `json:"variants"`
 }
 
 type previewVariant struct {
@@ -169,7 +189,7 @@ type postPayload struct {
 	PostHint      string                     `json:"post_hint"`
 	URL           string                     `json:"url"`
 	URLDisplay    string                     `json:"url_overridden_by_dest"`
-	Preview       []previewImage             `json:"preview"`
+	Preview       *previewPayload            `json:"preview"`
 }
 
 // PostURL returns the canonical absolute URL of the post, used both for
@@ -287,16 +307,16 @@ func galleryItems(gallery *galleryData, metadata map[string]galleryMetadata) []M
 	return out
 }
 
-func hasAnimatedPreview(preview []previewImage) bool {
-	if len(preview) == 0 || len(preview[0].Images) == 0 {
+func hasAnimatedPreview(preview *previewPayload) bool {
+	if preview == nil || len(preview.Images) == 0 {
 		return false
 	}
-	v := preview[0].Images[0].Variants
+	v := preview.Images[0].Variants
 	return (v.Mp4 != nil && v.Mp4.Source.URL != "") || (v.Gif != nil && v.Gif.Source.URL != "")
 }
 
-func animatedPreview(preview []previewImage) Media {
-	v := preview[0].Images[0].Variants
+func animatedPreview(preview *previewPayload) Media {
+	v := preview.Images[0].Variants
 	if v.Mp4 != nil && v.Mp4.Source.URL != "" {
 		return Media{Type: "gif", URL: v.Mp4.Source.URL}
 	}

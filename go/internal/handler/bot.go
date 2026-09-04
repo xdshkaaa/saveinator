@@ -335,6 +335,8 @@ func (b *Bot) enqueue(ctx context.Context, bot messageSender, msg telego.Message
 		enqueueErr = b.q.EnqueuePinterestDefault(payload)
 	case queue.TypeInstagram:
 		enqueueErr = b.q.EnqueueInstagram(payload)
+	case queue.TypeReddit:
+		enqueueErr = b.q.EnqueueReddit(payload)
 	default:
 		enqueueErr = b.q.EnqueueDownload(payload)
 	}

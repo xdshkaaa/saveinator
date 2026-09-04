@@ -75,6 +75,35 @@ func TestAppendPlatformCookiesInstagramBrowserFallback(t *testing.T) {
 	}
 }
 
+func TestAppendPlatformCookiesRedditFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cookieFile := filepath.Join(dir, "reddit_cookies.txt")
+	if err := os.WriteFile(cookieFile, []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := appendPlatformCookies(nil, Options{
+		Platform:                 "reddit",
+		RedditCookies:            cookieFile,
+		RedditCookiesFromBrowser: "chrome",
+	})
+	if len(args) != 2 || args[0] != "--cookies" || args[1] != cookieFile {
+		t.Fatalf("expected file cookies, got %v", args)
+	}
+}
+
+func TestAppendPlatformCookiesRedditBrowserFallback(t *testing.T) {
+	t.Parallel()
+	args := appendPlatformCookies(nil, Options{
+		Platform:                 "reddit",
+		RedditCookies:            "/missing/cookies.txt",
+		RedditCookiesFromBrowser: "chrome",
+	})
+	if len(args) != 2 || args[0] != "--cookies-from-browser" || args[1] != "chrome" {
+		t.Fatalf("expected browser cookies, got %v", args)
+	}
+}
+
 func TestBuildArgsYouTubePrefersEfficientCodecs(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

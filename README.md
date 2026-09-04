@@ -1,12 +1,13 @@
 # Saveinator
 
-Telegram bots for downloading media from YouTube, TikTok, X/Twitter, Instagram, Spotify, SoundCloud, Yandex Music, and Pinterest.
+Telegram bots for downloading media from YouTube, TikTok, X/Twitter, Instagram, Reddit, Spotify, SoundCloud, Yandex Music, and Pinterest.
 
 Production runs as **Go binaries**: the main `saveinator` bot (webhook/polling + asynq worker + Prometheus metrics), a `botd` fleet process that hosts every secondary bot from [`bots.yaml`](bots.yaml), and the `dash` operator dashboard. See [`go/README.md`](go/README.md) for development details.
 
 ## Features
 
 - Main `saveinator` bot: YouTube (quality/aspect-ratio picker, transcoding), TikTok (video + carousel slideshows), X/Twitter (video + photo fallback), Instagram, Yandex Music, Spotify and SoundCloud metadata with optional audio via yt-dlp
+- Reddit: video/galleries/GIFs via yt-dlp (cookie-authenticated — Reddit requires login) + full thread articles on Telegraph with comments and a one-tap RU translate button (requires `secrets/reddit_cookies.txt`, see [`secrets/README.md`](secrets/README.md))
 - Fleet bots via `botd` (one process, one config): Pinterest EN/RU, Pinterest KZ (Kazakh), SoundCloud, Spotify — each with its own token and locale
 - Pinterest pins, boards, and short links; HTTP API `POST /download/pinterest` (guarded by `X-Internal-Token`)
 - `dash` operator dashboard: service probes, aggregate stats, full user table, admin URL test-runner (`test_urls`, executed by the saveinator worker); Telegram Login auth

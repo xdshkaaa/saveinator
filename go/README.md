@@ -68,8 +68,9 @@ docker compose up -d --build
 - **Runtime settings** — global + platform int/bool/enum/list keys wired into workers and handlers
 - **Maintenance** — hourly temp dir sweep, TikTok cookie refresh (5 min)
 - **X/Twitter photo posts** — fxtwitter/vxtwitter fallback when yt-dlp finds no video
+- **Reddit** — media via yt-dlp (cookie-authenticated: JSON API + downloads) + Telegraph thread articles with comments and a one-tap RU translate button
 - **Group anti-spam** — banned links (DB) + duplicate URL dedup (Redis)
-- Link parsing (YouTube, TikTok, X, Spotify, SoundCloud) in main bot; Pinterest in `services/pinterest`
+- Link parsing (YouTube, TikTok, X, Instagram, Reddit, Spotify, SoundCloud, Yandex Music, Twitch) in main bot; Pinterest in `services/pinterest`
 - Video/image downloads via `yt-dlp` subprocess
 - Rate limiting + per-user download lock (Redis)
 - Prometheus metrics on `:9101` (`saveinator_downloads_enqueued_total`, rate limit counters)

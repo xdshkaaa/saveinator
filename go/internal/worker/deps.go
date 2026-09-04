@@ -4,6 +4,9 @@ import "github.com/mymmrac/telego"
 
 type messageSender interface {
 	EditMessage(chatID int64, messageID int, text string) error
+	// EditMessageHTML edits a message whose text is trusted, pre-escaped
+	// HTML (article links); EditMessageMarkup escapes plain-text statuses.
+	EditMessageHTML(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error
 	EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error
 	DeleteMessage(chatID int64, messageID int) error
 	SendMessageMarkup(chatID int64, text string, markup *telego.InlineKeyboardMarkup) (*telego.Message, error)

@@ -42,6 +42,10 @@ func (s *recordingSender) EditMessageMarkup(chatID int64, messageID int, text st
 	return s.EditMessage(chatID, messageID, text)
 }
 
+func (s *recordingSender) EditMessageHTML(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
+	return nil
+}
+
 func (s *recordingSender) SendMessageMarkup(chatID int64, text string, markup *telego.InlineKeyboardMarkup) (*telego.Message, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

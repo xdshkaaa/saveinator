@@ -17,6 +17,8 @@ type Options struct {
 	TikTokCookiesFromBrowser    string
 	InstagramCookies            string
 	InstagramCookiesFromBrowser string
+	RedditCookies               string
+	RedditCookiesFromBrowser    string
 	// Referer is sent as the HTTP Referer header. TikTok's CDN blocks
 	// yt-dlp's requests (bot challenge -> "Unexpected response from webpage
 	// request") unless a Referer is present; https://www.tiktok.com/ works.
@@ -135,6 +137,11 @@ func prepareCookieOptions(outputDir string, opts Options) Options {
 			prepared.InstagramCookies = dest
 		}
 	}
+	if fileExists(prepared.RedditCookies) {
+		if dest, err := writableCookiesPath(prepared.RedditCookies, outputDir); err == nil {
+			prepared.RedditCookies = dest
+		}
+	}
 	return prepared
 }
 
@@ -163,6 +170,13 @@ func appendPlatformCookies(args []string, opts Options) []string {
 			return append(args, "--cookies", opts.InstagramCookies)
 		}
 		if browser := strings.TrimSpace(opts.InstagramCookiesFromBrowser); browser != "" {
+			return append(args, "--cookies-from-browser", browser)
+		}
+	case "reddit":
+		if fileExists(opts.RedditCookies) {
+			return append(args, "--cookies", opts.RedditCookies)
+		}
+		if browser := strings.TrimSpace(opts.RedditCookiesFromBrowser); browser != "" {
 			return append(args, "--cookies-from-browser", browser)
 		}
 	}

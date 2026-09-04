@@ -14,7 +14,9 @@ import (
 )
 
 // apiBase is a var so tests can point the client at an httptest server.
-var apiBase = "https://api.telegraph.me"
+// api.telegra.ph is the official endpoint; api.telegraph.me is dead from
+// at least some hosts (connection reset), which silently killed publishing.
+var apiBase = "https://api.telegra.ph"
 
 // Node is one Telegraph content node. Telegraph nodes form a tree where
 // children are either plain strings or nested nodes, hence the []any.
