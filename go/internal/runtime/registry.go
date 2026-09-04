@@ -26,7 +26,7 @@ type Setting struct {
 }
 
 var ServiceOrder = []string{
-	"youtube", "tiktok", "x", "spotify", "yandexmusic", "soundcloud", "pinterest", "instagram",
+	"youtube", "tiktok", "x", "spotify", "yandexmusic", "soundcloud", "pinterest", "instagram", "reddit",
 }
 
 func intSetting(key, field, service, en, ru, unit string, min, max, def int) Setting {
@@ -115,6 +115,15 @@ var settings = []Setting{
 	intSetting("instagram.timeout_sec", "InstagramTimeoutSeconds", "instagram", "Timeout", "Таймаут", "sec", 10, 600, 60),
 	intSetting("instagram.max_file_mb", "InstagramMaxFileMB", "instagram", "Max file", "Лимит файла", "MB", 1, 500, 50),
 	intSetting("instagram.carousel_max_items", "InstagramCarouselMaxItems", "instagram", "Max carousel images", "Макс. фото в карусели", "", 1, 50, 20),
+
+	// reddit
+	boolSetting("reddit.enabled", "RedditEnabled", "reddit", "Enabled", "Включено", true),
+	intSetting("reddit.timeout_sec", "DownloadTimeoutSeconds", "reddit", "Timeout", "Таймаут", "sec", 10, 300, 30),
+	intSetting("reddit.max_file_mb", "SendVideoLimitMB", "reddit", "Max file", "Лимит файла", "MB", 1, 500, 50),
+	intSetting("reddit.max_comments", "RedditMaxComments", "reddit", "Max comments in article", "Комментариев в статье", "", 0, 100, 10),
+	intSetting("reddit.max_media_items", "RedditMaxMediaItems", "reddit", "Max media items", "Макс. медиа на пост", "", 1, 50, 10),
+	boolSetting("reddit.telegraph_enabled", "RedditTelegraphEnabled", "reddit", "Telegraph articles", "Telegraph-статьи", true),
+	boolSetting("reddit.telegraph_translate", "RedditTelegraphTranslate", "reddit", "Translate button", "Кнопка перевода", true),
 }
 
 var byKey map[string]Setting

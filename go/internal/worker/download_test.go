@@ -25,9 +25,10 @@ import (
 )
 
 type recordingSender struct {
-	mu      sync.Mutex
-	edits   []string
-	deletes []int
+	mu       sync.Mutex
+	edits    []string
+	messages []string
+	deletes  []int
 }
 
 func (s *recordingSender) EditMessage(chatID int64, messageID int, text string) error {
@@ -39,6 +40,13 @@ func (s *recordingSender) EditMessage(chatID int64, messageID int, text string) 
 
 func (s *recordingSender) EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error {
 	return s.EditMessage(chatID, messageID, text)
+}
+
+func (s *recordingSender) SendMessageMarkup(chatID int64, text string, markup *telego.InlineKeyboardMarkup) (*telego.Message, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.messages = append(s.messages, text)
+	return &telego.Message{MessageID: 1}, nil
 }
 
 func (s *recordingSender) DeleteMessage(chatID int64, messageID int) error {

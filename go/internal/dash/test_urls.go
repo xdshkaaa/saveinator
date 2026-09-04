@@ -21,6 +21,7 @@ var testablePlatforms = map[string]bool{
 	"instagram": true,
 	"x":         true,
 	"pinterest": true,
+	"reddit":    true,
 }
 
 // testablePlatform extracts the first link from text and checks its platform
@@ -32,7 +33,7 @@ func testablePlatform(text string) (platform, url string, err error) {
 	}
 	link := links[0]
 	if !testablePlatforms[string(link.Platform)] {
-		return "", "", fmt.Errorf("platform %q is not testable (supported: youtube, tiktok, instagram, x, pinterest)", link.Platform)
+		return "", "", fmt.Errorf("platform %q is not testable (supported: youtube, tiktok, instagram, x, pinterest, reddit)", link.Platform)
 	}
 	return string(link.Platform), link.URL, nil
 }

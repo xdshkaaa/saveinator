@@ -117,6 +117,89 @@ func TestSendFileNilMarkupNotOnWire(t *testing.T) {
 	}
 }
 
+// TestSendFileRetriesWithoutCaptionWhenTooLong pins the TikTok caption
+// fallback: when Telegram answers 400 "message caption is too long", the send
+// must be repeated without the caption, and the retried multipart upload must
+// carry the full file again (the reader was consumed by the first request).
+func TestSendFileRetriesWithoutCaptionWhenTooLong(t *testing.T) {
+	t.Parallel()
+
+	var bodies [][]byte
+	var contentTypes []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, body)
+		contentTypes = append(contentTypes, r.Header.Get("Content-Type"))
+		if len(bodies) == 1 {
+			w.Write([]byte(`{"ok":false,"error_code":400,"description":"Bad Request: message caption is too long"}`))
+			return
+		}
+		w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
+	}))
+	defer srv.Close()
+
+	bot, err := telego.NewBot("1234567890:"+strings.Repeat("A", 35), telego.WithAPIServer(srv.URL), telego.WithDiscardLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(bot)
+
+	path := filepath.Join(t.TempDir(), "clip.mp4")
+	content := bytes.Repeat([]byte{0xAB}, 64)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	longCaption := strings.Repeat("#hashtag", 200)
+	if err := s.SendFile(1, path, longCaption, "en", "tiktok", false); err != nil {
+		t.Fatalf("send should succeed on retry, got: %v", err)
+	}
+	if len(bodies) != 2 {
+		t.Fatalf("expected 2 requests (refused + retry), got %d", len(bodies))
+	}
+
+	if v := multipartField(t, bodies[0], contentTypes[0], "caption"); v != longCaption+"\n\nvia @saveinator_bot" {
+		t.Fatalf("first request caption = %d chars, want the full long caption", len(v))
+	}
+	if v := multipartField(t, bodies[1], contentTypes[1], "caption"); v != "" {
+		t.Fatalf("retry carried caption %q, want none", v)
+	}
+	if got := multipartField(t, bodies[1], contentTypes[1], "video"); len(got) != len(content) {
+		t.Fatalf("retry uploaded %d video bytes, want full %d", len(got), len(content))
+	}
+}
+
+// TestSendFileDoesNotRetryOtherErrors pins that only the caption-too-long
+// failure triggers the no-caption resend; everything else returns as is.
+func TestSendFileDoesNotRetryOtherErrors(t *testing.T) {
+	t.Parallel()
+
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.Write([]byte(`{"ok":false,"error_code":400,"description":"Bad Request: wrong file identifier/http URL specified"}`))
+	}))
+	defer srv.Close()
+
+	bot, err := telego.NewBot("1234567890:"+strings.Repeat("A", 35), telego.WithAPIServer(srv.URL), telego.WithDiscardLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(bot)
+
+	path := filepath.Join(t.TempDir(), "clip.mp4")
+	if err := os.WriteFile(path, bytes.Repeat([]byte{0x00}, 64), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.SendFile(1, path, "caption", "en", "tiktok", false); err == nil {
+		t.Fatal("expected the non-caption error to be returned")
+	}
+	if requests != 1 {
+		t.Fatalf("expected exactly 1 request, got %d", requests)
+	}
+}
+
 // multipartField extracts a form value from a captured multipart request body.
 func multipartField(t *testing.T, body []byte, contentType, field string) string {
 	t.Helper()

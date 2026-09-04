@@ -62,6 +62,21 @@ func (q *recordingQueue) EnqueueInstagram(p queue.DownloadPayload) error {
 	return q.err
 }
 
+func (q *recordingQueue) EnqueueReddit(p queue.DownloadPayload) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.calls = append(q.calls, queue.TypeReddit)
+	q.last = p
+	return q.err
+}
+
+func (q *recordingQueue) EnqueueTelegraphTranslate(p queue.TelegraphTranslatePayload) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.calls = append(q.calls, queue.TypeTelegraphTranslate)
+	return q.err
+}
+
 type stubMessenger struct {
 	messageID int
 }

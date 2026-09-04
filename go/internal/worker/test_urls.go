@@ -4,11 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"saveinator/internal/db"
 	"saveinator/internal/pinterest"
+	"saveinator/internal/reddit"
 	"saveinator/internal/xphotos"
 	"saveinator/internal/youtube"
 	"saveinator/internal/ytdlp"
@@ -97,6 +99,8 @@ func (h *Handler) executeTestURL(ctx context.Context, row *db.TestURLRow) (statu
 		return h.testX(runCtx, row.URL, taskDir)
 	case "pinterest":
 		return h.testPinterest(runCtx, row.URL, taskDir)
+	case "reddit":
+		return h.testReddit(runCtx, row.URL, taskDir)
 	default:
 		return db.TestStatusFailed, "platform not testable: " + row.Platform, "", 0
 	}
@@ -162,6 +166,55 @@ func (h *Handler) testPinterest(ctx context.Context, url, taskDir string) (strin
 		mediaType = "video"
 	}
 	return db.TestStatusPassed, "", mediaType, item.FileSize
+}
+
+// testReddit mirrors the production reddit scenario minus the Telegram send:
+// the thread JSON must parse and, when the post carries media, at least one
+// file must land in the temp dir (images natively, video via yt-dlp).
+func (h *Handler) testReddit(ctx context.Context, url, taskDir string) (string, string, string, int64) {
+	threadID := reddit.ExtractThreadID(url)
+	if threadID == "" {
+		return db.TestStatusFailed, "no thread id in url", "", 0
+	}
+	client := reddit.NewClient(h.runtime.CurrentInt(ctx, "reddit.timeout_sec", h.cfg.DownloadTimeoutSeconds))
+	thread, err := client.Thread(ctx, threadID, 3)
+	if err != nil {
+		return db.TestStatusFailed, truncateTestErr(err), "", 0
+	}
+	if !thread.HasText() && len(thread.Comments) == 0 && len(thread.Media) == 0 {
+		return db.TestStatusFailed, "thread has no content", "", 0
+	}
+	if len(thread.Media) == 0 {
+		return db.TestStatusPassed, "", "text", 0
+	}
+
+	m := thread.Media[0]
+	if m.Type == "video" {
+		vidDir := filepath.Join(taskDir, "video")
+		_ = os.MkdirAll(vidDir, 0o755)
+		// Reddit hosts video and audio as separate DASH streams; the merge
+		// selector is required or the download has no audio track.
+		if err := ytdlp.Download(ctx, thread.Permalink, vidDir, ytdlp.Options{FormatID: "bv*+ba/b", Platform: "reddit"}); err != nil {
+			return db.TestStatusFailed, truncateTestErr(err), "", 0
+		}
+		return testDirMedia(vidDir)
+	}
+
+	imgDir := filepath.Join(taskDir, "img")
+	_ = os.MkdirAll(imgDir, 0o755)
+	path, err := client.DownloadImage(ctx, m.URL, imgDir)
+	if err != nil {
+		return db.TestStatusFailed, truncateTestErr(err), "", 0
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return db.TestStatusFailed, truncateTestErr(err), "", 0
+	}
+	mediaType := "photos"
+	if m.Type == "gif" {
+		mediaType = "video"
+	}
+	return db.TestStatusPassed, "", mediaType, info.Size()
 }
 
 // testDirMedia classifies what ytdlp left in the temp dir: a video wins,

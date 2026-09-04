@@ -17,6 +17,7 @@ const (
 	PlatformInstagram   Platform = "instagram"
 	PlatformYandexMusic Platform = "yandexmusic"
 	PlatformTwitch      Platform = "twitch"
+	PlatformReddit      Platform = "reddit"
 	PlatformUnknown     Platform = "unknown"
 )
 
@@ -73,6 +74,11 @@ var (
 		// www/m subdomains) and the legacy clips.twitch.tv share links.
 		{PlatformTwitch, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.|m\.)?twitch\.tv/(?:[\w-]+/)?clip/[\w-]+(?:[/?#&]\S*)?`)},
 		{PlatformTwitch, regexp.MustCompile(`(?i)(?:https?://)?clips\.twitch\.tv/[\w-]+(?:[/?#&]\S*)?`)},
+		// Reddit threads: subreddit post pages (www/old/np/m subdomains,
+		// optional /comments/<id> without subreddit) and the redd.it
+		// shortener. The <id> segment is the base36 thread ID.
+		{PlatformReddit, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.|old\.|np\.|m\.)?reddit\.com/(?:r/[\w-]+/)?comments/[\w-]+(?:/[^\s?#]*)?(?:[?&]\S*)?`)},
+		{PlatformReddit, regexp.MustCompile(`(?i)(?:https?://)?(?:www\.)?redd\.it/[\w-]+/?(?:[?&]\S*)?`)},
 	}
 )
 

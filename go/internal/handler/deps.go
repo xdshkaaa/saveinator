@@ -16,6 +16,8 @@ type taskEnqueuer interface {
 	EnqueueBroadcast(p queue.BroadcastPayload) error
 	EnqueueTikTokCarousel(p queue.DownloadPayload) error
 	EnqueueInstagram(p queue.DownloadPayload) error
+	EnqueueReddit(p queue.DownloadPayload) error
+	EnqueueTelegraphTranslate(p queue.TelegraphTranslatePayload) error
 }
 
 type messageSender interface {

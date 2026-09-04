@@ -67,6 +67,8 @@ func (h *Handler) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TypeBroadcast, h.handleBroadcast)
 	mux.HandleFunc(queue.TypeTikTokCarousel, h.handleTikTokCarousel)
 	mux.HandleFunc(queue.TypeInstagram, h.handleInstagram)
+	mux.HandleFunc(queue.TypeReddit, h.handleReddit)
+	mux.HandleFunc(queue.TypeTelegraphTranslate, h.handleTelegraphTranslate)
 }
 
 func (h *Handler) handleDownload(ctx context.Context, t *asynq.Task) error {

@@ -19,6 +19,11 @@ const (
 	TypeBroadcast       = "broadcast:execute"
 	TypeTikTokCarousel  = "download:tiktok_carousel"
 	TypeInstagram       = "download:instagram"
+	TypeReddit          = "download:reddit"
+
+	// TypeTelegraphTranslate builds the Russian Telegraph version of an
+	// already-published Reddit thread article.
+	TypeTelegraphTranslate = "telegraph:translate"
 
 	// QueueDownload holds network-bound jobs (fetch + upload, no ffmpeg
 	// transcode): safe to run with higher concurrency on a single CPU.
@@ -94,6 +99,17 @@ type BroadcastPayload struct {
 	BroadcastID int     `json:"broadcast_id"`
 	Audience    string  `json:"audience"`
 	UserIDs     []int64 `json:"user_ids"`
+}
+
+// TelegraphTranslatePayload asks the worker to build the Russian Telegraph
+// version of a Reddit thread article and edit the article message in place.
+type TelegraphTranslatePayload struct {
+	ThreadID  string `json:"thread_id"`
+	URL       string `json:"url"`
+	ChatID    int64  `json:"chat_id"`
+	UserID    int64  `json:"user_id"`
+	MessageID int    `json:"message_id"`
+	Lang      string `json:"lang"`
 }
 
 type Client struct {
@@ -213,6 +229,26 @@ func (c *Client) EnqueueInstagram(p DownloadPayload) error {
 	}
 	task := asynq.NewTask(TypeInstagram, body)
 	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	return err
+}
+
+func (c *Client) EnqueueReddit(p DownloadPayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeReddit, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(30*time.Minute), asynq.Queue(QueueDownload))
+	return err
+}
+
+func (c *Client) EnqueueTelegraphTranslate(p TelegraphTranslatePayload) error {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeTelegraphTranslate, body)
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(1), asynq.Timeout(10*time.Minute), asynq.Queue(QueueDownload))
 	return err
 }
 

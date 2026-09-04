@@ -2,13 +2,17 @@ package sender
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mymmrac/telego"
+	"github.com/mymmrac/telego/telegoapi"
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	"saveinator/internal/locale"
@@ -97,6 +101,23 @@ func (t *Telegram) EditMessageMarkup(chatID int64, messageID int, text string, m
 	})
 }
 
+// SendMessageMarkup delivers a text message with an optional inline keyboard.
+// The text must be valid HTML (interpolated values pre-escaped by the caller);
+// it is passed through tgemoji.Decorate, which only upgrades covered emoji.
+func (t *Telegram) SendMessageMarkup(chatID int64, text string, markup *telego.InlineKeyboardMarkup) (*telego.Message, error) {
+	params := tu.Message(tu.ID(chatID), tgemoji.Decorate(text)).WithParseMode(telego.ModeHTML)
+	if markup != nil {
+		params = params.WithReplyMarkup(markup)
+	}
+	var msg *telego.Message
+	err := metrics.CallTelegram("SendMessage", func() error {
+		m, err := t.bot.SendMessage(params)
+		msg = m
+		return err
+	})
+	return msg, err
+}
+
 func (t *Telegram) DeleteMessage(chatID int64, messageID int) error {
 	return metrics.CallTelegram("DeleteMessage", func() error {
 		return t.bot.DeleteMessage(&telego.DeleteMessageParams{
@@ -142,10 +163,18 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 		if markup != nil {
 			anim = anim.WithReplyMarkup(markup)
 		}
-		return metrics.CallTelegram("SendAnimation", func() error {
-			_, err := t.bot.SendAnimation(anim)
-			return err
-		})
+		return resendWithoutCaption(
+			func() {
+				file.rewind()
+				anim.Caption = ""
+			},
+			func() error {
+				return metrics.CallTelegram("SendAnimation", func() error {
+					_, err := t.bot.SendAnimation(anim)
+					return err
+				})
+			},
+		)
 	}
 
 	ext := strings.ToLower(filepath.Ext(path))
@@ -155,10 +184,18 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 		if markup != nil {
 			photo = photo.WithReplyMarkup(markup)
 		}
-		return metrics.CallTelegram("SendPhoto", func() error {
-			_, err := t.bot.SendPhoto(photo)
-			return err
-		})
+		return resendWithoutCaption(
+			func() {
+				file.rewind()
+				photo.Caption = ""
+			},
+			func() error {
+				return metrics.CallTelegram("SendPhoto", func() error {
+					_, err := t.bot.SendPhoto(photo)
+					return err
+				})
+			},
+		)
 	case ".mp4", ".webm", ".mov", ".mkv", ".m4v":
 		if sizeMB <= 50 {
 			meta := probeVideoMeta(path)
@@ -171,10 +208,21 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 			if meta.thumb != nil {
 				vidParams = vidParams.WithThumbnail(&meta.thumb.input)
 			}
-			return metrics.CallTelegram("SendVideo", func() error {
-				_, err := t.bot.SendVideo(vidParams)
-				return err
-			})
+			return resendWithoutCaption(
+				func() {
+					file.rewind()
+					if meta.thumb != nil {
+						meta.thumb.rewind()
+					}
+					vidParams.Caption = ""
+				},
+				func() error {
+					return metrics.CallTelegram("SendVideo", func() error {
+						_, err := t.bot.SendVideo(vidParams)
+						return err
+					})
+				},
+			)
 		}
 	}
 
@@ -182,10 +230,41 @@ func (t *Telegram) sendFile(chatID int64, path, caption string, animation bool, 
 	if markup != nil {
 		doc = doc.WithReplyMarkup(markup)
 	}
-	return metrics.CallTelegram("SendDocument", func() error {
-		_, err := t.bot.SendDocument(doc)
+	return resendWithoutCaption(
+		func() {
+			file.rewind()
+			doc.Caption = ""
+		},
+		func() error {
+			return metrics.CallTelegram("SendDocument", func() error {
+				_, err := t.bot.SendDocument(doc)
+				return err
+			})
+		},
+	)
+}
+
+// isCaptionTooLong reports whether Telegram refused the media because its
+// caption exceeded the caption limit (400 "message caption is too long").
+func isCaptionTooLong(err error) bool {
+	var apiErr *telegoapi.Error
+	return errors.As(err, &apiErr) &&
+		apiErr.ErrorCode == 400 &&
+		strings.Contains(apiErr.Description, "caption is too long")
+}
+
+// resendWithoutCaption runs send once and, if Telegram rejected the caption as
+// too long, prepares a retry (rewinding every uploaded file handle and clearing
+// the caption) and repeats the request, delivering the media without any
+// caption.
+func resendWithoutCaption(prepareRetry func(), send func() error) error {
+	err := send()
+	if !isCaptionTooLong(err) {
 		return err
-	})
+	}
+	slog.Warn("telegram: caption too long, resending media without caption", "err", err)
+	prepareRetry()
+	return send()
 }
 
 // sendPhoto delivers a single image with a ready-made caption. Used by
@@ -198,14 +277,23 @@ func (t *Telegram) sendPhoto(chatID int64, path, caption string) error {
 	}
 	defer file.close()
 
-	return metrics.CallTelegram("SendPhoto", func() error {
-		_, err := t.bot.SendPhoto(&telego.SendPhotoParams{
-			ChatID:  tu.ID(chatID),
-			Photo:   file.input,
-			Caption: caption,
-		})
-		return err
-	})
+	params := &telego.SendPhotoParams{
+		ChatID:  tu.ID(chatID),
+		Photo:   file.input,
+		Caption: caption,
+	}
+	return resendWithoutCaption(
+		func() {
+			file.rewind()
+			params.Caption = ""
+		},
+		func() error {
+			return metrics.CallTelegram("SendPhoto", func() error {
+				_, err := t.bot.SendPhoto(params)
+				return err
+			})
+		},
+	)
 }
 
 func (t *Telegram) SendPhotoAlbum(chatID int64, paths []string, caption string) error {
@@ -267,6 +355,15 @@ type inputFileHandle struct {
 func (h *inputFileHandle) close() {
 	if h.file != nil {
 		_ = h.file.Close()
+	}
+}
+
+// rewind seeks the underlying file back to the start: telego copies the reader
+// into a new multipart form on every request, so a retried upload without this
+// would ship an empty body.
+func (h *inputFileHandle) rewind() {
+	if h.file != nil {
+		_, _ = h.file.Seek(0, io.SeekStart)
 	}
 }
 

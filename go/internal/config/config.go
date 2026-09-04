@@ -89,6 +89,10 @@ type Settings struct {
 	YandexMusicLockMaxTracks        int
 	YandexMusicDownloadConcurrency  int
 
+	// Telegraph article publishing (Reddit threads).
+	TelegraphAccessToken string
+	TelegraphAuthorName  string
+
 	MetricsEnabled bool
 	MetricsHost    string
 	MetricsPort    int
@@ -175,6 +179,8 @@ func Load() (*Settings, error) {
 		YandexMusicDLOutputFormat:      env("YANDEX_MUSIC_DL_OUTPUT_FORMAT", "mp3"),
 		YandexMusicLockMaxTracks:       envInt("YANDEX_MUSIC_LOCK_MAX_TRACKS", 50),
 		YandexMusicDownloadConcurrency: envInt("YANDEX_MUSIC_DOWNLOAD_CONCURRENCY", 2),
+		TelegraphAccessToken:           os.Getenv("TELEGRAPH_ACCESS_TOKEN"),
+		TelegraphAuthorName:            env("TELEGRAPH_AUTHOR_NAME", "saveinator"),
 		MetricsEnabled:         envBool("METRICS_ENABLED", true),
 		MetricsHost:            env("METRICS_HOST", "0.0.0.0"),
 		MetricsPort:            envInt("METRICS_PORT", 9101),

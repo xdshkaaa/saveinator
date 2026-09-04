@@ -193,6 +193,48 @@ func TestExtractURLsTwitchVODNotMatched(t *testing.T) {
 	}
 }
 
+func TestExtractURLsRedditThread(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"subreddit post", "https://www.reddit.com/r/golang/comments/1abcde/my_post_about_go/", "https://www.reddit.com/r/golang/comments/1abcde/my_post_about_go/"},
+		{"subreddit post with query", "https://www.reddit.com/r/aww/comments/1fghij/cute_cat/?utm_source=share&utm_medium=web2x", "https://www.reddit.com/r/aww/comments/1fghij/cute_cat/?utm_source=share&utm_medium=web2x"},
+		{"no slug", "https://www.reddit.com/r/golang/comments/1abcde/", "https://www.reddit.com/r/golang/comments/1abcde/"},
+		{"old reddit", "https://old.reddit.com/r/golang/comments/1abcde/post/", "https://old.reddit.com/r/golang/comments/1abcde/post/"},
+		{"np reddit", "https://np.reddit.com/r/golang/comments/1abcde/post/", "https://np.reddit.com/r/golang/comments/1abcde/post/"},
+		{"mobile", "https://m.reddit.com/r/golang/comments/1abcde/post/", "https://m.reddit.com/r/golang/comments/1abcde/post/"},
+		{"no subreddit", "https://www.reddit.com/comments/1abcde/", "https://www.reddit.com/comments/1abcde/"},
+		{"short link", "https://redd.it/1abcde", "https://redd.it/1abcde"},
+		{"www short link", "https://www.redd.it/1abcde/", "https://www.redd.it/1abcde/"},
+		{"in text with trailing punctuation", "look at https://www.reddit.com/r/golang/comments/1abcde/post/, cool", "https://www.reddit.com/r/golang/comments/1abcde/post/"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			links := ExtractURLs(tc.url)
+			if len(links) != 1 {
+				t.Fatalf("expected 1 link, got %d (%+v)", len(links), links)
+			}
+			if links[0].Platform != PlatformReddit {
+				t.Fatalf("platform = %q, want %q", links[0].Platform, PlatformReddit)
+			}
+			if links[0].URL != tc.want {
+				t.Fatalf("url = %q, want %q", links[0].URL, tc.want)
+			}
+		})
+	}
+}
+
+func TestExtractURLsRedditSubredditPageNotMatched(t *testing.T) {
+	t.Parallel()
+	links := ExtractURLs("https://www.reddit.com/r/golang/")
+	if len(links) != 1 || links[0].Platform != PlatformUnknown {
+		t.Fatalf("subreddit pages are out of scope, got %+v", links)
+	}
+}
+
 func TestExtractURLsMultilineBatch(t *testing.T) {
 	text := `https://vt.tiktok.com/ZSxv29fme/
 https://www.youtube.com/shorts/0MEIBEbWSVM?feature=share

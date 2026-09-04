@@ -22,6 +22,7 @@ import (
 	"saveinator/internal/runtime"
 	"saveinator/internal/soundcloud"
 	"saveinator/internal/spotify"
+	"saveinator/internal/telegraph"
 	"saveinator/internal/tgemoji"
 	"saveinator/internal/tiktok"
 	"saveinator/internal/yandexmusic"
@@ -76,6 +77,7 @@ func (b *Bot) Register(h *th.BotHandler, bot *telego.Bot) {
 	h.HandleCallbackQueryCtx(b.onBroadcastCallback(bot), th.CallbackDataPrefix("broadcast|"))
 	h.HandleCallbackQueryCtx(b.onTikTokCarousel(bot), th.CallbackDataPrefix("ttk:img:"))
 	h.HandleCallbackQueryCtx(b.onYandexAlbumDownload(bot), th.CallbackDataPrefix(yandexmusic.AlbumCallbackPrefix))
+	h.HandleCallbackQueryCtx(b.onTelegraphTranslate(bot), th.CallbackDataPrefix(telegraph.CallbackPrefix))
 	h.HandlePreCheckoutQueryCtx(b.onPreCheckoutQuery(bot), th.AnyPreCheckoutQuery())
 	h.HandleMessageCtx(b.onSuccessfulPayment(bot), th.SuccessPayment())
 	// Fallback for callback data matching no prefix above (stale/forged buttons).
@@ -251,6 +253,12 @@ func (b *Bot) dispatchLink(ctx context.Context, bot *telego.Bot, msg telego.Mess
 			return
 		}
 		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "instagram", queue.TypeInstagram, batch)
+	case linkparser.PlatformReddit:
+		if !b.runtime.PlatformEnabled(ctx, "reddit") {
+			_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("reddit.disabled", lang, nil)))
+			return
+		}
+		b.enqueueOrReplyError(ctx, bot, msg, lang, link, "reddit", queue.TypeReddit, batch)
 	case linkparser.PlatformUnknown:
 		_, _ = bot.SendMessage(htmlMessage(tu.ID(msg.Chat.ID), locale.Get("errors.unsupported", lang, nil)))
 	case linkparser.PlatformYouTube:

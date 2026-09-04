@@ -6,6 +6,7 @@ type messageSender interface {
 	EditMessage(chatID int64, messageID int, text string) error
 	EditMessageMarkup(chatID int64, messageID int, text string, markup *telego.InlineKeyboardMarkup) error
 	DeleteMessage(chatID int64, messageID int) error
+	SendMessageMarkup(chatID int64, text string, markup *telego.InlineKeyboardMarkup) (*telego.Message, error)
 	SendPhotoAlbum(chatID int64, paths []string, caption string) error
 	SendFile(chatID int64, path, title, lang, platform string, animation bool) error
 	SendFileNoFooter(chatID int64, path, title, lang, platform string, animation bool) error

@@ -305,6 +305,19 @@
     "private": "❌ This Instagram content is private or requires login.",
     "carousel_partial": "❗️ Could only download {count} out of {total} images."
   },
+  "reddit": {
+    "disabled": "Reddit support is disabled on this bot.",
+    "no_content": "This post has no media or text to save."
+  },
+  "telegraph": {
+    "comments_heading": "Top comments",
+    "source_label": "Source",
+    "btn_translate": "🌍 Translate to Russian",
+    "btn_article_ru": "🇷🇺 Russian version",
+    "translating": "Translating the article…",
+    "not_allowed": "This article was requested by another user.",
+    "failed": "❌ Could not create the translated article. Try again later."
+  },
   "lang": {
     "self_name": "English"
   }
